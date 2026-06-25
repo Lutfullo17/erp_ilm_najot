@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Tahrirlash{% else %}Yangi Guruh{% endif %} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{% if object %}Guruhni Tahrirlash{% else %}Yangi Guruh Qo'shish{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div class="glass-panel">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="id_name">Guruh nomi</label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="form-group">
+                    <label for="id_monthly_fee">Oylik to'lov (so'm)</label>
+                    {{ form.monthly_fee }}
+                    {% if form.monthly_fee.errors %}
+                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.monthly_fee.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_start_date">Boshlanish sanasi</label>
+                    {{ form.start_date }}
+                    {% if form.start_date.errors %}
+                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.start_date.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="id_teacher">O'qituvchi</label>
+                {{ form.teacher }}
+                {% if form.teacher.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.teacher.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
+                <label for="id_is_active" style="margin-bottom: 0;">Guruh faol:</label>
+                {{ form.is_active }}
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+                <a href="{% url 'groups_app:group_list' %}" class="btn btn-outline">Bekor qilish</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    <span>Saqlash</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

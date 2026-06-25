@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Yangi To'lov | Ilm Najot ERP{% endblock %}
+{% block header_title %}To'lovni Qabul Qilish{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <div class="glass-panel">
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="id_student">O'quvchi</label>
+                {{ form.student }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_group">Guruh</label>
+                {{ form.group }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_amount">Summa (so'm)</label>
+                {{ form.amount }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_payment_date">To'lov sanasi</label>
+                {{ form.payment_date }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_method">To'lov usuli</label>
+                {{ form.method }}
+            </div>
+
+            <div class="form-group">
+                <label for="id_note">Izoh</label>
+                {{ form.note }}
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+                <a href="{% url 'payments:payment_list' %}" class="btn btn-outline">Bekor qilish</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-check-circle"></i>
+                    <span>To'lovni Saqlash</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Dinamik ravishda o'quvchining qarzini tekshirish uchun JS qo'shish mumkin
+</script>
+{% endblock %}

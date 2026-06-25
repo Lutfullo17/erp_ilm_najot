@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}To'lovlar | Ilm Najot ERP{% endblock %}
+{% block header_title %}To'lovlar Tarixi{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;">
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'payments:payment_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i>
+            <span>Yangi To'lov</span>
+        </a>
+        <a href="{% url 'reports:export_payments' %}" class="btn btn-outline">
+            <i class="fas fa-file-excel"></i>
+            <span>Excelga yuklash</span>
+        </a>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sana</th>
+                    <th>O'quvchi</th>
+                    <th>Guruh</th>
+                    <th>Summa</th>
+                    <th>Usul</th>
+                    <th>Admin</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td>{{ payment.payment_date|date:"Y-m-d" }}</td>
+                    <td>
+                        <div style="font-weight: 600;">{{ payment.student.get_full_name }}</div>
+                    </td>
+                    <td>{{ payment.group.name }}</td>
+                    <td style="color: var(--success); font-weight: 700;">+{{ payment.amount|money }}</td>
+                    <td>
+                        <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text);">
+                            {{ payment.get_method_display }}
+                        </span>
+                    </td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted);">{{ payment.performed_by.username }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">To'lovlar mavjud emas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div style="display: flex; justify-content: center; margin-top: 2rem; gap: 0.5rem;">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline" style="padding: 0.5rem 1rem;">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+        {% endif %}
+        
+        <span class="btn btn-outline" style="cursor: default;">
+            {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline" style="padding: 0.5rem 1rem;">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

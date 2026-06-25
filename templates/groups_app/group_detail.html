@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}{{ group.name }} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{{ group.name }} guruh ma'lumotlari{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+    <!-- Guruh statistikasi -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="glass-panel">
+            <h2><i class="fas fa-info-circle"></i> Umumiy</h2>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">O'qituvchi:</span>
+                    <div style="font-weight: 600;">{{ group.teacher.get_full_name }}</div>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Oylik to'lov:</span>
+                    <div style="font-weight: 600;">{{ group.monthly_fee|money }} so'm</div>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Boshlanish sanasi:</span>
+                    <div style="font-weight: 600;">{{ group.start_date|date:"Y-m-d"|default:"Noma'lum" }}</div>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Holati:</span>
+                    <div>
+                        {% if group.is_active %}
+                        <span class="badge badge-success">Faol</span>
+                        {% else %}
+                        <span class="badge badge-danger">Yopilgan</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 2rem;">
+                <a href="{% url 'groups_app:group_edit' group.id %}" class="btn btn-outline" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-edit"></i> Tahrirlash
+                </a>
+            </div>
+        </div>
+        
+        <div class="glass-panel">
+            <h2><i class="fas fa-user-plus"></i> O'quvchi qo'shish</h2>
+            <form action="{% url 'groups_app:add_student' group.id %}" method="post" style="margin-top: 1rem;">
+                {% csrf_token %}
+                <div class="form-group">
+                    <select name="student_id" required>
+                        <option value="">O'quvchini tanlang</option>
+                        {% for s in all_students %}
+                        <option value="{{ s.id }}">{{ s.last_name }} {{ s.first_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-plus"></i> Qo'shish
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- O'quvchilar ro'yxati -->
+    <div class="glass-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2><i class="fas fa-users"></i> O'quvchilar ({{ group_students.count }})</h2>
+            <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="padding: 0.6rem 1rem; border-radius: 12px; font-size: 0.85rem;">
+                <i class="fas fa-check-double"></i> Davomat olish
+            </a>
+        </div>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>O'quvchi</th>
+                        <th>Telefon</th>
+                        <th>Qo'shilgan</th>
+                        <th style="text-align: right;">Amal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for gs in group_students %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600;">{{ gs.student.last_name }} {{ gs.student.first_name }}</div>
+                        </td>
+                        <td>{{ gs.student.phone }}</td>
+                        <td>{{ gs.joined_at|date:"Y-m-d" }}</td>
+                        <td style="text-align: right;">
+                            <a href="{% url 'students:student_detail' gs.student.id %}" class="btn btn-outline" style="padding: 0.4rem; border-radius: 8px;">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Guruhda o'quvchilar yo'q.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

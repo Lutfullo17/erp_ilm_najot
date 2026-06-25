@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}Dashboard | Admin{% endblock %}
+{% block header_title %}Boshqaruv Paneli{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i class="fas fa-user-graduate"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ total_students|money }}</h3>
+            <p>Jami o'quvchilar</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon pink">
+            <i class="fas fa-hand-holding-usd"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ debtors_count|money }}</h3>
+            <p>Qarzdorlar</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ monthly_income|money }}</h3>
+            <p>Shu oylik daromad (so'm)</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon orange">
+            <i class="fas fa-calendar-check"></i>
+        </div>
+        <div class="stat-info">
+            <h3>{{ today_attendance|money }}</h3>
+            <p>Bugungi davomat (kelganlar)</p>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+    <!-- Tezkor hisobotlar (Step 11) -->
+    <div class="glass-panel">
+        <h2><i class="fas fa-file-export"></i> Excel Hisobotlar</h2>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <a href="{% url 'reports:export_students' %}" class="btn btn-outline">
+                <i class="fas fa-user-graduate"></i> O'quvchilar ro'yxati
+            </a>
+            <a href="{% url 'reports:export_payments' %}" class="btn btn-outline">
+                <i class="fas fa-wallet"></i> To'lovlar tarixi
+            </a>
+            <a href="{% url 'reports:export_attendance' %}" class="btn btn-outline">
+                <i class="fas fa-tasks"></i> Davomat hisoboti
+            </a>
+        </div>
+    </div>
+
+    <!-- Tezkor harakatlar -->
+    <div class="glass-panel">
+        <h2><i class="fas fa-bolt"></i> Tezkor havolalar</h2>
+        <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+            <a href="{% url 'students:student_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Yangi o'quvchi
+            </a>
+            <a href="{% url 'groups_app:group_create' %}" class="btn btn-outline">
+                <i class="fas fa-plus"></i> Yangi guruh
+            </a>
+            <a href="{% url 'payments:payment_create' %}" class="btn btn-outline">
+                <i class="fas fa-money-bill"></i> To'lov qabul qilish
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

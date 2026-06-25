@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ilm Najot ERP{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Responsive */
+        .sidebar {
+            width: 280px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .logo {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: linear-gradient(to right, #818cf8, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            list-style: none;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            margin-bottom: 0.75rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            padding: 0.9rem 1.25rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 16px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-link i {
+            font-size: 1.1rem;
+            width: 24px;
+            text-align: center;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            transform: translateX(8px);
+        }
+
+        .nav-link.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Main Content Responsive */
+        .main-content {
+            margin-left: 280px;
+            flex-grow: 1;
+            padding: 2.5rem;
+            width: calc(100% - 280px);
+            transition: all 0.4s;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .header-title h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .mobile-toggle {
+            display: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text);
+            z-index: 1001;
+        }
+
+        /* Cards & Components */
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 1.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1.25rem 1rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .badge-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.75rem;
+            border-radius: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Mobile Responsive adjustments */
+        @media (max-width: 1024px) {
+            .mobile-toggle {
+                display: block;
+            }
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 1.5rem;
+            }
+            .main-content.sidebar-active {
+                filter: blur(4px);
+                pointer-events: none;
+            }
+        }
+
+        /* Micro animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fas fa-rocket"></i>
+            <span>Najot ERP</span>
+        </div>
+        <ul class="nav-links">
+            {% if user.is_admin_role %}
+            <li class="nav-item">
+                <a href="{% url 'users1:admin_dashboard' %}" class="nav-link {% if 'admin' in request.path %}active{% endif %}">
+                    <i class="fas fa-grid-2"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'students:student_list' %}" class="nav-link {% if 'students' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>O'quvchilar</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'groups_app:group_list' %}" class="nav-link {% if 'groups' in request.path %}active{% endif %}">
+                    <i class="fas fa-users-viewfinder"></i>
+                    <span>Guruhlar</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'payments:payment_list' %}" class="nav-link {% if 'payments' in request.path %}active{% endif %}">
+                    <i class="fas fa-wallet"></i>
+                    <span>To'lovlar</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+        
+        <div class="nav-item" style="margin-top: auto;">
+            <form action="{% url 'users1:logout' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="nav-link" style="background: none; border: none; width: 100%; cursor: pointer; text-align: left;">
+                    <i class="fas fa-power-off"></i>
+                    <span>Chiqish</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <header>
+            <div class="header-title">
+                <div class="mobile-toggle" id="mobileToggle">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <h1>{% block header_title %}Xush kelibsiz!{% endblock %}</h1>
+            </div>
+            <div class="user-profile">
+                <div class="avatar">
+                    {{ user.username.0.upper }}
+                </div>
+            </div>
+        </header>
+
+        <div class="animate-fade-in">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const mobileToggle = document.getElementById('mobileToggle');
+        const mainContent = document.getElementById('mainContent');
+
+        mobileToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            mainContent.classList.toggle('sidebar-active');
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 1024) {
+                if (!sidebar.contains(e.target) && !mobileToggle.contains(e.target) && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    mainContent.classList.remove('sidebar-active');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
