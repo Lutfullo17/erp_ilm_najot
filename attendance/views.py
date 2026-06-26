@@ -33,8 +33,8 @@ class AttendanceMarkView(LoginRequiredMixin, View):
         group = get_object_or_404(Group, id=group_id)
         session = get_object_or_404(AttendanceSession, group=group, date=datetime.date.today())
         
-        from bot.notifications import send_attendance_notification
-        
+        from bot.notifications import notify_attendance_absent
+
         for key, value in request.POST.items():
             if key.startswith('status_'):
                 student_id = key.split('_')[1]
@@ -43,8 +43,7 @@ class AttendanceMarkView(LoginRequiredMixin, View):
                     student_id=student_id,
                     defaults={'status': value}
                 )
-                # Send notification only if status is ABSENT
                 if value == 'ABSENT':
-                    send_attendance_notification(record.student, group, session.date)
+                    notify_attendance_absent(record)
         
         return redirect('groups_app:group_detail', pk=group_id)

@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
@@ -10,8 +11,47 @@ from django.views.decorators.http import require_http_methods
 from users1.views import AdminRequiredMixin
 from .models import PaymentTransaction, StudentMonthBalance
 from students.models import Student
-from groups_app.models import Group
+from groups_app.models import Group, GroupStudent
 from .services import PaymentInputError, apply_payment, get_student_payment_state
+
+
+@require_http_methods(['GET'])
+def api_search_students(request):
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'students': []})
+
+    students = Student.objects.filter(
+        models.Q(first_name__icontains=query) |
+        models.Q(last_name__icontains=query) |
+        models.Q(phone__icontains=query),
+        is_active=True,
+    ).distinct()[:20]
+
+    results = []
+    for student in students:
+        groups = GroupStudent.objects.filter(
+            student=student,
+            is_active=True,
+            group__is_active=True,
+        ).select_related('group').values(
+            'group__id', 'group__name', 'group__monthly_fee'
+        )
+        results.append({
+            'id': student.id,
+            'full_name': f'{student.first_name} {student.last_name}',
+            'phone': student.phone,
+            'groups': [
+                {
+                    'id': g['group__id'],
+                    'name': g['group__name'],
+                    'monthly_fee': str(g['group__monthly_fee']),
+                }
+                for g in groups
+            ],
+        })
+
+    return JsonResponse({'students': results})
 
 class PaymentListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     model = PaymentTransaction
@@ -27,6 +67,12 @@ class PaymentCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     template_name = 'payments/payment_form.html'
     fields = ['student', 'group', 'amount', 'payment_date', 'method', 'note']
     success_url = reverse_lazy('payments:payment_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['groups'] = Group.objects.filter(is_active=True).order_by('name')
+        context['today'] = date.today().isoformat()
+        return context
 
     def form_valid(self, form):
         try:

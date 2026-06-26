@@ -210,6 +210,12 @@
             font-size: 1rem;
             outline: none;
             transition: all 0.3s;
+            color-scheme: dark;
+        }
+
+        select option {
+            background: #1e293b;
+            color: white;
         }
 
         input:focus {
@@ -238,6 +244,19 @@
 
         .btn-primary:hover {
             box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            border-color: rgba(255, 255, 255, 0.2);
             transform: translateY(-2px);
         }
 
@@ -285,7 +304,7 @@
             {% if user.is_admin_role %}
             <li class="nav-item">
                 <a href="{% url 'users1:admin_dashboard' %}" class="nav-link {% if 'admin' in request.path %}active{% endif %}">
-                    <i class="fas fa-grid-2"></i>
+                    <i class="fas fa-th-large"></i>
                     <span>Dashboard</span>
                 </a>
             </li>
@@ -297,7 +316,7 @@
             </li>
             <li class="nav-item">
                 <a href="{% url 'groups_app:group_list' %}" class="nav-link {% if 'groups' in request.path %}active{% endif %}">
-                    <i class="fas fa-users-viewfinder"></i>
+                    <i class="fas fa-users"></i>
                     <span>Guruhlar</span>
                 </a>
             </li>
@@ -337,6 +356,14 @@
         </header>
 
         <div class="animate-fade-in">
+            {% if messages %}
+            {% for message in messages %}
+            <div style="background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 1rem 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-check-circle"></i>
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
             {% block content %}{% endblock %}
         </div>
     </div>

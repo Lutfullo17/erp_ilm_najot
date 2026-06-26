@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% load bot_tags %}
 
-{% block title %}{{ student.get_full_name }} | Ilm Najot ERP{% endblock %}
-{% block header_title %}{{ student.get_full_name }}{% endblock %}
+{% block title %}{{ student.first_name }} {{ student.last_name }} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{{ student.first_name }} {{ student.last_name }}{% endblock %}
 
 {% block content %}
 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
@@ -13,9 +13,6 @@
                 {{ student.first_name.0 }}{{ student.last_name.0 }}
             </div>
             <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">{{ student.first_name }} {{ student.last_name }}</h2>
-            <span class="badge {% if student.is_active %}badge-success{% else %}badge-danger{% endif %}">
-                {% if student.is_active %}Faol{% else %}Nofaol{% endif %}
-            </span>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -27,17 +24,10 @@
                 </div>
             </div>
             <div class="info-row">
-                <i class="fas fa-calendar"></i>
+                <i class="fas fa-phone-volume"></i>
                 <div>
-                    <small style="color: var(--text-muted); display: block;">Tug'ilgan sana</small>
-                    <span>{{ student.birth_date|date:"d.m.Y"|default:"Kiritilmagan" }}</span>
-                </div>
-            </div>
-            <div class="info-row">
-                <i class="fas fa-map-marker-alt"></i>
-                <div>
-                    <small style="color: var(--text-muted); display: block;">Manzil</small>
-                    <span>{{ student.address|default:"Kiritilmagan" }}</span>
+                    <small style="color: var(--text-muted); display: block;">Ota-ona telefoni</small>
+                    <span>{{ student.parent_phone|default:"Kiritilmagan" }}</span>
                 </div>
             </div>
         </div>

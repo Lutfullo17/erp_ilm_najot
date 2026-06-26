@@ -23,8 +23,7 @@
                 <tr>
                     <th>F.I.SH</th>
                     <th>Telefon</th>
-                    <th>Manzil</th>
-                    <th>Holati</th>
+                    <th>Ota-ona</th>
                     <th style="text-align: right;">Amallar</th>
                 </tr>
             </thead>
@@ -36,14 +35,7 @@
                         <div style="font-size: 0.75rem; color: var(--text-muted);">ID: #{{ student.id }}</div>
                     </td>
                     <td>{{ student.phone }}</td>
-                    <td><span style="font-size: 0.9rem; color: var(--text-muted);">{{ student.address|truncatechars:30 }}</span></td>
-                    <td>
-                        {% if student.is_active %}
-                        <span class="badge badge-success">Faol</span>
-                        {% else %}
-                        <span class="badge badge-danger">Nofaol</span>
-                        {% endif %}
-                    </td>
+                    <td><span style="font-size: 0.9rem; color: var(--text-muted);">{{ student.parent_phone }}</span></td>
                     <td style="text-align: right;">
                         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                             <a href="{% url 'students:student_detail' student.id %}" class="btn btn-outline" style="padding: 0.5rem; border-radius: 10px;">
@@ -57,7 +49,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         O'quvchilar topilmadi.
                     </td>
                 </tr>

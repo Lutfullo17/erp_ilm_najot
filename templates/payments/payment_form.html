@@ -6,57 +6,370 @@
 {% block content %}
 <div style="max-width: 600px; margin: 0 auto;">
     <div class="glass-panel">
-        <form method="post">
-            {% csrf_token %}
-            
-            {% if form.non_field_errors %}
-            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
-                {{ form.non_field_errors.0 }}
-            </div>
-            {% endif %}
+        <div id="errorBox" style="display:none; background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;"></div>
 
+        <!-- STEP 1: Guruh tanlash -->
+        <div id="step1">
+            <h3 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1rem;">
+                <i class="fas fa-users" style="margin-right: 0.5rem;"></i> 1-qadam: Guruhni tanlang
+            </h3>
             <div class="form-group">
-                <label for="id_student">O'quvchi</label>
-                {{ form.student }}
+                <select id="groupSelect" onchange="onGroupChange()">
+                    <option value="">-- Guruh tanlang --</option>
+                    {% for group in groups %}
+                    <option value="{{ group.id }}" data-name="{{ group.name }}" data-fee="{{ group.monthly_fee }}">
+                        {{ group.name }}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
 
-            <div class="form-group">
-                <label for="id_group">Guruh</label>
-                {{ form.group }}
+            <div id="studentSection" style="display: none; margin-top: 1.5rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem;">
+                    <i class="fas fa-user-graduate" style="margin-right: 0.5rem;"></i> O'quvchini tanlang
+                </h3>
+                <div class="form-group" style="position: relative;">
+                    <input type="text" id="searchInput" placeholder="Qidirish: ism yoki telefon..."
+                           oninput="onSearch()" autocomplete="off" style="padding-left: 3rem;">
+                    <i class="fas fa-search" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                </div>
+                <div id="searchResults" style="display: none; max-height: 250px; overflow-y: auto; margin-bottom: 1rem;"></div>
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">yoki ro'yxatdan tanlang</div>
+                <div class="form-group">
+                    <select id="studentSelect" onchange="onSelectStudent()">
+                        <option value="">-- O'quvchi tanlang --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: To'lov -->
+        <div id="step2" style="display: none;">
+            <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
+                <div style="font-weight: 600;" id="paymentStudentName"></div>
+                <div style="color: var(--text-muted); font-size: 0.85rem;" id="paymentGroupName"></div>
             </div>
 
-            <div class="form-group">
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; text-align: center;">
+                <div style="color: var(--text-muted); font-size: 0.85rem;">Jami qarz</div>
+                <div style="font-size: 1.75rem; font-weight: 700; color: var(--danger);" id="totalDebt">0 so'm</div>
+            </div>
+
+            <div id="paymentTypeButtons" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <button type="button" class="btn btn-primary" onclick="selectPaymentType('full')" id="btnFull">
+                    <i class="fas fa-check-double"></i> To'liq
+                </button>
+                <button type="button" class="btn btn-outline" onclick="selectPaymentType('partial')" id="btnPartial">
+                    <i class="fas fa-edit"></i> Qisman
+                </button>
+                <button type="button" class="btn btn-outline" onclick="selectPaymentType('extra')" id="btnExtra">
+                    <i class="fas fa-plus-circle"></i> Ko'proq
+                </button>
+            </div>
+
+            <div id="amountInput" style="display: none;" class="form-group">
                 <label for="id_amount">Summa (so'm)</label>
-                {{ form.amount }}
+                <input type="number" id="id_amount" step="1" min="1" placeholder="0">
             </div>
 
             <div class="form-group">
-                <label for="id_payment_date">To'lov sanasi</label>
-                {{ form.payment_date }}
+                <label>To'lov sanasi</label>
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <button type="button" class="btn btn-primary" id="btnToday" onclick="setDate('today')" style="flex: 1;">
+                        <i class="fas fa-calendar-day"></i> Bugun
+                    </button>
+                    <button type="button" class="btn btn-outline" id="btnOtherDate" onclick="setDate('other')" style="flex: 1;">
+                        <i class="fas fa-calendar-alt"></i> Boshqa kun
+                    </button>
+                </div>
+                <input type="date" id="id_payment_date" style="display: none; margin-top: 0.75rem;" value="{{ today }}">
+                <div id="dateHint" style="display: none; color: var(--text-muted); font-size: 0.75rem; margin-top: 0.3rem;">Format: kun/oy/yil</div>
             </div>
 
             <div class="form-group">
                 <label for="id_method">To'lov usuli</label>
-                {{ form.method }}
-            </div>
-
-            <div class="form-group">
-                <label for="id_note">Izoh</label>
-                {{ form.note }}
+                <select id="id_method">
+                    <option value="CASH">Naqd</option>
+                    <option value="CARD">Karta</option>
+                    <option value="TRANSFER">O'tkazma</option>
+                </select>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
-                <a href="{% url 'payments:payment_list' %}" class="btn btn-outline">Bekor qilish</a>
-                <button type="submit" class="btn btn-primary">
+                <button type="button" class="btn btn-outline" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Orqaga</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="submitBtn" onclick="submitPayment()">
                     <i class="fas fa-check-circle"></i>
                     <span>To'lovni Saqlash</span>
                 </button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
 <script>
-    // Dinamik ravishda o'quvchining qarzini tekshirish uchun JS qo'shish mumkin
+let selectedGroup = null;
+let selectedStudent = null;
+let selectedPaymentType = null;
+let totalDebt = 0;
+let searchTimeout = null;
+let groupStudentsData = [];
+
+function formatMoney(value) {
+    return Number(value).toLocaleString('uz-UZ');
+}
+
+function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.style.display = 'block';
+}
+
+function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+}
+
+function onGroupChange() {
+    hideError();
+    const select = document.getElementById('groupSelect');
+    const groupId = select.value;
+    if (!groupId) {
+        document.getElementById('step2').style.display = 'none';
+        selectedGroup = null;
+        return;
+    }
+
+    const opt = select.options[select.selectedIndex];
+    selectedGroup = { id: groupId, name: opt.dataset.name, fee: opt.dataset.fee };
+
+    document.getElementById('selectedGroupName').textContent = selectedGroup.name;
+    document.getElementById('selectedGroupFee').textContent = 'Oylik: ' + formatMoney(selectedGroup.fee) + ' so\'m';
+
+    fetch(`/groups/api/${groupId}/students/`)
+        .then(r => r.json())
+        .then(data => {
+            groupStudentsData = data.students;
+            const studentSelect = document.getElementById('studentSelect');
+            studentSelect.innerHTML = '<option value="">-- O\'quvchi tanlang --</option>';
+            data.students.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.last_name + ' ' + s.first_name;
+                studentSelect.appendChild(opt);
+            });
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+            document.getElementById('step3').style.display = 'none';
+        })
+        .catch(() => showError('Guruh o\'quvchilarini yuklashda xatolik.'));
+}
+
+function onSearch() {
+    hideError();
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    clearTimeout(searchTimeout);
+
+    if (query.length < 2) {
+        document.getElementById('searchResults').style.display = 'none';
+        return;
+    }
+
+    searchTimeout = setTimeout(() => {
+        const filtered = groupStudentsData.filter(s =>
+            (s.last_name + ' ' + s.first_name).toLowerCase().includes(query) ||
+            (s.first_name + ' ' + s.last_name).toLowerCase().includes(query)
+        );
+        const container = document.getElementById('searchResults');
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="padding: 1rem; color: var(--text-muted); text-align: center;">O\'quvchi topilmadi</div>';
+        } else {
+            container.innerHTML = filtered.map(s => `
+                <div onclick="selectStudentFromSearch(${s.id})" style="padding: 1rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+                    <div style="font-weight: 600;">${s.last_name} ${s.first_name}</div>
+                </div>
+            `).join('');
+        }
+        container.style.display = 'block';
+    }, 200);
+}
+
+function selectStudentFromSearch(studentId) {
+    const student = groupStudentsData.find(s => s.id == studentId);
+    if (student) {
+        selectedStudent = { id: student.id, full_name: student.last_name + ' ' + student.first_name };
+        document.getElementById('searchInput').value = selectedStudent.full_name;
+        document.getElementById('searchResults').style.display = 'none';
+        document.getElementById('studentSelect').value = studentId;
+        loadDebt();
+    }
+}
+
+function onSelectStudent() {
+    hideError();
+    const select = document.getElementById('studentSelect');
+    const studentId = select.value;
+    if (!studentId) return;
+
+    const student = groupStudentsData.find(s => s.id == studentId);
+    if (student) {
+        selectedStudent = { id: student.id, full_name: student.last_name + ' ' + student.first_name };
+        document.getElementById('searchInput').value = '';
+        document.getElementById('searchResults').style.display = 'none';
+        loadDebt();
+    }
+}
+
+function loadDebt() {
+    document.getElementById('step2').style.display = 'none';
+
+    fetch(`/payments/api/student-balance/${selectedStudent.id}/${selectedGroup.id}/?months=12`)
+        .then(r => r.json())
+        .then(data => {
+            totalDebt = 0;
+            data.balances.forEach(b => {
+                totalDebt += parseFloat(b.debt_amount);
+            });
+
+            document.getElementById('paymentStudentName').textContent = selectedStudent.full_name;
+            document.getElementById('paymentGroupName').textContent = selectedGroup.name + ' — Oylik: ' + formatMoney(selectedGroup.fee) + ' so\'m';
+            document.getElementById('totalDebt').textContent = formatMoney(totalDebt) + ' so\'m';
+
+            selectedPaymentType = null;
+            document.getElementById('paymentTypeButtons').querySelectorAll('.btn').forEach(b => {
+                b.className = 'btn btn-outline';
+            });
+            document.getElementById('amountInput').style.display = 'none';
+            document.getElementById('step3').style.display = 'block';
+        })
+        .catch(() => showError('Qarz ma\'lumotini yuklashda xatolik.'));
+}
+
+function selectPaymentType(type) {
+    hideError();
+    selectedPaymentType = type;
+    const amountInput = document.getElementById('amountInput');
+    const amountField = document.getElementById('id_amount');
+    const btns = document.getElementById('paymentTypeButtons').querySelectorAll('.btn');
+
+    btns.forEach(b => b.className = 'btn btn-outline');
+
+    if (type === 'full') {
+        btns[0].className = 'btn btn-primary';
+        amountInput.style.display = 'none';
+        amountField.value = totalDebt;
+    } else if (type === 'partial') {
+        btns[1].className = 'btn btn-primary';
+        amountInput.style.display = 'block';
+        amountField.value = '';
+        amountField.placeholder = `0 dan ${formatMoney(totalDebt)} gacha`;
+    } else if (type === 'extra') {
+        btns[2].className = 'btn btn-primary';
+        amountInput.style.display = 'block';
+        amountField.value = '';
+        amountField.placeholder = `${formatMoney(totalDebt)} dan ortiq`;
+    }
+}
+
+function setDate(type) {
+    const dateInput = document.getElementById('id_payment_date');
+    const dateHint = document.getElementById('dateHint');
+    const btnToday = document.getElementById('btnToday');
+    const btnOther = document.getElementById('btnOtherDate');
+
+    if (type === 'today') {
+        dateInput.value = '{{ today }}';
+        dateInput.style.display = 'none';
+        dateHint.style.display = 'none';
+        btnToday.className = 'btn btn-primary';
+        btnOther.className = 'btn btn-outline';
+    } else {
+        dateInput.style.display = 'block';
+        dateHint.style.display = 'block';
+        btnToday.className = 'btn btn-outline';
+        btnOther.className = 'btn btn-primary';
+    }
+}
+
+function resetAll() {
+    selectedGroup = null;
+    selectedStudent = null;
+    totalDebt = 0;
+    selectedPaymentType = null;
+    document.getElementById('groupSelect').value = '';
+    document.getElementById('studentSelect').innerHTML = '<option value="">-- O\'quvchi tanlang --</option>';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+    document.getElementById('amountInput').style.display = 'none';
+    hideError();
+}
+
+function goBack() {
+    hideError();
+    if (document.getElementById('step3').style.display === 'block') {
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+    } else if (document.getElementById('step2').style.display === 'block') {
+        resetAll();
+    }
+}
+
+function submitPayment() {
+    hideError();
+    const amount = document.getElementById('id_amount').value;
+    const paymentDate = document.getElementById('id_payment_date').value;
+    const method = document.getElementById('id_method').value;
+
+    if (!selectedStudent || !selectedGroup) { showError('O\'quvchi va guruhni tanlang.'); return; }
+
+    let finalAmount;
+    if (selectedPaymentType === 'full') {
+        finalAmount = totalDebt;
+    } else {
+        finalAmount = parseFloat(amount);
+        if (!finalAmount || finalAmount <= 0) { showError('Summani kiriting.'); return; }
+    }
+
+    if (!paymentDate) { showError('Sanani kiriting.'); return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saqlanmoqda...</span>';
+
+    fetch("{% url 'payments:api_create_payment' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+            student_id: selectedStudent.id,
+            group_id: selectedGroup.id,
+            amount: finalAmount,
+            payment_date: paymentDate,
+            method: method,
+            note: '',
+        }),
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        if (!ok) {
+            showError(data.detail || 'Xatolik yuz berdi.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> <span>To\'lovni Saqlash</span>';
+            return;
+        }
+        window.location.href = "{% url 'payments:payment_list' %}";
+    })
+    .catch(() => {
+        showError('Tarmoq xatoligi.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> <span>To\'lovni Saqlash</span>';
+    });
+}
 </script>
 {% endblock %}

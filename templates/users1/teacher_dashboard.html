@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}O'qituvchi Kabineti | Ilm Najot ERP{% endblock %}
-{% block header_title %}Xush kelibsiz, {{ user.get_full_name }}{% endblock %}
+{% block header_title %}Xush kelibsiz, {{ user.first_name }} {{ user.last_name }}{% endblock %}
 
 {% block content %}
 <div class="glass-panel" style="margin-bottom: 2rem;">

@@ -1,36 +1,93 @@
 {% extends 'base.html' %}
+{% load bot_tags %}
 
 {% block title %}{% if object %}Tahrirlash{% else %}Yangi Guruh{% endif %} | Ilm Najot ERP{% endblock %}
 {% block header_title %}{% if object %}Guruhni Tahrirlash{% else %}Yangi Guruh Qo'shish{% endif %}{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
+<div style="max-width: 700px; margin: 0 auto;">
     <div class="glass-panel">
-        <form method="post">
+        <form method="post" id="groupForm">
             {% csrf_token %}
-            
+
+            {% if form.non_field_errors %}
+            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
             <div class="form-group">
                 <label for="id_name">Guruh nomi</label>
-                {{ form.name }}
+                <input type="text" id="id_name" name="name" required value="{% if object %}{{ object.name }}{% endif %}" placeholder="Masalan: Matematika-1">
                 {% if form.name.errors %}
                     <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.name.errors.0 }}</div>
                 {% endif %}
             </div>
 
+            <div class="form-group">
+                <label for="id_monthly_fee">Oylik to'lov (so'm)</label>
+                <input type="text" id="id_monthly_fee_display" required
+                       value="{% if object %}{{ object.monthly_fee|floatformat:0 }}{% endif %}"
+                       placeholder="Masalan: 500 000" inputmode="numeric">
+                <input type="hidden" id="id_monthly_fee" name="monthly_fee"
+                       value="{% if object %}{{ object.monthly_fee }}{% endif %}">
+                {% if form.monthly_fee.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.monthly_fee.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_start_date">Boshlanish sanasi</label>
+                <input type="date" id="id_start_date" name="start_date" value="{% if object and object.start_date %}{{ object.start_date|date:'Y-m-d' }}{% endif %}">
+                <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.3rem;">Format: kun/oy/yil</div>
+                {% if form.start_date.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.start_date.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Dars kunlari</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {% with days="Dushanba,Seshanba,Chorshanba,Payshanba,Juma,Shanba,Yakshanba" %}
+                    {% for day in days|split %}
+                    <label class="day-checkbox {% if object and day in object.lesson_days %}selected{% endif %}"
+                           style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem;">
+                        <input type="checkbox" name="lesson_days_list" value="{{ day }}"
+                               style="width: 18px; height: 18px; cursor: pointer;"
+                               onchange="updateLessonDays()"
+                               {% if object and day in object.lesson_days %}checked{% endif %}>
+                        <span>{{ day }}</span>
+                    </label>
+                    {% endfor %}
+                    {% endwith %}
+                </div>
+                <input type="hidden" id="id_lesson_days" name="lesson_days" value="{% if object %}{{ object.lesson_days }}{% endif %}">
+                {% if form.lesson_days.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.lesson_days.errors.0 }}</div>
+                {% endif %}
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                 <div class="form-group">
-                    <label for="id_monthly_fee">Oylik to'lov (so'm)</label>
-                    {{ form.monthly_fee }}
-                    {% if form.monthly_fee.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.monthly_fee.errors.0 }}</div>
+                    <label for="id_lesson_time">Dars vaqti</label>
+                    <input type="time" id="id_lesson_time" name="lesson_time"
+                           value="{% if object and object.lesson_time %}{{ object.lesson_time|date:'H:i' }}{% endif %}"
+                           style="color-scheme: dark;">
+                    {% if form.lesson_time.errors %}
+                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.lesson_time.errors.0 }}</div>
                     {% endif %}
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="id_start_date">Boshlanish sanasi</label>
-                    {{ form.start_date }}
-                    {% if form.start_date.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.start_date.errors.0 }}</div>
+                    <label for="id_room">Xona</label>
+                    <select id="id_room" name="room">
+                        <option value="">-- Xona tanlang --</option>
+                        {% for value, label in rooms %}
+                        <option value="{{ value }}" {% if object and object.room == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if form.room.errors %}
+                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.room.errors.0 }}</div>
                     {% endif %}
                 </div>
             </div>
@@ -43,11 +100,6 @@
                 {% endif %}
             </div>
 
-            <div class="form-group" style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
-                <label for="id_is_active" style="margin-bottom: 0;">Guruh faol:</label>
-                {{ form.is_active }}
-            </div>
-
             <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
                 <a href="{% url 'groups_app:group_list' %}" class="btn btn-outline">Bekor qilish</a>
                 <button type="submit" class="btn btn-primary">
@@ -58,4 +110,63 @@
         </form>
     </div>
 </div>
+
+<style>
+    .day-checkbox.selected {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+    .day-checkbox:hover {
+        border-color: var(--primary);
+    }
+</style>
+
+<script>
+function formatMoneyInput(value) {
+    let cleaned = value.replace(/\D/g, '');
+    if (!cleaned) return '';
+    return Number(cleaned).toLocaleString('uz-UZ');
+}
+
+function parseMoneyInput(formatted) {
+    return formatted.replace(/\s/g, '');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const display = document.getElementById('id_monthly_fee_display');
+    const hidden = document.getElementById('id_monthly_fee');
+
+    display.addEventListener('input', function() {
+        let raw = parseMoneyInput(this.value);
+        hidden.value = raw;
+        this.value = formatMoneyInput(raw);
+    });
+
+    display.addEventListener('blur', function() {
+        let raw = parseMoneyInput(this.value);
+        hidden.value = raw;
+        this.value = formatMoneyInput(raw);
+    });
+
+    document.querySelectorAll('input[name="lesson_days_list"]').forEach(cb => {
+        if (cb.checked) cb.closest('.day-checkbox').classList.add('selected');
+    });
+});
+
+function updateLessonDays() {
+    const checkboxes = document.querySelectorAll('input[name="lesson_days_list"]');
+    const days = [];
+    checkboxes.forEach(cb => {
+        const label = cb.closest('.day-checkbox');
+        if (cb.checked) {
+            days.push(cb.value);
+            label.classList.add('selected');
+        } else {
+            label.classList.remove('selected');
+        }
+    });
+    document.getElementById('id_lesson_days').value = days.join(', ');
+}
+</script>
 {% endblock %}

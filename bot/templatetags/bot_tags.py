@@ -17,3 +17,7 @@ def subtract(value, arg):
         return value - arg
     except:
         return 0
+
+@register.filter(name='split')
+def split(value, delimiter=','):
+    return [item.strip() for item in value.split(delimiter) if item.strip()]

@@ -23,25 +23,62 @@
                     <span style="color: var(--text-muted); font-size: 0.8rem;">Boshlanish sanasi:</span>
                     <div style="font-weight: 600;">{{ group.start_date|date:"Y-m-d"|default:"Noma'lum" }}</div>
                 </div>
+                {% if group.lesson_days %}
                 <div>
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">Holati:</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Dars kunlari:</span>
+                    <div style="font-weight: 600;">{{ group.lesson_days }}</div>
+                </div>
+                {% endif %}
+                {% if group.lesson_time %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Dars vaqti:</span>
+                    <div style="font-weight: 600;">{{ group.lesson_time|date:"H:i" }}</div>
+                </div>
+                {% endif %}
+                {% if group.room %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Xona:</span>
+                    <div style="font-weight: 600;">{{ group.get_room_display }}</div>
+                </div>
+                {% endif %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Holat:</span>
                     <div>
-                        {% if group.is_active %}
+                        {% if group.is_paused %}
+                        <span class="badge badge-warning">Vaqtincha to'xtatilgan</span>
+                        {% elif group.is_active %}
                         <span class="badge badge-success">Faol</span>
                         {% else %}
-                        <span class="badge badge-danger">Yopilgan</span>
+                        <span class="badge badge-danger">Nofaol</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
-            
-            <div style="margin-top: 2rem;">
+
+            <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
                 <a href="{% url 'groups_app:group_edit' group.id %}" class="btn btn-outline" style="width: 100%; justify-content: center;">
                     <i class="fas fa-edit"></i> Tahrirlash
                 </a>
+                <form action="{% url 'groups_app:group_toggle_pause' group.id %}" method="post" style="width: 100%;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline" style="width: 100%; justify-content: center;">
+                        {% if group.is_paused %}
+                        <i class="fas fa-play"></i> Faollashtirish
+                        {% else %}
+                        <i class="fas fa-pause"></i> Vaqtincha to'xtatish
+                        {% endif %}
+                    </button>
+                </form>
+                <form action="{% url 'groups_app:group_delete' group.id %}" method="post" style="width: 100%;"
+                      onsubmit="return confirm('Haqiqatan ham bu guruhni o\'chirmoqchimisiz? Bu amal qaytarib bo\'lmaydi!');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="width: 100%; justify-content: center; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3);">
+                        <i class="fas fa-trash"></i> Guruhni o'chirish
+                    </button>
+                </form>
             </div>
         </div>
-        
+
         <div class="glass-panel">
             <h2><i class="fas fa-user-plus"></i> O'quvchi qo'shish</h2>
             <form action="{% url 'groups_app:add_student' group.id %}" method="post" style="margin-top: 1rem;">
@@ -69,7 +106,7 @@
                 <i class="fas fa-check-double"></i> Davomat olish
             </a>
         </div>
-        
+
         <div class="table-container">
             <table>
                 <thead>

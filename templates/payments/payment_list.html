@@ -45,7 +45,7 @@
                             {{ payment.get_method_display }}
                         </span>
                     </td>
-                    <td style="font-size: 0.85rem; color: var(--text-muted);">{{ payment.performed_by.username }}</td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted);">{{ payment.created_by.username|default:"-" }}</td>
                 </tr>
                 {% empty %}
                 <tr>

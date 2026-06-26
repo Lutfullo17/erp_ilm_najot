@@ -4,58 +4,48 @@
 {% block header_title %}{% if object %}O'quvchini Tahrirlash{% else %}Yangi O'quvchi Qo'shish{% endif %}{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
+<div style="max-width: 600px; margin: 0 auto;">
     <div class="glass-panel">
         <form method="post">
             {% csrf_token %}
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="id_first_name">Ism</label>
-                    {{ form.first_name }}
-                    {% if form.first_name.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.first_name.errors.0 }}</div>
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    <label for="id_last_name">Familiya</label>
-                    {{ form.last_name }}
-                    {% if form.last_name.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.last_name.errors.0 }}</div>
-                    {% endif %}
-                </div>
-            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="id_phone">Telefon Raqami</label>
-                    {{ form.phone }}
-                    {% if form.phone.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.phone.errors.0 }}</div>
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    <label for="id_birth_date">Tug'ilgan Sana</label>
-                    {{ form.birth_date }}
-                    {% if form.birth_date.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.birth_date.errors.0 }}</div>
-                    {% endif %}
-                </div>
+            {% if form.non_field_errors %}
+            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="id_full_name">Ism Familiya</label>
+                <input type="text" id="id_full_name" name="full_name" required
+                       placeholder="Masalan: Ali Valiyev"
+                       value="{% if object %}{{ object.first_name }} {{ object.last_name }}{% endif %}">
             </div>
 
             <div class="form-group">
-                <label for="id_address">Manzil</label>
-                {{ form.address }}
-                {% if form.address.errors %}
-                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.address.errors.0 }}</div>
-                {% endif %}
+                <label for="id_phone">Telefon Raqami</label>
+                <input type="tel" id="id_phone" name="phone"
+                       placeholder="+998 90 123 45 67"
+                       value="{% if object %}{{ object.phone }}{% else %}+998{% endif %}">
             </div>
 
-            <div class="form-group" style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
-                <label for="id_is_active" style="margin-bottom: 0;">Status (Faol):</label>
-                {{ form.is_active }}
+            <div class="form-group">
+                <label for="id_parent_phone">Ota-ona Telefon Raqami</label>
+                <input type="tel" id="id_parent_phone" name="parent_phone"
+                       placeholder="+998 90 123 45 67"
+                       value="{% if object %}{{ object.parent_phone }}{% else %}+998{% endif %}">
+            </div>
+
+            <div class="form-group">
+                <label for="id_group">Guruh</label>
+                <select id="id_group" name="group">
+                    <option value="">-- Guruh tanlang --</option>
+                    {% for group in groups %}
+                    <option value="{{ group.id }}" {% if object and object.groups.all %}{% for g in object.groups.all %}{% if g.id == group.id %}selected{% endif %}{% endfor %}{% endif %}>
+                        {{ group.name }}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
@@ -68,20 +58,4 @@
         </form>
     </div>
 </div>
-
-<style>
-    /* Styling specifically for the date input which might not get styles automatically */
-    input[type="date"] {
-        color-scheme: dark;
-    }
-    textarea {
-        min-height: 100px;
-        resize: vertical;
-    }
-    input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-    }
-</style>
 {% endblock %}

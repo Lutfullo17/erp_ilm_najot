@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load bot_tags %}
 
 {% block title %}Guruhlar | Ilm Najot ERP{% endblock %}
 {% block header_title %}Guruhlar Boshqaruvi{% endblock %}
@@ -21,11 +22,6 @@
         <div>
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                 <h3 style="font-size: 1.25rem; font-weight: 700;">{{ group.name }}</h3>
-                {% if group.is_active %}
-                <span class="badge badge-success">Faol</span>
-                {% else %}
-                <span class="badge badge-danger">Yopilgan</span>
-                {% endif %}
             </div>
             
             <div style="display: flex; flex-direction: column; gap: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">

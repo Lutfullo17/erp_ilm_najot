@@ -4,6 +4,15 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 
+class Room(models.IntegerChoices):
+    ROOM_1 = 1, '1-xona'
+    ROOM_2 = 2, '2-xona'
+    ROOM_3 = 3, '3-xona'
+    ROOM_4 = 4, '4-xona'
+    ROOM_5 = 5, '5-xona'
+    ROOM_6 = 6, '6-xona'
+
+
 class Group(models.Model):
     name = models.CharField(max_length=150, unique=True)
     monthly_fee = models.DecimalField(
@@ -25,7 +34,11 @@ class Group(models.Model):
         blank=True,
     )
     start_date = models.DateField(null=True, blank=True)
+    lesson_days = models.CharField(max_length=100, blank=True, verbose_name="Dars kunlari")
+    lesson_time = models.TimeField(null=True, blank=True, verbose_name="Dars vaqti")
+    room = models.IntegerField(choices=Room.choices, null=True, blank=True, verbose_name="Xona")
     is_active = models.BooleanField(default=True)
+    is_paused = models.BooleanField(default=False, verbose_name="Vaqtincha to'xtatilgan")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
