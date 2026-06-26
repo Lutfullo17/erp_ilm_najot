@@ -5,111 +5,131 @@
 {% block header_title %}{% if object %}Guruhni Tahrirlash{% else %}Yangi Guruh Qo'shish{% endif %}{% endblock %}
 
 {% block content %}
-<div style="max-width: 700px; margin: 0 auto;">
-    <div class="glass-panel">
-        <form method="post" id="groupForm">
+<div style="max-width: 800px; margin: 0 auto;">
+    <div class="glass-panel animate-fade-in">
+        <form method="post" id="groupForm" autocomplete="off">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i>
                 {{ form.non_field_errors.0 }}
             </div>
             {% endif %}
 
-            <div class="form-group">
-                <label for="id_name">Guruh nomi</label>
-                <input type="text" id="id_name" name="name" required value="{% if object %}{{ object.name }}{% endif %}" placeholder="Masalan: Matematika-1">
-                {% if form.name.errors %}
-                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.name.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div class="form-group">
-                <label for="id_monthly_fee">Oylik to'lov (so'm)</label>
-                <input type="text" id="id_monthly_fee_display" required
-                       value="{% if object %}{{ object.monthly_fee|floatformat:0 }}{% endif %}"
-                       placeholder="Masalan: 500 000" inputmode="numeric">
-                <input type="hidden" id="id_monthly_fee" name="monthly_fee"
-                       value="{% if object %}{{ object.monthly_fee }}{% endif %}">
-                {% if form.monthly_fee.errors %}
-                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.monthly_fee.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div class="form-group">
-                <label for="id_start_date">Boshlanish sanasi</label>
-                <input type="text" id="id_start_date"
-                       placeholder="DD.MM.YYYY"
-                       value="{% if object and object.start_date %}{{ object.start_date|date:'d.m.Y' }}{% endif %}"
-                       maxlength="10" inputmode="numeric">
-                <input type="hidden" id="id_start_date_iso" name="start_date"
-                       value="{% if object and object.start_date %}{{ object.start_date|date:'Y-m-d' }}{% endif %}">
-                {% if form.start_date.errors %}
-                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.start_date.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div class="form-group">
-                <label>Dars kunlari</label>
-                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                    {% with days="Dushanba,Seshanba,Chorshanba,Payshanba,Juma,Shanba,Yakshanba" %}
-                    {% for day in days|split %}
-                    <label class="day-checkbox {% if object and day in object.lesson_days %}selected{% endif %}"
-                           style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem;">
-                        <input type="checkbox" name="lesson_days_list" value="{{ day }}"
-                               style="width: 18px; height: 18px; cursor: pointer;"
-                               onchange="updateLessonDays()"
-                               {% if object and day in object.lesson_days %}checked{% endif %}>
-                        <span>{{ day }}</span>
-                    </label>
-                    {% endfor %}
-                    {% endwith %}
-                </div>
-                <input type="hidden" id="id_lesson_days" name="lesson_days" value="{% if object %}{{ object.lesson_days }}{% endif %}">
-                {% if form.lesson_days.errors %}
-                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.lesson_days.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="id_lesson_time">Dars vaqti</label>
-                    <input type="text" id="id_lesson_time" name="lesson_time"
-                           placeholder="HH:MM (masalan: 14:30)"
-                           value="{% if object and object.lesson_time %}{{ object.lesson_time|date:'H:i' }}{% endif %}"
-                           maxlength="5" inputmode="numeric">
-                    {% if form.lesson_time.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.lesson_time.errors.0 }}</div>
+            <div class="grid-layout">
+                <!-- Guruh nomi -->
+                <div class="form-group full-width">
+                    <label for="id_name"><i class="fas fa-tag"></i> Guruh nomi</label>
+                    <input type="text" id="id_name" name="name" required 
+                           value="{{ form.name.value|default:'' }}" 
+                           placeholder="Masalan: Matematika-1">
+                    {% if form.name.errors %}
+                        <div class="error-msg">{{ form.name.errors.0 }}</div>
                     {% endif %}
                 </div>
 
+                <!-- Oylik to'lov -->
                 <div class="form-group">
-                    <label for="id_room">Xona</label>
+                    <label for="id_monthly_fee_display"><i class="fas fa-money-bill-wave"></i> Oylik to'lov (so'm)</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="id_monthly_fee_display" required
+                               value="{{ form.monthly_fee.value|default:'' }}"
+                               placeholder="Masalan: 500 000" inputmode="numeric">
+                        <input type="hidden" id="id_monthly_fee" name="monthly_fee"
+                               value="{{ form.monthly_fee.value|default:'' }}">
+                    </div>
+                    {% if form.monthly_fee.errors %}
+                        <div class="error-msg">{{ form.monthly_fee.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Boshlanish sanasi -->
+                <div class="form-group">
+                    <label for="id_start_date"><i class="fas fa-calendar-alt"></i> Boshlanish sanasi</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="id_start_date"
+                               placeholder="KK.OO.YYYY"
+                               value="{% if form.start_date.value %}{{ form.start_date.value|date_format_uz }}{% endif %}"
+                               maxlength="10" inputmode="numeric">
+                        <input type="hidden" id="id_start_date_iso" name="start_date"
+                               value="{{ form.start_date.value|default:'' }}">
+                    </div>
+                    {% if form.start_date.errors %}
+                        <div class="error-msg">{{ form.start_date.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Dars vaqti -->
+                <div class="form-group">
+                    <label for="id_lesson_time"><i class="fas fa-clock"></i> Dars vaqti</label>
+                    <input type="text" id="id_lesson_time" name="lesson_time"
+                           placeholder="SS:DD (masalan: 14:30)"
+                           value="{% if form.lesson_time.value %}{{ form.lesson_time.value }}{% endif %}"
+                           maxlength="5" inputmode="numeric">
+                    {% if form.lesson_time.errors %}
+                        <div class="error-msg">{{ form.lesson_time.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Xona -->
+                <div class="form-group">
+                    <label for="id_room"><i class="fas fa-door-open"></i> Xona</label>
                     <select id="id_room" name="room">
                         <option value="">-- Xona tanlang --</option>
                         {% for value, label in rooms %}
-                        <option value="{{ value }}" {% if object and object.room == value %}selected{% endif %}>{{ label }}</option>
+                        <option value="{{ value }}" {% if form.room.value|stringformat:'s' == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     {% if form.room.errors %}
-                        <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.room.errors.0 }}</div>
+                        <div class="error-msg">{{ form.room.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- O'qituvchi -->
+                <div class="form-group full-width">
+                    <label for="id_teacher"><i class="fas fa-chalkboard-teacher"></i> O'qituvchi</label>
+                    <select id="id_teacher" name="teacher" required>
+                        <option value="">-- O'qituvchi tanlang --</option>
+                        {% for choice_value, choice_label in form.fields.teacher.choices %}
+                            {% if choice_value %}
+                                <option value="{{ choice_value }}" {% if form.teacher.value|stringformat:'s' == choice_value|stringformat:'s' %}selected{% endif %}>{{ choice_label }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    {% if form.teacher.errors %}
+                        <div class="error-msg">{{ form.teacher.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Dars kunlari -->
+                <div class="form-group full-width">
+                    <label><i class="fas fa-calendar-week"></i> Dars kunlari</label>
+                    <div class="days-container">
+                        {% with days="Dushanba,Seshanba,Chorshanba,Payshanba,Juma,Shanba,Yakshanba" %}
+                        {% for day in days|split %}
+                        <label class="day-chip">
+                            <input type="checkbox" name="lesson_days_list" value="{{ day }}"
+                                   onchange="updateLessonDaysUI()"
+                                   {% if form.lesson_days.value and day in form.lesson_days.value %}checked{% endif %}>
+                            <span>{{ day }}</span>
+                        </label>
+                        {% endfor %}
+                        {% endwith %}
+                    </div>
+                    <input type="hidden" id="id_lesson_days" name="lesson_days" value="{{ form.lesson_days.value|default:'' }}">
+                    {% if form.lesson_days.errors %}
+                        <div class="error-msg">{{ form.lesson_days.errors.0 }}</div>
                     {% endif %}
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="id_teacher">O'qituvchi</label>
-                {{ form.teacher }}
-                {% if form.teacher.errors %}
-                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.teacher.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
-                <a href="{% url 'groups_app:group_list' %}" class="btn btn-outline">Bekor qilish</a>
+            <div class="form-actions">
+                <a href="{% url 'groups_app:group_list' %}" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Bekor qilish
+                </a>
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    <span>Saqlash</span>
+                    <i class="fas fa-save"></i> Saqlash
                 </button>
             </div>
         </form>
@@ -117,57 +137,207 @@
 </div>
 
 <style>
-    .day-checkbox.selected {
+    .grid-layout {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+
+    .full-width {
+        grid-column: span 2;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.6rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .form-group label i {
+        color: var(--primary);
+    }
+
+    .input-with-icon {
+        position: relative;
+    }
+
+    .error-msg {
+        color: var(--danger);
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .days-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+    }
+
+    .day-chip {
+        cursor: pointer;
+    }
+
+    .day-chip input {
+        display: none;
+    }
+
+    .day-chip span {
+        display: inline-block;
+        padding: 0.6rem 1.2rem;
+        border: 1px solid var(--border);
+        border-radius: 50px;
+        font-size: 0.85rem;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .day-chip input:checked + span {
         background: var(--primary);
         border-color: var(--primary);
         color: white;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        transform: translateY(-2px);
     }
-    .day-checkbox:hover {
+
+    .day-chip:hover span {
         border-color: var(--primary);
+        background: rgba(99, 102, 241, 0.05);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+        .grid-layout {
+            grid-template-columns: 1fr;
+        }
+        .full-width {
+            grid-column: span 1;
+        }
     }
 </style>
 
 <script>
-function formatMoneyInput(value) {
-    let cleaned = value.replace(/\D/g, '');
-    if (!cleaned) return '';
-    return Number(cleaned).toLocaleString('uz-UZ');
+/**
+ * UI Utilities for robust numeric and date formatting
+ */
+
+function formatMoney(value) {
+    if (!value) return '';
+    let num = value.toString().replace(/\D/g, '');
+    if (!num) return '';
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
-function parseMoneyInput(formatted) {
-    return formatted.replace(/\s/g, '');
+function parseMoney(formatted) {
+    return formatted.replace(/\D/g, '');
 }
 
-function formatDateInput(value) {
-    let cleaned = value.replace(/\D/g, '');
-    if (cleaned.length > 8) cleaned = cleaned.slice(0, 8);
-    if (cleaned.length >= 5) {
-        return cleaned.slice(0, 2) + '.' + cleaned.slice(2, 4) + '.' + cleaned.slice(4);
-    } else if (cleaned.length >= 3) {
-        return cleaned.slice(0, 2) + '.' + cleaned.slice(2);
+function formatDate(value, isDeleting) {
+    let num = value.replace(/\D/g, '');
+    if (num.length > 8) num = num.slice(0, 8);
+
+    // Validate day (01-31)
+    if (num.length >= 2) {
+        let d = parseInt(num.slice(0, 2));
+        if (d < 1) d = 1;
+        if (d > 31) d = 31;
+        num = d.toString().padStart(2, '0') + num.slice(2);
     }
-    return cleaned;
+    // Validate month (01-12)
+    if (num.length >= 4) {
+        let m = parseInt(num.slice(2, 4));
+        if (m < 1) m = 1;
+        if (m > 12) m = 12;
+        num = num.slice(0, 2) + m.toString().padStart(2, '0') + num.slice(4);
+    }
+
+    let res = '';
+    if (num.length > 0) res += num.slice(0, 2);
+    if (!isDeleting && num.length === 2) res += '.';
+    if (num.length > 2) res += '.' + num.slice(2, 4);
+    if (!isDeleting && num.length === 4) res += '.';
+    if (num.length > 4) res += '.' + num.slice(4, 8);
+    return res;
 }
 
-function parseDateToISO(value) {
-    const parts = value.split('.');
+function dateToISO(uzDate) {
+    const parts = uzDate.split('.');
     if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
-        return parts[2] + '-' + parts[1] + '-' + parts[0];
+        const d = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
+        const y = parseInt(parts[2]);
+        
+        // Simple range check
+        if (d > 0 && d <= 31 && m > 0 && m <= 12 && y > 1900 && y < 2100) {
+            // Check for actual date validity (e.g. Feb 30)
+            const dateObj = new Date(y, m - 1, d);
+            if (dateObj.getFullYear() === y && dateObj.getMonth() === m - 1 && dateObj.getDate() === d) {
+                return `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+            }
+        }
     }
     return '';
 }
 
-function formatTimeInput(value) {
-    let cleaned = value.replace(/\D/g, '');
-    if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
-    if (cleaned.length >= 3) {
-        let hours = cleaned.slice(0, 2);
-        let minutes = cleaned.slice(2);
+function formatTime(value, isDeleting) {
+    let num = value.replace(/\D/g, '');
+    if (num.length > 4) num = num.slice(0, 4);
+    
+    let res = '';
+    if (num.length > 0) {
+        let hours = num.slice(0, 2);
         if (parseInt(hours) > 23) hours = '23';
-        if (parseInt(minutes) > 59) minutes = '59';
-        return hours + ':' + minutes;
+        res += hours;
+        if (!isDeleting && num.length === 2) res += ':';
     }
-    return cleaned;
+    if (num.length > 2) {
+        let mins = num.slice(2, 4);
+        if (parseInt(mins) > 59) mins = '59';
+        res += ':' + mins;
+    }
+    return res;
+}
+
+function updateLessonDaysUI() {
+    const checkboxes = document.querySelectorAll('input[name="lesson_days_list"]');
+    const days = [];
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            days.push(cb.value);
+        }
+    });
+    document.getElementById('id_lesson_days').value = days.join(', ');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -178,53 +348,47 @@ document.addEventListener('DOMContentLoaded', function() {
     const timeDisplay = document.getElementById('id_lesson_time');
     const form = document.getElementById('groupForm');
 
-    function syncFee() {
-        let raw = parseMoneyInput(feeDisplay.value);
-        feeHidden.value = raw;
-    }
+    // Initial formatting if value exists
+    if (feeDisplay.value) feeDisplay.value = formatMoney(feeDisplay.value);
 
-    function syncDate() {
-        dateHidden.value = parseDateToISO(dateDisplay.value);
-    }
-
-    feeDisplay.addEventListener('input', function() {
-        syncFee();
-        this.value = formatMoneyInput(parseMoneyInput(this.value));
+    feeDisplay.addEventListener('input', function(e) {
+        let pos = this.selectionStart;
+        let oldLen = this.value.length;
+        this.value = formatMoney(this.value);
+        feeHidden.value = parseMoney(this.value);
+        
+        // Adjust cursor position after formatting (thousands separators add characters)
+        let newLen = this.value.length;
+        this.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
     });
 
-    dateDisplay.addEventListener('input', function() {
-        this.value = formatDateInput(this.value);
-        syncDate();
+    dateDisplay.addEventListener('input', function(e) {
+        const isDeleting = e.inputType === 'deleteContentBackward';
+        this.value = formatDate(this.value, isDeleting);
+        dateHidden.value = dateToISO(this.value);
     });
 
-    timeDisplay.addEventListener('input', function() {
-        this.value = formatTimeInput(this.value);
+    timeDisplay.addEventListener('input', function(e) {
+        const isDeleting = e.inputType === 'deleteContentBackward';
+        this.value = formatTime(this.value, isDeleting);
     });
 
-    form.addEventListener('submit', function() {
-        syncFee();
-        syncDate();
-        updateLessonDays();
-    });
-
-    document.querySelectorAll('input[name="lesson_days_list"]').forEach(cb => {
-        if (cb.checked) cb.closest('.day-checkbox').classList.add('selected');
+    form.addEventListener('submit', function(e) {
+        // Final sync before submit
+        feeHidden.value = parseMoney(feeDisplay.value);
+        
+        const iso = dateToISO(dateDisplay.value);
+        if (dateDisplay.value && !iso) {
+            e.preventDefault();
+            alert("Iltimos, boshlanish sanasini to'g'ri formatda kiriting (KK.OO.YYYY)");
+            dateDisplay.focus();
+            return;
+        }
+        dateHidden.value = iso;
+        
+        updateLessonDaysUI();
     });
 });
-
-function updateLessonDays() {
-    const checkboxes = document.querySelectorAll('input[name="lesson_days_list"]');
-    const days = [];
-    checkboxes.forEach(cb => {
-        const label = cb.closest('.day-checkbox');
-        if (cb.checked) {
-            days.push(cb.value);
-            label.classList.add('selected');
-        } else {
-            label.classList.remove('selected');
-        }
-    });
-    document.getElementById('id_lesson_days').value = days.join(', ');
-}
 </script>
 {% endblock %}
+

@@ -4,58 +4,130 @@
 {% block header_title %}{% if object %}O'quvchini Tahrirlash{% else %}Yangi O'quvchi Qo'shish{% endif %}{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto;">
-    <div class="glass-panel">
-        <form method="post">
+<div style="max-width: 650px; margin: 0 auto;">
+    <div class="glass-panel animate-fade-in">
+        <form method="post" autocomplete="off">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
-            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i>
                 {{ form.non_field_errors.0 }}
             </div>
             {% endif %}
 
             <div class="form-group">
-                <label for="id_full_name">Ism Familiya</label>
+                <label for="id_full_name"><i class="fas fa-user"></i> Ism Familiya</label>
                 <input type="text" id="id_full_name" name="full_name" required
                        placeholder="Masalan: Ali Valiyev"
-                       value="{% if object %}{{ object.first_name }} {{ object.last_name }}{% endif %}">
+                       value="{% if object %}{{ object.first_name }} {{ object.last_name }}{% elif form.full_name.value %}{{ form.full_name.value }}{% endif %}">
+                {% if form.full_name.errors %}
+                    <div class="error-msg">{{ form.full_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_phone"><i class="fas fa-phone"></i> Telefon Raqami</label>
+                    <input type="tel" id="id_phone" name="phone"
+                           placeholder="+998 90 123 45 67"
+                           value="{{ form.phone.value|default:'+998' }}">
+                    {% if form.phone.errors %}
+                        <div class="error-msg">{{ form.phone.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_parent_phone"><i class="fas fa-hand-holding-heart"></i> Ota-ona Telefon Raqami</label>
+                    <input type="tel" id="id_parent_phone" name="parent_phone"
+                           placeholder="+998 90 123 45 67"
+                           value="{{ form.parent_phone.value|default:'+998' }}">
+                    {% if form.parent_phone.errors %}
+                        <div class="error-msg">{{ form.parent_phone.errors.0 }}</div>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="form-group">
-                <label for="id_phone">Telefon Raqami</label>
-                <input type="tel" id="id_phone" name="phone"
-                       placeholder="+998 90 123 45 67"
-                       value="{% if object %}{{ object.phone }}{% else %}+998{% endif %}">
-            </div>
-
-            <div class="form-group">
-                <label for="id_parent_phone">Ota-ona Telefon Raqami</label>
-                <input type="tel" id="id_parent_phone" name="parent_phone"
-                       placeholder="+998 90 123 45 67"
-                       value="{% if object %}{{ object.parent_phone }}{% else %}+998{% endif %}">
-            </div>
-
-            <div class="form-group">
-                <label for="id_group">Guruh</label>
+                <label for="id_group"><i class="fas fa-users-class"></i> Guruhga biriktirish</label>
                 <select id="id_group" name="group">
-                    <option value="">-- Guruh tanlang --</option>
+                    <option value="">-- Guruhni tanlang (ixtiyoriy) --</option>
                     {% for group in groups %}
-                    <option value="{{ group.id }}" {% if object and object.groups.all %}{% for g in object.groups.all %}{% if g.id == group.id %}selected{% endif %}{% endfor %}{% endif %}>
+                    <option value="{{ group.id }}" 
+                        {% if object and group in object.groups.all %}selected{% endif %}>
                         {{ group.name }}
                     </option>
                     {% endfor %}
                 </select>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
-                <a href="{% url 'students:student_list' %}" class="btn btn-outline">Bekor qilish</a>
+            <div class="form-actions">
+                <a href="{% url 'students:student_list' %}" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Bekor qilish
+                </a>
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    <span>Saqlash</span>
+                    <i class="fas fa-save"></i> Saqlash
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+<style>
+    .grid-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.6rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .form-group label i {
+        color: var(--primary);
+        width: 16px;
+        text-align: center;
+    }
+
+    .error-msg {
+        color: var(--danger);
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 480px) {
+        .grid-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 {% endblock %}
+

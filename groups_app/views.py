@@ -52,6 +52,22 @@ class GroupCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
         context['rooms'] = Group._meta.get_field('room').choices
         return context
 
+    def form_valid(self, form):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        obj = form.save(commit=False)
+        try:
+            obj.full_clean()
+        except DjangoValidationError as e:
+            for field, msgs in e.message_dict.items():
+                if field in form.fields:
+                    form.add_error(field, msgs)
+                else:
+                    form.add_error(None, msgs)
+            return self.form_invalid(form)
+        obj.save()
+        messages.success(self.request, f"'{obj.name}' guruhi muvaffaqiyatli yaratildi.")
+        return redirect(self.success_url)
+
 
 class GroupUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
     model = Group
@@ -63,6 +79,22 @@ class GroupUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context['rooms'] = Group._meta.get_field('room').choices
         return context
+
+    def form_valid(self, form):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        obj = form.save(commit=False)
+        try:
+            obj.full_clean()
+        except DjangoValidationError as e:
+            for field, msgs in e.message_dict.items():
+                if field in form.fields:
+                    form.add_error(field, msgs)
+                else:
+                    form.add_error(None, msgs)
+            return self.form_invalid(form)
+        obj.save()
+        messages.success(self.request, f"'{obj.name}' guruhi muvaffaqiyatli yangilandi.")
+        return redirect(self.success_url)
 
 
 def add_student_to_group(request, pk):
@@ -92,16 +124,3 @@ def toggle_pause_group(request, pk):
     messages.success(request, f"'{group.name}' guruh vaqtincha {status}.")
     return redirect('groups_app:group_detail', pk=pk)
 
-
-@require_http_methods(['GET'])
-def api_students_by_group(request, group_id):
-    group = get_object_or_404(Group, pk=group_id, is_active=True)
-    students = Student.objects.filter(
-        groupstudent__group=group,
-        groupstudent__is_active=True,
-        is_active=True,
-    ).order_by('last_name', 'first_name').values('id', 'first_name', 'last_name')
-    return JsonResponse({
-        'group': {'id': group.id, 'name': group.name, 'monthly_fee': str(group.monthly_fee)},
-        'students': list(students),
-    })

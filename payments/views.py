@@ -81,7 +81,6 @@ class PaymentCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['groups'] = Group.objects.filter(is_active=True).order_by('name')
         context['today'] = date.today().isoformat()
         return context
 

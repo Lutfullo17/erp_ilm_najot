@@ -76,8 +76,10 @@ class StudentMonthBalance(models.Model):
             self.status = MonthBalanceStatus.OPEN
 
     def clean(self):
-        if self.month and self.month.day != 1:
-            raise ValidationError("month oyning birinchi kuni bo'lishi kerak.")
+        # Oyning birinchi kuni bo'lishi kerakligi haqidagi qat'iy talab olib tashlandi
+        # lekin ma'lumotlar bazasida 1-kun sifatida saqlanishi tavsiya etiladi.
+        if self.month:
+            self.month = self.month.replace(day=1)
 
         if self.group_id and self.student_id:
             is_group_student = self.group.groupstudent_set.filter(
@@ -107,7 +109,7 @@ class PaymentTransaction(models.Model):
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
+        validators=[MinValueValidator(Decimal('0'))],
     )
     payment_date = models.DateField()
     method = models.CharField(max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.CASH)
@@ -144,7 +146,7 @@ class PaymentAllocation(models.Model):
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
+        validators=[MinValueValidator(Decimal('0'))],
     )
 
     class Meta:

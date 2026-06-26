@@ -54,8 +54,8 @@ def parse_money(value, field_name='amount'):
 )
 
     amount = amount.quantize(Decimal('0.01'))
-    if amount <= 0:
-        raise PaymentInputError(f'{field_name} 0 dan katta bo\'lishi kerak.')
+    if amount < 0:
+        raise PaymentInputError(f'{field_name} 0 dan kichik bo\'lishi mumkin emas.')
     if amount > Decimal('1000000000'):
         raise PaymentInputError(f'{field_name} juda katta qiymat.')
     return amount
@@ -83,8 +83,9 @@ def get_payment_student(student_id, group):
 
 
 def get_or_create_month_balance(student, group, month):
-    if group.monthly_fee <= 0:
-        raise PaymentInputError("Guruh oylik to'lovi 0 dan katta bo'lishi kerak.")
+    # Guruh tekin bo'lsa ham uning uchun balans yaratilishiga ruxsat beramiz.
+    if group.monthly_fee < 0:
+        raise PaymentInputError("Guruh oylik to'lovi 0 dan past bo'lishi mumkin emas.")
 
     balance, _ = StudentMonthBalance.objects.select_for_update().get_or_create(
         student=student,
