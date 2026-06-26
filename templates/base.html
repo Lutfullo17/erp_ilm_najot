@@ -267,6 +267,7 @@
             }
             .sidebar {
                 transform: translateX(-100%);
+                width: 260px;
             }
             .sidebar.active {
                 transform: translateX(0);
@@ -274,11 +275,93 @@
             .main-content {
                 margin-left: 0;
                 width: 100%;
-                padding: 1.5rem;
+                padding: 1rem;
+                padding-bottom: 80px;
             }
             .main-content.sidebar-active {
                 filter: blur(4px);
                 pointer-events: none;
+            }
+            .glass-panel {
+                padding: 1rem;
+                border-radius: 16px;
+            }
+            header {
+                margin-bottom: 1.5rem;
+            }
+            .header-title h1 {
+                font-size: 1.25rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 100%;
+            }
+            .main-content {
+                padding: 0.75rem;
+                padding-bottom: 80px;
+            }
+        }
+
+        /* Bottom Navigation for Mobile */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+            padding: 0.5rem 0;
+            z-index: 1000;
+        }
+
+        .bottom-nav-items {
+            display: flex;
+            justify-content: space-around;
+            list-style: none;
+            padding: 0 0.25rem;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 0.5rem 0.25rem;
+            font-size: 0.6rem;
+            transition: color 0.2s;
+            min-width: 0;
+        }
+
+        .bottom-nav-item i {
+            font-size: 1rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .bottom-nav-item span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            font-size: 0.55rem;
+        }
+
+        .bottom-nav-item.active {
+            color: var(--primary);
+        }
+
+        .bottom-nav-item i {
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        @media (max-width: 1024px) {
+            .bottom-nav {
+                display: block;
             }
         }
 
@@ -326,11 +409,49 @@
                     <span>To'lovlar</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_list' %}" class="nav-link {% if 'teachers' in request.path %}active{% endif %}">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <span>O'qituvchilar</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if user.is_teacher %}
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_dashboard' %}" class="nav-link {% if request.path == '/users/teacher/' %}active{% endif %}">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_groups' %}" class="nav-link {% if 'teacher/groups' in request.path %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Guruhlarim</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_messages' %}" class="nav-link {% if 'teacher/messages' in request.path %}active{% endif %}">
+                    <i class="fas fa-envelope"></i>
+                    <span>Xabarlar</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_schedule' %}" class="nav-link {% if 'teacher/schedule' in request.path %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Dars jadvali</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_profile' %}" class="nav-link {% if 'teacher/profile' in request.path %}active{% endif %}">
+                    <i class="fas fa-user"></i>
+                    <span>Profil</span>
+                </a>
+            </li>
             {% endif %}
         </ul>
         
         <div class="nav-item" style="margin-top: auto;">
-            <form action="{% url 'users1:logout' %}" method="post">
+            <form action="{% url 'users1:logout' %}" method="post" onsubmit="return confirm('Tizimdan chiqmoqchimisiz?');">
                 {% csrf_token %}
                 <button type="submit" class="nav-link" style="background: none; border: none; width: 100%; cursor: pointer; text-align: left;">
                     <i class="fas fa-power-off"></i>
@@ -368,6 +489,86 @@
         </div>
     </div>
 
+    {% if user.is_teacher %}
+    <nav class="bottom-nav">
+        <ul class="bottom-nav-items">
+            <li>
+                <a href="{% url 'users1:teacher_dashboard' %}" class="bottom-nav-item {% if request.path == '/users/teacher/' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_groups' %}" class="bottom-nav-item {% if 'teacher/groups' in request.path %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Guruhlar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_messages' %}" class="bottom-nav-item {% if 'teacher/messages' in request.path %}active{% endif %}">
+                    <i class="fas fa-envelope"></i>
+                    <span>Xabarlar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_schedule' %}" class="bottom-nav-item {% if 'teacher/schedule' in request.path %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Jadval</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_profile' %}" class="bottom-nav-item {% if 'teacher/profile' in request.path %}active{% endif %}">
+                    <i class="fas fa-user"></i>
+                    <span>Profil</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% if user.is_admin_role %}
+    <nav class="bottom-nav">
+        <ul class="bottom-nav-items">
+            <li>
+                <a href="{% url 'users1:admin_dashboard' %}" class="bottom-nav-item {% if 'admin' in request.path %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'students:student_list' %}" class="bottom-nav-item {% if 'students' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>O'quvchilar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'groups_app:group_list' %}" class="bottom-nav-item {% if 'groups' in request.path %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Guruhlar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'payments:payment_list' %}" class="bottom-nav-item {% if 'payments' in request.path %}active{% endif %}">
+                    <i class="fas fa-wallet"></i>
+                    <span>To'lovlar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_list' %}" class="bottom-nav-item {% if 'teachers' in request.path %}active{% endif %}">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <span>O'qituvchilar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:logout' %}" class="bottom-nav-item" onclick="return confirm('Tizimdan chiqmoqchimisiz?');">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Chiqish</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+
     <script>
         const sidebar = document.getElementById('sidebar');
         const mobileToggle = document.getElementById('mobileToggle');
@@ -387,6 +588,33 @@
                 }
             }
         });
+
+        // Swipe to open/close sidebar on mobile
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, false);
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, false);
+
+        function handleSwipe() {
+            if (window.innerWidth <= 1024) {
+                const swipeThreshold = 50;
+                if (touchStartX - touchEndX > swipeThreshold && !sidebar.classList.contains('active')) {
+                    sidebar.classList.add('active');
+                    mainContent.classList.add('sidebar-active');
+                }
+                if (touchEndX - touchStartX > swipeThreshold && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    mainContent.classList.remove('sidebar-active');
+                }
+            }
+        }
     </script>
 </body>
 </html>

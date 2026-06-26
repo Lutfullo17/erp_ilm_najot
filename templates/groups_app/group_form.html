@@ -38,8 +38,12 @@
 
             <div class="form-group">
                 <label for="id_start_date">Boshlanish sanasi</label>
-                <input type="date" id="id_start_date" name="start_date" value="{% if object and object.start_date %}{{ object.start_date|date:'Y-m-d' }}{% endif %}">
-                <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.3rem;">Format: kun/oy/yil</div>
+                <input type="text" id="id_start_date"
+                       placeholder="DD.MM.YYYY"
+                       value="{% if object and object.start_date %}{{ object.start_date|date:'d.m.Y' }}{% endif %}"
+                       maxlength="10" inputmode="numeric">
+                <input type="hidden" id="id_start_date_iso" name="start_date"
+                       value="{% if object and object.start_date %}{{ object.start_date|date:'Y-m-d' }}{% endif %}">
                 {% if form.start_date.errors %}
                     <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.start_date.errors.0 }}</div>
                 {% endif %}
@@ -70,9 +74,10 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                 <div class="form-group">
                     <label for="id_lesson_time">Dars vaqti</label>
-                    <input type="time" id="id_lesson_time" name="lesson_time"
+                    <input type="text" id="id_lesson_time" name="lesson_time"
+                           placeholder="HH:MM (masalan: 14:30)"
                            value="{% if object and object.lesson_time %}{{ object.lesson_time|date:'H:i' }}{% endif %}"
-                           style="color-scheme: dark;">
+                           maxlength="5" inputmode="numeric">
                     {% if form.lesson_time.errors %}
                         <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.lesson_time.errors.0 }}</div>
                     {% endif %}
@@ -133,20 +138,73 @@ function parseMoneyInput(formatted) {
     return formatted.replace(/\s/g, '');
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const display = document.getElementById('id_monthly_fee_display');
-    const hidden = document.getElementById('id_monthly_fee');
+function formatDateInput(value) {
+    let cleaned = value.replace(/\D/g, '');
+    if (cleaned.length > 8) cleaned = cleaned.slice(0, 8);
+    if (cleaned.length >= 5) {
+        return cleaned.slice(0, 2) + '.' + cleaned.slice(2, 4) + '.' + cleaned.slice(4);
+    } else if (cleaned.length >= 3) {
+        return cleaned.slice(0, 2) + '.' + cleaned.slice(2);
+    }
+    return cleaned;
+}
 
-    display.addEventListener('input', function() {
-        let raw = parseMoneyInput(this.value);
-        hidden.value = raw;
-        this.value = formatMoneyInput(raw);
+function parseDateToISO(value) {
+    const parts = value.split('.');
+    if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+        return parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+    return '';
+}
+
+function formatTimeInput(value) {
+    let cleaned = value.replace(/\D/g, '');
+    if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
+    if (cleaned.length >= 3) {
+        let hours = cleaned.slice(0, 2);
+        let minutes = cleaned.slice(2);
+        if (parseInt(hours) > 23) hours = '23';
+        if (parseInt(minutes) > 59) minutes = '59';
+        return hours + ':' + minutes;
+    }
+    return cleaned;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const feeDisplay = document.getElementById('id_monthly_fee_display');
+    const feeHidden = document.getElementById('id_monthly_fee');
+    const dateDisplay = document.getElementById('id_start_date');
+    const dateHidden = document.getElementById('id_start_date_iso');
+    const timeDisplay = document.getElementById('id_lesson_time');
+    const form = document.getElementById('groupForm');
+
+    function syncFee() {
+        let raw = parseMoneyInput(feeDisplay.value);
+        feeHidden.value = raw;
+    }
+
+    function syncDate() {
+        dateHidden.value = parseDateToISO(dateDisplay.value);
+    }
+
+    feeDisplay.addEventListener('input', function() {
+        syncFee();
+        this.value = formatMoneyInput(parseMoneyInput(this.value));
     });
 
-    display.addEventListener('blur', function() {
-        let raw = parseMoneyInput(this.value);
-        hidden.value = raw;
-        this.value = formatMoneyInput(raw);
+    dateDisplay.addEventListener('input', function() {
+        this.value = formatDateInput(this.value);
+        syncDate();
+    });
+
+    timeDisplay.addEventListener('input', function() {
+        this.value = formatTimeInput(this.value);
+    });
+
+    form.addEventListener('submit', function() {
+        syncFee();
+        syncDate();
+        updateLessonDays();
     });
 
     document.querySelectorAll('input[name="lesson_days_list"]').forEach(cb => {

@@ -5,45 +5,143 @@
 {% block header_title %}Guruhlar Boshqaruvi{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;">
+<!-- Qidiruv va tugmalar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;">
     <form method="get" style="flex-grow: 1; min-width: 250px; position: relative;">
         <i class="fas fa-search" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-        <input type="text" name="q" placeholder="Guruh nomini qidirish..." value="{{ request.GET.q }}" style="padding-left: 3rem;">
+        <input type="text" name="q" placeholder="Guruh qidirish..." value="{{ request.GET.q }}" style="padding-left: 3rem;">
     </form>
     <a href="{% url 'groups_app:group_create' %}" class="btn btn-primary">
-        <i class="fas fa-plus"></i>
-        <span>Yangi Guruh</span>
+        <i class="fas fa-plus"></i> Yangi Guruh
     </a>
 </div>
 
-<div class="stats-grid">
-    {% for group in groups %}
-    <div class="glass-panel" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+<!-- Statistika -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+    <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-users" style="color: var(--primary); font-size: 1.1rem;"></i>
         <div>
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                <h3 style="font-size: 1.25rem; font-weight: 700;">{{ group.name }}</h3>
-            </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
-                <div><i class="fas fa-user-tie" style="width: 20px;"></i> {{ group.teacher.get_full_name }}</div>
-                <div><i class="fas fa-users" style="width: 20px;"></i> {{ group.students.count }} o'quvchi</div>
-                <div><i class="fas fa-money-bill-wave" style="width: 20px;"></i> {{ group.monthly_fee|money }} so'm</div>
-            </div>
-        </div>
-        
-        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
-            <a href="{% url 'groups_app:group_detail' group.id %}" class="btn btn-outline" style="flex: 1; justify-content: center; padding: 0.6rem;">
-                <i class="fas fa-eye"></i> Kirish
-            </a>
-            <a href="{% url 'groups_app:group_edit' group.id %}" class="btn btn-outline" style="padding: 0.6rem;">
-                <i class="fas fa-edit"></i>
-            </a>
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ groups|length }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Jami guruhlar</div>
         </div>
     </div>
-    {% empty %}
-    <div class="glass-panel" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
-        <p style="color: var(--text-muted);">Hozircha guruhlar mavjud emas.</p>
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-check-circle" style="color: var(--success); font-size: 1.1rem;"></i>
+        <div>
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ active_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Faol</div>
+        </div>
     </div>
-    {% endfor %}
+    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-pause-circle" style="color: var(--warning); font-size: 1.1rem;"></i>
+        <div>
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ paused_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">To'xtatilgan</div>
+        </div>
+    </div>
+    <div style="background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.2); border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-user-graduate" style="color: var(--secondary); font-size: 1.1rem;"></i>
+        <div>
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ total_students_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Jami o'quvchilar</div>
+        </div>
+    </div>
+</div>
+
+<!-- Jadval -->
+<div class="glass-panel">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 30px;">#</th>
+                    <th>Guruh nomi</th>
+                    <th>O'qituvchi</th>
+                    <th style="text-align: center;">O'quvchi</th>
+                    <th>Oylik to'lov</th>
+                    <th>Dars kunlari</th>
+                    <th style="text-align: center;">Vaqt</th>
+                    <th style="text-align: center;">Xona</th>
+                    <th style="text-align: center;">Holat</th>
+                    <th style="text-align: right;">Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td style="color: var(--text-muted);">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="font-weight: 600; color: var(--text);">{{ group.name }}</div>
+                        {% if group.start_date %}
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ group.start_date|date:"d.m.Y" }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 30px; height: 30px; background: rgba(99, 102, 241, 0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--primary);">
+                                {{ group.teacher.first_name.0 }}{{ group.teacher.last_name.0 }}
+                            </div>
+                            <span>{{ group.teacher.get_full_name }}</span>
+                        </div>
+                    </td>
+                    <td style="text-align: center;">
+                        <span style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 0.3rem 0.7rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem;">
+                            {{ group.students.count }}
+                        </span>
+                    </td>
+                    <td style="font-weight: 600;">{{ group.monthly_fee|money }} so'm</td>
+                    <td>
+                        {% if group.lesson_days %}
+                        <span style="font-size: 0.85rem;">{{ group.lesson_days }}</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if group.lesson_time %}
+                        <span style="background: rgba(245, 158, 11, 0.1); color: var(--warning); padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem;">{{ group.lesson_time|date:"H:i" }}</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if group.room %}
+                        <span style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.85rem;">{{ group.get_room_display }}</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        {% if group.is_paused %}
+                        <span class="badge badge-warning">To'xtatilgan</span>
+                        {% elif group.is_active %}
+                        <span class="badge badge-success">Faol</span>
+                        {% else %}
+                        <span class="badge badge-danger">Nofaol</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                            <a href="{% url 'groups_app:group_detail' group.id %}" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" title="Batafsil">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'groups_app:group_edit' group.id %}" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" title="Tahrirlash">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" style="text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+                        <i class="fas fa-users" style="font-size: 3rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+                        <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">Guruhlar topilmadi</div>
+                        <div style="font-size: 0.9rem;">Yangi guruh qo'shish uchun "Yangi Guruh" tugmasini bosing</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

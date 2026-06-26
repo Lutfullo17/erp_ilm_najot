@@ -21,6 +21,13 @@ class GroupListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
             return Group.objects.filter(name__icontains=query)
         return Group.objects.all()
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_count'] = Group.objects.filter(is_active=True, is_paused=False).count()
+        context['paused_count'] = Group.objects.filter(is_paused=True).count()
+        context['total_students_count'] = GroupStudent.objects.filter(is_active=True, group__is_active=True).count()
+        return context
+
 
 class GroupDetailView(LoginRequiredMixin, AdminRequiredMixin, DetailView):
     model = Group

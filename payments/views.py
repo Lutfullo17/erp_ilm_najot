@@ -62,6 +62,17 @@ class PaymentListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     def get_queryset(self):
         return PaymentTransaction.objects.all().order_by('-payment_date', '-created_at')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from django.utils import timezone
+        from django.db.models import Sum
+        today = timezone.localdate()
+        context['monthly_income'] = PaymentTransaction.objects.filter(
+            payment_date__year=today.year,
+            payment_date__month=today.month
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        return context
+
 class PaymentCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     model = PaymentTransaction
     template_name = 'payments/payment_form.html'
@@ -96,10 +107,29 @@ class DebtorListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     context_object_name = 'debtors'
 
     def get_queryset(self):
-        from .models import MonthBalanceStatus
         return StudentMonthBalance.objects.filter(
-            status__in=['OPEN', 'PARTIAL'] # or use constant if imported
+            status__in=['OPEN', 'PARTIAL']
         ).select_related('student', 'group')
+
+
+class GroupDebtorView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+    model = StudentMonthBalance
+    template_name = 'payments/group_debtor_list.html'
+    context_object_name = 'debtors'
+
+    def get_queryset(self):
+        self.group = get_object_or_404(Group, pk=self.kwargs['group_id'])
+        return StudentMonthBalance.objects.filter(
+            group=self.group,
+            status__in=['OPEN', 'PARTIAL']
+        ).select_related('student').order_by('student__last_name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['group'] = self.group
+        total = sum(d.debt_amount for d in context['debtors'])
+        context['total_debt'] = total
+        return context
 
 @require_http_methods(['GET'])
 def student_balance(request, student_id, group_id):

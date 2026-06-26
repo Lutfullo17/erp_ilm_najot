@@ -12,6 +12,7 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.TEACHER,
     )
+    phone = models.CharField(max_length=20, blank=True, verbose_name="Telefon")
 
     @property
     def is_admin_role(self):

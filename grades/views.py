@@ -3,8 +3,22 @@ import json
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView
+from django.utils import timezone
 
+from .models import GradeSession
 from .services import GradeInputError, get_grade_snapshot, get_teacher_groups, save_grades
+
+
+class TeacherGradeListView(LoginRequiredMixin, ListView):
+    template_name = 'grades/grade_list.html'
+    context_object_name = 'grade_sessions'
+
+    def get_queryset(self):
+        return GradeSession.objects.filter(
+            teacher=self.request.user
+        ).order_by('-date')[:20]
 
 
 def index(request):

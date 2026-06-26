@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Tahrirlash{% else %}Yangi O'qituvchi{% endif %} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{% if object %}O'qituvchini Tahrirlash{% else %}Yangi O'qituvchi Qo'shish{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <div class="glass-panel">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="id_full_name">Ism Familiya</label>
+                <input type="text" id="id_full_name" name="full_name" required
+                       value="{% if object %}{{ object.first_name }} {{ object.last_name }}{% endif %}"
+                       placeholder="Masalan: Ali Valiyev">
+                {% if form.first_name.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.first_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_username">Username</label>
+                <input type="text" id="id_username" name="username" required
+                       value="{% if object %}{{ object.username }}{% endif %}"
+                       placeholder="Login uchun username">
+                {% if form.username.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.username.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_phone">Telefon Raqami</label>
+                <input type="tel" id="id_phone" name="phone"
+                       value="{% if object %}{{ object.phone }}{% else %}+998{% endif %}"
+                       placeholder="+998 90 123 45 67">
+            </div>
+
+            {% if not object %}
+            <div class="form-group">
+                <label for="id_password1">Parol</label>
+                <input type="password" id="id_password1" name="password1" required
+                       placeholder="Kamida 8 ta belgi">
+                {% if form.password1.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.password1.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="id_password2">Parolni tasdiqlash</label>
+                <input type="password" id="id_password2" name="password2" required
+                       placeholder="Parolni qaytadan kiriting">
+                {% if form.password2.errors %}
+                    <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem;">{{ form.password2.errors.0 }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+                <a href="{% url 'users1:teacher_list' %}" class="btn btn-outline">Bekor qilish</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    <span>Saqlash</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

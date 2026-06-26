@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}{{ group.name }} — Qarzdorlar | Ilm Najot ERP{% endblock %}
+{% block header_title %}{{ group.name }} — Qarzdorlar{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <a href="{% url 'users1:admin_dashboard' %}" class="btn btn-outline">
+        <i class="fas fa-arrow-left"></i> Orqaga
+    </a>
+    <div style="display: flex; align-items: center; gap: 1.5rem;">
+        <div style="color: var(--text-muted);">O'quvchilar: <strong style="color: var(--text);">{{ debtors|length }}</strong></div>
+        <div style="color: var(--text-muted);">Jami qarz: <strong style="color: var(--danger);">{{ total_debt|money }} so'm</strong></div>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>O'quvchi</th>
+                    <th>Oy</th>
+                    <th>Talab qilinadi</th>
+                    <th>To'langan</th>
+                    <th style="text-align: right;">Qarz</th>
+                    <th style="text-align: right;">Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in debtors %}
+                <tr>
+                    <td style="color: var(--text-muted);">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="font-weight: 600;">{{ d.student.last_name }} {{ d.student.first_name }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ d.student.phone }}</div>
+                    </td>
+                    <td>{{ d.month|date:"F Y" }}</td>
+                    <td>{{ d.required_amount|money }} so'm</td>
+                    <td>{{ d.paid_amount|money }} so'm</td>
+                    <td style="text-align: right;">
+                        <span style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 0.3rem 0.7rem; border-radius: 8px; font-weight: 600;">
+                            {{ d.debt_amount|money }} so'm
+                        </span>
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{% url 'payments:payment_create' %}" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                            <i class="fas fa-money-bill-wave"></i> To'lov
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fas fa-check-circle" style="font-size: 2rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>
+                        Bu guruhda qarzdorlar yo'q
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
