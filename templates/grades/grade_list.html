@@ -1,30 +1,48 @@
 {% extends 'base.html' %}
+{% load bot_tags %}
 
-{% block title %}Baholar | Ilm Najot ERP{% endblock %}
-{% block header_title %}Baholar ro'yxati{% endblock %}
+{% block title %}Baholar tarixi | Ilm Najot ERP{% endblock %}
+{% block header_title %}Baholar tarixi{% endblock %}
 
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
-    <div class="glass-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h2><i class="fas fa-star"></i> Baholar</h2>
-        </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <h2 style="font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-star" style="color: var(--warning);"></i> Baholar tarixi
+        </h2>
+        <a href="{% url 'grades:grade_input' %}" class="btn btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.85rem;">
+            <i class="fas fa-plus"></i> Yangi baho
+        </a>
+    </div>
 
+    <div class="glass-panel">
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             {% for session in grade_sessions %}
-            <div style="padding: 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <div style="font-weight: 600;">{{ session.title }}</div>
-                    <div style="color: var(--text-muted); font-size: 0.85rem;">{{ session.group.name }} | {{ session.date|date:"Y-m-d" }}</div>
+            <div style="padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 200px;">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-star" style="color: var(--warning); font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.95rem;">{{ session.title }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem;">{{ session.group.name }} | {{ session.date|date:"d.m.Y" }}</div>
+                    </div>
                 </div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">
-                    {{ session.records.count }} ta baho
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="badge badge-success">{{ session.records.count }} ta baho</span>
+                    <a href="{% url 'grades:grade_input' %}?group={{ session.group.id }}&date={{ session.date|date:'Y-m-d' }}&title={{ session.title }}"
+                       style="padding: 0.4rem 0.8rem; border-radius: 8px; background: rgba(99, 102, 241, 0.1); color: var(--primary); font-size: 0.8rem; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-edit"></i> Ko'rish
+                    </a>
                 </div>
             </div>
             {% empty %}
-            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                <i class="fas fa-star" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.3;"></i>
-                <p>Baholar hozircha yo'q</p>
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <i class="fas fa-star" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+                <p style="margin-bottom: 1rem;">Baholar hozircha yo'q</p>
+                <a href="{% url 'grades:grade_input' %}" class="btn btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.85rem;">
+                    <i class="fas fa-plus"></i> Birinchi baho qo'shing
+                </a>
             </div>
             {% endfor %}
         </div>

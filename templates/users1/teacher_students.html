@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}O'quvchilarim | Ilm Najot ERP{% endblock %}
+{% block header_title %}O'quvchilarim{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Jami: {{ students_data|length }} ta o'quvchi</span>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for item in students_data %}
+        <a href="{% url 'users1:teacher_student_detail' item.student.pk %}" style="text-decoration: none; color: inherit;">
+            <div class="glass-panel" style="padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; transition: background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background=''">
+                <div style="display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 200px;">
+                    <div class="avatar" style="width: 42px; height: 42px; font-size: 0.8rem; flex-shrink: 0;">
+                        {{ item.student.first_name.0 }}{{ item.student.last_name.0 }}
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.95rem;">{{ item.student.last_name }} {{ item.student.first_name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.2rem;">
+                            {% for g in item.groups %}
+                            <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: var(--primary); font-size: 0.7rem; padding: 0.2rem 0.5rem;">{{ g }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    {% if item.student.phone %}
+                    <div style="color: var(--text-muted); font-size: 0.8rem;">
+                        <i class="fas fa-phone" style="margin-right: 0.3rem;"></i>{{ item.student.phone }}
+                    </div>
+                    {% endif %}
+                    {% if item.last_attendance %}
+                    <div style="font-size: 0.8rem;">
+                        {% if item.last_attendance.status == 'PRESENT' %}
+                        <span class="badge badge-success" style="font-size: 0.7rem;">Keldi</span>
+                        {% elif item.last_attendance.status == 'ABSENT' %}
+                        <span class="badge badge-danger" style="font-size: 0.7rem;">Kelmadi</span>
+                        {% elif item.last_attendance.status == 'LATE' %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem;">Kechikdi</span>
+                        {% elif item.last_attendance.status == 'EXCUSED' %}
+                        <span class="badge" style="font-size: 0.7rem; background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">Sababli</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    <i class="fas fa-chevron-right" style="color: var(--text-muted); font-size: 0.75rem;"></i>
+                </div>
+            </div>
+        </a>
+        {% empty %}
+        <div class="glass-panel" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fas fa-user-graduate" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+            <p>O'quvchilar topilmadi</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

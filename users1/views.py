@@ -122,6 +122,7 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
         user = self.request.user
         today = timezone.localdate()
         weekday = today.weekday()
+        now_time = timezone.localtime().time()
 
         groups = user.teaching_groups.filter(is_active=True)
         context['groups'] = groups
@@ -148,16 +149,33 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
 
         today_lessons = []
         upcoming_lessons = []
+        groups_without_attendance = []
+        overdue_groups = []
+        today_lesson_count = 0
+
         for group in groups:
             if group.lesson_days and group.lesson_time:
+                is_today = today_name in group.lesson_days
                 lesson_data = {'group': group, 'time': group.lesson_time, 'days': group.lesson_days}
-                if today_name in group.lesson_days:
+
+                if is_today:
+                    today_lesson_count += 1
+                    has_session = AttendanceSession.objects.filter(group=group, date=today).exists()
+
+                    if not has_session and group.end_time and now_time > group.end_time:
+                        overdue_groups.append(group)
+                    elif not has_session and group.end_time and now_time <= group.end_time:
+                        groups_without_attendance.append(group)
+
                     today_lessons.append(lesson_data)
                 else:
                     upcoming_lessons.append(lesson_data)
 
         context['today_lessons'] = today_lessons
         context['upcoming_lessons'] = upcoming_lessons[:5]
+        context['today_lesson_count'] = today_lesson_count
+        context['groups_without_attendance'] = groups_without_attendance
+        context['overdue_groups'] = overdue_groups
 
         return context
 
@@ -167,7 +185,25 @@ class TeacherGroupsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['groups'] = self.request.user.teaching_groups.filter(is_active=True)
+        groups = self.request.user.teaching_groups.filter(is_active=True)
+        today = timezone.localdate()
+        now_time = timezone.localtime().time()
+        day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+        today_name = day_names[today.weekday()]
+
+        groups_with_status = []
+        for group in groups:
+            is_today = False
+            if group.lesson_days:
+                lesson_days_list = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+                is_today = today_name in lesson_days_list
+            groups_with_status.append({
+                'group': group,
+                'is_today': is_today,
+            })
+
+        context['groups_with_status'] = groups_with_status
+        context['today'] = today
         return context
 
 
@@ -225,6 +261,176 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
 
 class TeacherProfileView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
     template_name = 'users1/teacher_profile.html'
+
+
+class TeacherStudentsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
+    template_name = 'users1/teacher_students.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        today = timezone.localdate()
+
+        groups = user.teaching_groups.filter(is_active=True)
+        context['groups'] = groups
+
+        from groups_app.models import GroupStudent
+        students_data = []
+        seen_students = set()
+
+        for group in groups:
+            memberships = GroupStudent.objects.filter(
+                group=group,
+                is_active=True,
+                student__is_active=True,
+            ).select_related('student')
+
+            for membership in memberships:
+                student = membership.student
+                if student.pk in seen_students:
+                    continue
+                seen_students.add(student.pk)
+
+                last_attendance = AttendanceRecord.objects.filter(
+                    student=student,
+                    session__teacher=user,
+                ).select_related('session').order_by('-session__date').first()
+
+                student_groups = Group.objects.filter(
+                    groupstudent__student=student,
+                    groupstudent__is_active=True,
+                    is_active=True,
+                ).values_list('name', flat=True)
+
+                students_data.append({
+                    'student': student,
+                    'groups': list(student_groups),
+                    'last_attendance': last_attendance,
+                })
+
+        context['students_data'] = students_data
+        return context
+
+
+class TeacherStudentDetailView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
+    template_name = 'users1/teacher_student_detail.html'
+
+    def get(self, request, *args, **kwargs):
+        student = get_object_or_404(Student, pk=kwargs.get('pk'), is_active=True)
+        groups = self.request.user.teaching_groups.filter(is_active=True)
+        if not GroupStudent.objects.filter(
+            group__in=groups,
+            student=student,
+            is_active=True,
+        ).exists():
+            messages.error(request, "Bu o'quvchi sizning guruhlaringizda emas.")
+            return redirect('users1:teacher_students')
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        student = get_object_or_404(Student, pk=kwargs.get('pk'), is_active=True)
+        user = self.request.user
+
+        context['student'] = student
+        context['student_groups'] = Group.objects.filter(
+            groupstudent__student=student,
+            groupstudent__is_active=True,
+            is_active=True,
+        )
+
+        context['attendance_records'] = AttendanceRecord.objects.filter(
+            student=student,
+            session__teacher=user,
+        ).select_related('session', 'session__group').order_by('-session__date')[:10]
+
+        context['grade_records'] = GradeRecord.objects.filter(
+            student=student,
+            session__teacher=user,
+        ).select_related('session', 'session__group').order_by('-session__date')[:10]
+
+        from bot.models import TelegramUser, TelegramAppeal
+        context['telegram_users'] = TelegramUser.objects.filter(
+            student=student,
+            is_verified=True,
+        )
+
+        context['recent_appeals'] = TelegramAppeal.objects.filter(
+            student=student,
+        ).order_by('-created_at')[:5]
+
+        return context
+
+
+@require_http_methods(['POST'])
+def send_teacher_message(request):
+    """Teacher tomonidan o'quvchining ota-onasiga Telegram xabar yuborish."""
+    import json as json_module
+    try:
+        payload = json_module.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
+
+    user = request.user
+    if not user.is_authenticated or not user.is_teacher:
+        return JsonResponse({'detail': "Faqat o'qituvchi uchun ruxsat bor."}, status=403)
+
+    student_id = payload.get('student_id')
+    message_text = payload.get('message', '').strip()
+
+    if not student_id:
+        return JsonResponse({'detail': "O'quvchi tanlash kerak."}, status=400)
+    if not message_text:
+        return JsonResponse({'detail': "Xabar matnini kiriting."}, status=400)
+
+    student = Student.objects.filter(pk=student_id, is_active=True).first()
+    if not student:
+        return JsonResponse({'detail': "O'quvchi topilmadi."}, status=404)
+
+    groups = user.teaching_groups.filter(is_active=True)
+    if not GroupStudent.objects.filter(group__in=groups, student=student, is_active=True).exists():
+        return JsonResponse({'detail': "Bu o'quvchi sizning guruhlaringizda emas."}, status=403)
+
+    from bot.models import TelegramUser, TeacherMessage
+    from bot.services import send_telegram_message
+
+    telegram_users = TelegramUser.objects.filter(
+        student=student,
+        is_verified=True,
+    )
+
+    if not telegram_users.exists():
+        return JsonResponse({'detail': "O'quvchining Telegram'dagi ota-onasi topilmadi."}, status=404)
+
+    sent_count = 0
+    last_tu = None
+    for tu in telegram_users:
+        last_tu = tu
+        try:
+            teacher_name = user.get_full_name() or user.username
+            formatted_msg = (
+                f"<b>✉️ Xabar o'qituvchidan</b>\n\n"
+                f"<b>O'qituvchi:</b> {teacher_name}\n"
+                f"<b>O'quvchi:</b> {student}\n\n"
+                f"{message_text}"
+            )
+            send_telegram_message(tu.telegram_id, formatted_msg)
+            sent_count += 1
+        except Exception:
+            pass
+
+    status_val = TeacherMessage.Status.SENT if sent_count > 0 else TeacherMessage.Status.FAILED
+    TeacherMessage.objects.create(
+        teacher=user,
+        student=student,
+        parent=last_tu,
+        message=message_text,
+        status=status_val,
+    )
+
+    if sent_count > 0:
+        return JsonResponse({'ok': True, 'sent_count': sent_count})
+    return JsonResponse({'detail': "Xabar yuborishda xatolik yuz berdi."}, status=500)
 
 
 class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):

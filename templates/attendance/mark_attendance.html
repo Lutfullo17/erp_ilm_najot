@@ -6,6 +6,33 @@
 
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
+    <!-- Dars boshlandi ogohlantirishi -->
+    {% if show_start_alert %}
+    <div style="padding: 1rem 1.25rem; border-radius: 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <i class="fas fa-bell" style="color: var(--success); font-size: 1rem;"></i>
+        </div>
+        <div>
+            <div style="font-weight: 600; font-size: 0.95rem; color: var(--success);">Dars boshlandi!</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">Iltimos, davomatni imkon qadar tezroq oling.</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Davomat bloklangan -->
+    {% if is_locked %}
+    <div style="padding: 1.5rem; border-radius: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); margin-bottom: 1.5rem; text-align: center;">
+        <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            <i class="fas fa-lock" style="color: var(--danger); font-size: 1.2rem;"></i>
+        </div>
+        <div style="font-weight: 700; font-size: 1.1rem; color: var(--danger); margin-bottom: 0.5rem;">Davomat olish muddati tugadi</div>
+        <div style="color: var(--text-muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto;">Siz ushbu dars uchun davomatni vaqtida olmadingiz. Davomatni tiklash uchun Administrator bilan bog'laning.</div>
+        {% if lesson_end %}
+        <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">Dars tugash vaqti: {{ lesson_end|time:"H:i" }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="glass-panel" style="margin-bottom: 2rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <div>
@@ -25,6 +52,7 @@
         </div>
     </div>
 
+    {% if not is_locked %}
     <form method="post">
         {% csrf_token %}
 
@@ -80,6 +108,17 @@
             </button>
         </div>
     </form>
+    {% endif %}
+
+    {% if is_locked and request.user.is_admin_access %}
+    <div class="glass-panel" style="text-align: center; padding: 2rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 1rem;">Admin Override</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Siz Administrator sifatida ushbu dars uchun davomatni ochishingiz mumkin.</p>
+        <button onclick="openAdminOverride()" class="btn btn-primary" style="padding: 0.8rem 2rem;">
+            <i class="fas fa-unlock"></i> Davomatni ochish
+        </button>
+    </div>
+    {% endif %}
 </div>
 
 <style>
@@ -109,7 +148,6 @@
         background: #8b5cf6;
     }
 
-    /* Mobile scaling */
     @media (max-width: 600px) {
         .attendance-options {
             width: 100%;
@@ -135,5 +173,29 @@
     });
     
     updateCounters();
+
+    function openAdminOverride() {
+        if (!confirm("Ushbu dars uchun davomatni ochmoqchimisiz?")) return;
+
+        fetch('{% url "attendance:admin_override_attendance" group.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                date: '{{ session.date|date:"Y-m-d" }}',
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                location.reload();
+            } else {
+                alert(data.detail || 'Xatolik yuz berdi');
+            }
+        })
+        .catch(() => alert('Tarmoq xatoligi'));
+    }
 </script>
 {% endblock %}

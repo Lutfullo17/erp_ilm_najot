@@ -1,17 +1,22 @@
 import json
 
+from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView
+from django.views.generic import ListView, TemplateView
 from django.utils import timezone
 
+from groups_app.models import Group
+from students.models import Student
+from users1.views import TeacherRequiredMixin
 from .models import GradeSession
 from .services import GradeInputError, get_grade_snapshot, get_teacher_groups, save_grades
 
 
-class TeacherGradeListView(LoginRequiredMixin, ListView):
+class TeacherGradeListView(LoginRequiredMixin, TeacherRequiredMixin, ListView):
     template_name = 'grades/grade_list.html'
     context_object_name = 'grade_sessions'
 
@@ -19,6 +24,80 @@ class TeacherGradeListView(LoginRequiredMixin, ListView):
         return GradeSession.objects.filter(
             teacher=self.request.user
         ).order_by('-date')[:20]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['groups'] = Group.objects.filter(teacher=self.request.user, is_active=True).order_by('name')
+        return context
+
+
+class GradeInputView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
+    template_name = 'grades/grade_input.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        today = timezone.localdate()
+
+        groups = Group.objects.filter(teacher=user, is_active=True).order_by('name')
+        context['groups'] = groups
+
+        group_id = self.request.GET.get('group')
+        grade_date = self.request.GET.get('date', today.isoformat())
+        title = self.request.GET.get('title', 'Dars bahosi')
+
+        context['selected_group_id'] = group_id
+        context['selected_date'] = grade_date
+        context['selected_title'] = title
+        context['today'] = today
+
+        if group_id:
+            try:
+                snapshot = get_grade_snapshot(user, group_id, grade_date, title)
+                context['snapshot'] = snapshot
+                context['students'] = snapshot['students']
+            except (GradeInputError, PermissionDenied):
+                context['students'] = []
+                context['error'] = "Baholash uchun ma'lumot topilmadi yoki ruxsat yo'q."
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        group_id = request.POST.get('group_id')
+        grade_date = request.POST.get('grade_date')
+        title = request.POST.get('title', 'Dars bahosi')
+
+        if not group_id or not grade_date:
+            messages.error(request, "Guruh va sana tanlash shart.")
+            return redirect('grades:grade_input')
+
+        records = []
+        for key, value in request.POST.items():
+            if key.startswith('percentage_'):
+                student_id = int(key.split('_')[1])
+                comment_key = f'comment_{student_id}'
+                comment = request.POST.get(comment_key, '')
+                percentage = value if value else '0'
+                records.append({
+                    'student_id': student_id,
+                    'percentage': percentage,
+                    'comment': comment,
+                })
+
+        if not records:
+            messages.error(request, "Kamida bitta baho kiriting.")
+            return redirect(f'/grades/input/?group={group_id}&date={grade_date}&title={title}')
+
+        try:
+            save_grades(user, group_id, grade_date, title, records)
+            messages.success(request, "Baholar muvaffaqiyatli saqlandi!")
+        except (GradeInputError, PermissionDenied) as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f"Xatolik yuz berdi: {e}")
+
+        return redirect(f'/grades/input/?group={group_id}&date={grade_date}&title={title}')
 
 
 def index(request):

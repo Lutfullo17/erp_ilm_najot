@@ -496,6 +496,18 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{% url 'users1:teacher_students' %}" class="nav-link {% if 'teacher/students' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>O'quvchilarim</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'grades:grade_input' %}" class="nav-link {% if 'grades' in request.path %}active{% endif %}">
+                    <i class="fas fa-star"></i>
+                    <span>Baholar</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{% url 'users1:teacher_messages' %}" class="nav-link {% if 'teacher/messages' in request.path %}active{% endif %}">
                     <i class="fas fa-envelope"></i>
                     <span>Xabarlar</span>
@@ -568,6 +580,18 @@
                 <a href="{% url 'users1:teacher_groups' %}" class="bottom-nav-item {% if 'teacher/groups' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Guruhlar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_students' %}" class="bottom-nav-item {% if 'teacher/students' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>O'quvchilar</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'grades:grade_input' %}" class="bottom-nav-item {% if 'grades' in request.path %}active{% endif %}">
+                    <i class="fas fa-star"></i>
+                    <span>Baholar</span>
                 </a>
             </li>
             <li>

@@ -52,10 +52,53 @@
     </div>
 </div>
 
+<!-- Eslatmalar / Notifications -->
+{% if overdue_groups or groups_without_attendance %}
+<div style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+        <i class="fas fa-bell" style="color: var(--warning);"></i> Eslatmalar
+    </h2>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+
+        {% if overdue_groups %}
+        <div style="padding: 1rem 1.25rem; border-radius: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i class="fas fa-exclamation-triangle" style="color: var(--danger); font-size: 1rem;"></i>
+            </div>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 0.9rem; color: var(--danger);">Davomati o'tkazib yuborilgan darslar</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                    {% for g in overdue_groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if groups_without_attendance %}
+        <div style="padding: 1rem 1.25rem; border-radius: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(245, 158, 11, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i class="fas fa-clock" style="color: var(--warning); font-size: 1rem;"></i>
+            </div>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 0.9rem; color: var(--warning);">Hali davomati olinmagan guruhlar</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                    {% for g in groups_without_attendance %}
+                    <a href="{% url 'attendance:attendance_mark' g.id %}" style="color: var(--warning); text-decoration: underline;">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endif %}
+
 <!-- Bugungi darslar -->
 <div class="glass-panel" style="margin-bottom: 1.5rem;">
     <h2 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
         <i class="fas fa-calendar-day" style="color: var(--primary);"></i> Bugungi darslar
+        <span class="badge badge-success" style="margin-left: auto; font-size: 0.75rem;">{{ today_lesson_count }}</span>
     </h2>
     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
         {% for lesson in today_lessons %}
