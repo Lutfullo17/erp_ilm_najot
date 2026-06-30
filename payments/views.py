@@ -4,15 +4,45 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import models
+from django.db import models, transaction
+from django.db.models import Sum
 from django.http import JsonResponse
+from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 
-from users1.views import AdminRequiredMixin
+from users1.views import AdminAccessRequiredMixin
 from .models import PaymentTransaction, StudentMonthBalance
 from students.models import Student
 from groups_app.models import Group, GroupStudent
 from .services import PaymentInputError, apply_payment, get_student_payment_state
+
+
+def _serialize_student_for_payment(student):
+    groups = GroupStudent.objects.filter(
+        student=student,
+        is_active=True,
+        group__is_active=True,
+    ).select_related('group').values(
+        'group__id', 'group__name', 'group__monthly_fee'
+    )
+    return {
+        'id': student.id,
+        'full_name': f'{student.first_name} {student.last_name}',
+        'phone': student.phone,
+        'groups': [
+            {
+                'id': g['group__id'],
+                'name': g['group__name'],
+                'monthly_fee': str(g['group__monthly_fee']),
+            }
+            for g in groups
+        ],
+    }
+
+@require_http_methods(['GET'])
+def api_get_student_for_payment(request, student_id):
+    student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
+    return JsonResponse(_serialize_student_for_payment(student))
 
 
 @require_http_methods(['GET'])
@@ -53,27 +83,30 @@ def api_search_students(request):
 
     return JsonResponse({'students': results})
 
-class PaymentListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+class PaymentListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     model = PaymentTransaction
     template_name = 'payments/payment_list.html'
     context_object_name = 'payments'
     paginate_by = 20
 
     def get_queryset(self):
-        return PaymentTransaction.objects.all().order_by('-payment_date', '-created_at')
+        qs = PaymentTransaction.objects.all()
+        if not self.request.user.is_director:
+            qs = qs.filter(created_by=self.request.user)
+        return qs.order_by('-payment_date', '-created_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         from django.utils import timezone
-        from django.db.models import Sum
         today = timezone.localdate()
-        context['monthly_income'] = PaymentTransaction.objects.filter(
-            payment_date__year=today.year,
-            payment_date__month=today.month
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        if self.request.user.is_director:
+            context['monthly_income'] = PaymentTransaction.objects.filter(
+                payment_date__year=today.year,
+                payment_date__month=today.month
+            ).aggregate(total=Sum('amount'))['total'] or 0
         return context
 
-class PaymentCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
+class PaymentCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView):
     model = PaymentTransaction
     template_name = 'payments/payment_form.html'
     fields = ['student', 'group', 'amount', 'payment_date', 'method', 'note']
@@ -100,7 +133,7 @@ class PaymentCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
             form.add_error(None, str(e))
             return self.form_invalid(form)
 
-class DebtorListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+class DebtorListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     model = StudentMonthBalance
     template_name = 'payments/debtor_list.html'
     context_object_name = 'debtors'
@@ -111,7 +144,7 @@ class DebtorListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
         ).select_related('student', 'group')
 
 
-class GroupDebtorView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+class GroupDebtorView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     model = StudentMonthBalance
     template_name = 'payments/group_debtor_list.html'
     context_object_name = 'debtors'
@@ -130,7 +163,10 @@ class GroupDebtorView(LoginRequiredMixin, AdminRequiredMixin, ListView):
         context['total_debt'] = total
         return context
 
+from django.db import transaction
+
 @require_http_methods(['GET'])
+@transaction.atomic
 def student_balance(request, student_id, group_id):
     try:
         months = int(request.GET.get('months', 6))
@@ -144,6 +180,31 @@ def student_balance(request, student_id, group_id):
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({'detail': str(e)}, status=400)
+
+@require_http_methods(['GET'])
+def api_student_all_debts(request, student_id):
+    student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
+    # Check debts in all active student groups
+    debt_info = []
+    groups = GroupStudent.objects.filter(student=student, is_active=True, group__is_active=True).select_related('group')
+    
+    for gs in groups:
+        # Calculate total debt for this group
+        total_debt = StudentMonthBalance.objects.filter(
+            student=student, 
+            group=gs.group, 
+            status__in=['OPEN', 'PARTIAL']
+        ).aggregate(total=Sum(models.F('required_amount') - models.F('paid_amount')))['total'] or 0
+        
+        if total_debt > 0:
+            debt_info.append({
+                'id': gs.group.id,
+                'name': gs.group.name,
+                'debt': str(total_debt),
+                'fee': str(gs.group.monthly_fee)
+            })
+            
+    return JsonResponse({'debts': debt_info})
 
 @require_http_methods(['POST'])
 def create_payment(request):
@@ -161,3 +222,15 @@ def create_payment(request):
         return JsonResponse(data, status=201)
     except Exception as e:
         return JsonResponse({'detail': str(e)}, status=400)
+
+
+@require_http_methods(['POST'])
+@transaction.atomic
+def delete_payment_view(request, pk):
+    from .services import delete_payment
+    try:
+        delete_payment(request.user, pk)
+        messages.success(request, "To'lov muvaffaqiyatli o'chirildi va balanslar qayta hisoblandi.")
+    except Exception as e:
+        messages.error(request, str(e))
+    return redirect('payments:payment_list')

@@ -23,6 +23,8 @@ class AttendanceSession(models.Model):
         limit_choices_to={'role': 'TEACHER'},
     )
     date = models.DateField()
+    lesson_topic = models.CharField(max_length=255, blank=True, verbose_name="Dars mavzusi")
+    homework = models.TextField(blank=True, verbose_name="Uyga vazifa")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -76,3 +78,29 @@ class AttendanceRecord(models.Model):
 
         if not is_group_student:
             raise ValidationError("Bu o'quvchi ushbu guruhga biriktirilmagan.")
+
+
+class LessonPlan(models.Model):
+    group = models.ForeignKey(
+        'groups_app.Group',
+        on_delete=models.CASCADE,
+        related_name='lesson_plans',
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='lesson_plans',
+    )
+    date = models.DateField(verbose_name="Sana")
+    topic = models.CharField(max_length=255, verbose_name="Mavzu")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('group', 'date')
+        ordering = ('date',)
+        verbose_name = 'Dars rejalashtirish'
+        verbose_name_plural = 'Dars rejalari'
+
+    def __str__(self):
+        return f'{self.group} - {self.date}: {self.topic}'

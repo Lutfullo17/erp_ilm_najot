@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.db.models import Sum
 from students.models import Student
 from payments.models import StudentMonthBalance, MonthBalanceStatus, PaymentTransaction
-from attendance.models import AttendanceRecord
+from attendance.models import AttendanceRecord, AttendanceSession
 from groups_app.models import Group, GroupStudent
 from bot.models import TelegramAppeal, TelegramUser
 from .models import User
@@ -45,8 +45,10 @@ class TeacherCreateForm(forms.ModelForm):
 
 def index(request):
     if request.user.is_authenticated:
-        if request.user.is_admin_role:
+        if request.user.is_director:
             return redirect('users1:admin_dashboard')
+        if request.user.is_administrator_role:
+            return redirect('users1:administrator_dashboard')
         if request.user.is_teacher:
             return redirect('users1:teacher_dashboard')
     return redirect('users1:login')
@@ -58,8 +60,10 @@ class RoleLoginView(LoginView):
 
     def get_success_url(self):
         user = self.request.user
-        if user.is_admin_role:
+        if user.is_director:
             return '/users/admin/'
+        if user.is_administrator_role:
+            return '/users/administrator/'
         if user.is_teacher:
             return '/users/teacher/'
         return '/users/'
@@ -75,9 +79,34 @@ class TeacherRequiredMixin(UserPassesTestMixin):
         return redirect('users1:admin_dashboard')
 
 
-class AdminRequiredMixin(UserPassesTestMixin):
+class DirectorRequiredMixin(UserPassesTestMixin):
     def test_func(self):
-        return self.request.user.is_authenticated and self.request.user.is_admin_role
+        return self.request.user.is_authenticated and self.request.user.is_director
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('users1:login')
+        if self.request.user.is_administrator_role:
+            return redirect('users1:administrator_dashboard')
+        return redirect('users1:teacher_dashboard')
+
+
+class AdministratorRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_administrator_role
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('users1:login')
+        if self.request.user.is_director:
+            return redirect('users1:admin_dashboard')
+        return redirect('users1:teacher_dashboard')
+
+
+class AdminAccessRequiredMixin(UserPassesTestMixin):
+    """Access for either Director or Administrator"""
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_admin_access
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
@@ -161,15 +190,36 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         groups = self.request.user.teaching_groups.filter(is_active=True)
+        today = timezone.localdate()
+
         schedule = []
         for group in groups:
             if group.lesson_days and group.lesson_time:
+                # Kelgusi 7 kun uchun mavzular
+                from attendance.models import LessonPlan, AttendanceSession
+                upcoming_dates = []
+                for i in range(7):
+                    check_date = today + timezone.timedelta(days=i)
+                    day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+                    if day_names[check_date.weekday()] in group.lesson_days:
+                        plan = LessonPlan.objects.filter(group=group, date=check_date).first()
+                        session = AttendanceSession.objects.filter(group=group, date=check_date).first()
+                        upcoming_dates.append({
+                            'date': check_date,
+                            'day_name': day_names[check_date.weekday()],
+                            'topic': plan.topic if plan else (session.lesson_topic if session and session.lesson_topic else ''),
+                            'has_plan': bool(plan),
+                            'has_session': bool(session),
+                        })
+
                 schedule.append({
                     'group': group,
                     'time': group.lesson_time,
                     'days': group.lesson_days,
+                    'upcoming_dates': upcoming_dates,
                 })
         context['schedule'] = schedule
+        context['today'] = today
         return context
 
 
@@ -177,30 +227,61 @@ class TeacherProfileView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView)
     template_name = 'users1/teacher_profile.html'
 
 
-class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
+class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
     template_name = 'users1/admin_dashboard.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         today = timezone.localdate()
+        this_month = today.month
+        this_year = today.year
 
+        # Asosiy statistika
+        context['total_students'] = Student.objects.filter(is_active=True).count()
+        context['active_groups_count'] = Group.objects.filter(is_active=True).count()
+        context['teachers_count'] = User.objects.filter(role=User.Role.TEACHER).count()
+        context['admins_count'] = User.objects.filter(role=User.Role.ADMINISTRATOR).count()
+        
         # Qarzdorlar soni
         context['debtors_count'] = StudentMonthBalance.objects.filter(
             status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL]
         ).values('student').distinct().count()
 
+        # Bugungi tug'ilgan kunlar
+        context['birthdays_today'] = Student.objects.filter(
+            birth_date__month=today.month,
+            birth_date__day=today.day,
+            is_active=True
+        )
+
         # Shu oylik daromad
         context['monthly_income'] = PaymentTransaction.objects.filter(
-            payment_date__year=today.year,
-            payment_date__month=today.month
+            payment_date__year=this_year,
+            payment_date__month=this_month
         ).aggregate(total=Sum('amount'))['total'] or 0
 
-        # Bugungi davomat
-        context['today_attendance'] = AttendanceRecord.objects.filter(
-            session__date=today
+        # Davomat statistikasi
+        context['today_attendance'] = AttendanceRecord.objects.filter(session__date=today).count()
+        
+        # Haftalik davomat (oxirgi 7 kun)
+        last_week = today - timezone.timedelta(days=7)
+        context['weekly_attendance'] = AttendanceRecord.objects.filter(
+            session__date__range=[last_week, today]
         ).count()
 
-        # Muddati kelgan o'quvchilar (guruhlar bo'yicha)
+        # Oylik davomat
+        context['monthly_attendance'] = AttendanceRecord.objects.filter(
+            session__date__year=this_year,
+            session__date__month=this_month
+        ).count()
+
+        # Oxirgi to'lovlar
+        context['recent_payments'] = PaymentTransaction.objects.select_related('student', 'group').order_by('-created_at')[:5]
+
+        # Oxirgi qo'shilgan o'quvchilar
+        context['recent_students'] = Student.objects.filter(is_active=True).order_by('-created_at')[:5]
+
+        # Guruhlar bo'yicha qarzlar
         from collections import defaultdict
         debtors_qs = StudentMonthBalance.objects.filter(
             status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL]
@@ -213,7 +294,10 @@ class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
                 grouped_debtors[gid]['group'] = d.group
             grouped_debtors[gid]['students'].append(d)
             grouped_debtors[gid]['total_debt'] += float(d.debt_amount)
-        context['grouped_debtors'] = grouped_debtors.values()
+        
+        sorted_groups_by_debt = sorted(grouped_debtors.values(), key=lambda x: x['total_debt'], reverse=True)
+        context['grouped_debtors'] = sorted_groups_by_debt[:5]
+        context['worst_group_by_debt'] = sorted_groups_by_debt[0]['group'] if sorted_groups_by_debt else None
 
         # Ota-onalardan kelgan xabarlar (hal qilinmagan)
         context['pending_appeals'] = TelegramAppeal.objects.filter(
@@ -221,6 +305,27 @@ class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         ).select_related('telegram_user', 'student').order_by('-created_at')[:10]
         context['pending_appeals_count'] = TelegramAppeal.objects.filter(is_resolved=False).count()
 
+        # OTVAR: Davomat olinmagan guruhlar
+        missing_attendance = []
+        days_map = {
+            0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba',
+            4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'
+        }
+        today_name = days_map[today.weekday()]
+        now_time = timezone.localtime().time()
+
+        groups_today = Group.objects.filter(
+            is_active=True,
+            lesson_days__contains=today_name,
+            end_time__lt=now_time
+        ).select_related('teacher')
+
+        for group in groups_today:
+            # Bugun uchun davomat sessiyasi bormi?
+            if not AttendanceSession.objects.filter(group=group, date=today).exists():
+                missing_attendance.append(group)
+        
+        context['missing_attendance'] = missing_attendance
         # Guruhlar ro'yxati (xabar yuborish uchun)
         context['groups'] = Group.objects.filter(is_active=True).order_by('name')
 
@@ -303,7 +408,83 @@ def broadcast_to_group(request):
     return JsonResponse({'ok': True, 'sent_count': sent_count, 'group_name': group.name})
 
 
-class TeacherListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+@require_http_methods(['POST'])
+def broadcast_all(request):
+    import json
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
+
+    text = payload.get('message', '').strip()
+    if not text:
+        return JsonResponse({'detail': 'Xabar matnini kiriting'}, status=400)
+
+    telegram_users = TelegramUser.objects.filter(is_verified=True)
+
+    sent_count = 0
+    for tu in telegram_users:
+        try:
+            from bot.services import send_telegram_message
+            send_telegram_message(tu.telegram_id, text)
+            sent_count += 1
+        except Exception:
+            pass
+
+    return JsonResponse({'ok': True, 'sent_count': sent_count})
+
+
+class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin, TemplateView):
+    template_name = 'users1/administrator_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+
+        # Faol guruhlar
+        context['active_groups_count'] = Group.objects.filter(is_active=True).count()
+        
+        # Jami o'quvchilar
+        context['total_students_count'] = Student.objects.filter(is_active=True).count()
+
+        # Bugungi davomat
+        context['today_attendance'] = AttendanceRecord.objects.filter(
+            session__date=today
+        ).count()
+
+        # Faqat o'zi qilgan to'lovlar tarixim (oxirgi 10 tasi)
+        context['my_payments'] = PaymentTransaction.objects.filter(
+            created_by=self.request.user
+        ).select_related('student', 'group').order_by('-created_at')[:10]
+
+        # Guruhlar ro'yxati
+        context['groups'] = Group.objects.filter(is_active=True).order_by('name')
+
+        # OTVAR: Davomat olinmagan guruhlar
+        missing_attendance = []
+        days_map = {
+            0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba',
+            4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'
+        }
+        today_name = days_map[today.weekday()]
+        now_time = timezone.localtime().time()
+
+        groups_today = Group.objects.filter(
+            is_active=True,
+            lesson_days__contains=today_name,
+            end_time__lt=now_time
+        ).select_related('teacher')
+
+        for group in groups_today:
+            if not AttendanceSession.objects.filter(group=group, date=today).exists():
+                missing_attendance.append(group)
+        
+        context['missing_attendance'] = missing_attendance
+
+        return context
+
+
+class TeacherListView(LoginRequiredMixin, DirectorRequiredMixin, ListView):
     template_name = 'users1/teacher_list.html'
     context_object_name = 'teachers'
 
@@ -318,9 +499,10 @@ class TeacherListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
         return context
 
 
-class TeacherCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
+class TeacherCreateView(LoginRequiredMixin, DirectorRequiredMixin, CreateView):
     template_name = 'users1/teacher_form.html'
     form_class = TeacherCreateForm
+    context_object_name = 'teacher_obj'
     success_url = reverse_lazy('users1:teacher_list')
 
     def form_valid(self, form):
@@ -338,9 +520,10 @@ class TeacherCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
         return redirect(self.success_url)
 
 
-class TeacherUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
+class TeacherUpdateView(LoginRequiredMixin, DirectorRequiredMixin, UpdateView):
     template_name = 'users1/teacher_form.html'
     model = User
+    context_object_name = 'teacher_obj'
     fields = ['username', 'phone']
     success_url = reverse_lazy('users1:teacher_list')
 
@@ -356,11 +539,10 @@ class TeacherUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
         parts = full_name.split(None, 1)
         self.object.first_name = parts[0]
         self.object.last_name = parts[1] if len(parts) > 1 else ''
-        self.object.save()
-
-        form.save()
+        
+        user = form.save()
         messages.success(self.request, "O'qituvchi ma'lumotlari yangilandi!")
-        return redirect(self.success_url)
+        return redirect('users1:teacher_list')
 
 
 @require_http_methods(['POST'])

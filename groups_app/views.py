@@ -5,12 +5,53 @@ from django.urls import reverse_lazy
 from django.views.decorators.http import require_http_methods
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from users1.views import AdminRequiredMixin
-from .models import Group, GroupStudent
+from users1.views import AdminAccessRequiredMixin
+from .models import Group, GroupStudent, Room
 from students.models import Student
+import datetime
 
 
-class GroupListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+class RoomAvailabilityView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
+    template_name = 'groups_app/room_availability.html'
+    context_object_name = 'rooms_data'
+
+    def get_queryset(self):
+        # We'll build a data structure: {room_id: {day: [groups]}}
+        rooms = Room.choices
+        days_of_week = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+        
+        schedule = []
+        active_groups = Group.objects.filter(is_active=True).select_related('teacher')
+        
+        for r_val, r_label in rooms:
+            room_days = []
+            for day in days_of_week:
+                day_groups = [
+                    g for g in active_groups 
+                    if g.room == r_val and g.lesson_days and day in g.lesson_days
+                ]
+                # Sort by time
+                day_groups.sort(key=lambda x: x.lesson_time if x.lesson_time else datetime.time(0,0))
+                room_days.append({
+                    'day': day,
+                    'groups': day_groups
+                })
+            
+            schedule.append({
+                'id': r_val,
+                'name': r_label,
+                'days': room_days
+            })
+            
+        return schedule
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['days'] = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+        return context
+
+
+class GroupListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     model = Group
     template_name = 'groups_app/group_list.html'
     context_object_name = 'groups'
@@ -29,7 +70,7 @@ class GroupListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
         return context
 
 
-class GroupDetailView(LoginRequiredMixin, AdminRequiredMixin, DetailView):
+class GroupDetailView(LoginRequiredMixin, AdminAccessRequiredMixin, DetailView):
     model = Group
     template_name = 'groups_app/group_detail.html'
     context_object_name = 'group'
@@ -41,10 +82,10 @@ class GroupDetailView(LoginRequiredMixin, AdminRequiredMixin, DetailView):
         return context
 
 
-class GroupCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
+class GroupCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView):
     model = Group
     template_name = 'groups_app/group_form.html'
-    fields = ['name', 'monthly_fee', 'teacher', 'start_date', 'lesson_days', 'lesson_time', 'room']
+    fields = ['name', 'monthly_fee', 'teacher', 'start_date', 'lesson_days', 'lesson_time', 'duration', 'room']
     success_url = reverse_lazy('groups_app:group_list')
 
     def get_context_data(self, **kwargs):
@@ -65,14 +106,20 @@ class GroupCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
                     form.add_error(None, msgs)
             return self.form_invalid(form)
         obj.save()
+        from reports.models import AuditLog
+        new_data = {'teacher': obj.teacher_id, 'room': obj.room, 'lesson_time': str(obj.lesson_time) if obj.lesson_time else None, 'duration': str(obj.duration) if obj.duration else None}
+        AuditLog.objects.create(
+            user=self.request.user, role=self.request.user.role,
+            action="Guruh yaratildi", new_data=new_data
+        )
         messages.success(self.request, f"'{obj.name}' guruhi muvaffaqiyatli yaratildi.")
         return redirect(self.success_url)
 
 
-class GroupUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
+class GroupUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView):
     model = Group
     template_name = 'groups_app/group_form.html'
-    fields = ['name', 'monthly_fee', 'teacher', 'start_date', 'lesson_days', 'lesson_time', 'room']
+    fields = ['name', 'monthly_fee', 'teacher', 'start_date', 'lesson_days', 'lesson_time', 'duration', 'room']
     success_url = reverse_lazy('groups_app:group_list')
 
     def get_context_data(self, **kwargs):
@@ -92,7 +139,15 @@ class GroupUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
                 else:
                     form.add_error(None, msgs)
             return self.form_invalid(form)
+        old_obj = Group.objects.get(pk=obj.pk) if obj.pk else None
+        old_data = {'teacher': old_obj.teacher_id, 'room': old_obj.room, 'lesson_time': str(old_obj.lesson_time) if old_obj.lesson_time else None, 'duration': str(old_obj.duration) if old_obj.duration else None} if old_obj else None
         obj.save()
+        from reports.models import AuditLog
+        new_data = {'teacher': obj.teacher_id, 'room': obj.room, 'lesson_time': str(obj.lesson_time) if obj.lesson_time else None, 'duration': str(obj.duration) if obj.duration else None}
+        AuditLog.objects.create(
+            user=self.request.user, role=self.request.user.role,
+            action="Guruh tahrirlandi", old_data=old_data, new_data=new_data
+        )
         messages.success(self.request, f"'{obj.name}' guruhi muvaffaqiyatli yangilandi.")
         return redirect(self.success_url)
 
@@ -103,7 +158,10 @@ def add_student_to_group(request, pk):
         student_id = request.POST.get('student_id')
         if student_id:
             student = get_object_or_404(Student, pk=student_id)
-            GroupStudent.objects.get_or_create(group=group, student=student, defaults={'is_active': True})
+            gs, created = GroupStudent.objects.get_or_create(group=group, student=student)
+            if not gs.is_active:
+                gs.is_active = True
+                gs.save()
     return redirect('groups_app:group_detail', pk=pk)
 
 

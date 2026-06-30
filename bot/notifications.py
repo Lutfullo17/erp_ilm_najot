@@ -70,3 +70,18 @@ def notify_payment_reminder(balance):
     
     for tg_user in telegram_users:
         send_telegram_message(tg_user.telegram_id, message)
+
+def notify_payment_deleted(payment_transaction):
+    """To'lov o'chirilganda xabar yuborish."""
+    student = payment_transaction.student
+    telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
+    
+    message = (
+        f"<b>❌ To'lov bekor qilindi</b>\n\n"
+        f"O'quvchi: <b>{student}</b> uchun kiritilgan <b>{money(payment_transaction.amount)} so'm</b> miqdoridagi to'lov "
+        f"({payment_transaction.payment_date}) ma'muriyat tomonidan bekor qilindi.\n\n"
+        f"Agar biron bir savolingiz bo'lsa, ma'muriyatga murojaat qiling."
+    )
+    
+    for tg_user in telegram_users:
+        send_telegram_message(tg_user.telegram_id, message)

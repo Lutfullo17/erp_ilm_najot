@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}Xonalar Bandligi | Najot ERP{% endblock %}
+{% block header_title %}Xonalar Bandligi Jadvali{% endblock %}
+
+{% block content %}
+<div class="glass-panel animate-fade-in" style="margin-bottom: 2rem; padding: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem;">Haftalik Ish Tartibi</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Xonalar bo'yicha guruhlar taqsimoti</p>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary);"></span> Band
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);"></span> Bo'sh
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2rem;">
+    {% for room in rooms_data %}
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <h3 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; font-size: 1.1rem; color: var(--primary);">
+            <i class="fas fa-door-open"></i> {{ room.name }}
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem;">
+            {% for day_data in room.days %}
+            <div style="min-width: 140px;">
+                <div style="text-align: center; padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 12px 12px 0 0; border: 1px solid var(--border); border-bottom: none; font-weight: 600; font-size: 0.85rem;">
+                    {{ day_data.day }}
+                </div>
+                <div style="min-height: 250px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 0 0 12px 12px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    {% for group in day_data.groups %}
+                    <div style="padding: 0.75rem; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; font-size: 0.75rem;">
+                        <div style="font-weight: 700; color: var(--primary); margin-bottom: 0.25rem;">{{ group.lesson_time|time:"H:i" }}</div>
+                        <div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ group.name }}">{{ group.name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem;">{{ group.teacher.first_name }}</div>
+                    </div>
+                    {% empty %}
+                    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.7rem; font-style: italic; opacity: 0.5;">
+                        Bo'sh
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    /* Custom scrollbar for horizontal containers */
+    div::-webkit-scrollbar {
+        height: 6px;
+    }
+    div::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    div::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }
+    div::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+</style>
+{% endblock %}

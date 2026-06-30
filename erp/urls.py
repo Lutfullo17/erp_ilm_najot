@@ -27,5 +27,6 @@ urlpatterns = [
     path('payments/', include('payments.urls')),
     path('students/', include('students.urls')),
     path('users/', include('users1.urls')),
+    path('reports/', include('reports.urls')),
     path('', lambda r: redirect('users1:index'), name='root_redirect'),
 ]

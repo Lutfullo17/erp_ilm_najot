@@ -5,7 +5,7 @@
 
 {% block content %}
 <!-- Asosiy statistika -->
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+<div class="grid-4" style="margin-bottom: 2rem;">
     <div class="glass-panel" style="padding: 1.25rem;">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
             <div style="width: 45px; height: 45px; border-radius: 12px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center;">
@@ -59,7 +59,7 @@
     </h2>
     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
         {% for lesson in today_lessons %}
-        <div style="padding: 0.75rem 1rem; border-radius: 10px; background: rgba(99, 102, 241, 0.08); display: flex; justify-content: space-between; align-items: center;">
+        <a href="{% url 'attendance:attendance_mark' lesson.group.id %}" style="padding: 0.75rem 1rem; border-radius: 10px; background: rgba(99, 102, 241, 0.08); display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit; transition: background 0.2s;" onmouseenter="this.style.background='rgba(99, 102, 241, 0.18)'" onmouseleave="this.style.background='rgba(99, 102, 241, 0.08)'">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <div style="width: 35px; height: 35px; border-radius: 8px; background: var(--primary); display: flex; align-items: center; justify-content: center;">
                     <i class="fas fa-book" style="color: white; font-size: 0.8rem;"></i>
@@ -69,8 +69,13 @@
                     <div style="color: var(--text-muted); font-size: 0.75rem;">{{ lesson.group.students.count }} o'quvchi</div>
                 </div>
             </div>
-            <div style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">{{ lesson.time|time:"H:i" }}</div>
-        </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">{{ lesson.time|time:"H:i" }}</div>
+                <span style="padding: 0.35rem 0.75rem; border-radius: 8px; background: var(--primary); color: white; font-size: 0.75rem; font-weight: 600;">
+                    <i class="fas fa-check-double"></i> Davomat
+                </span>
+            </div>
+        </a>
         {% empty %}
         <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
             <i class="fas fa-calendar-check" style="font-size: 1.5rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>

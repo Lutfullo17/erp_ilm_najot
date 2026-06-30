@@ -10,6 +10,7 @@
         <i class="fas fa-plus-circle"></i>
         <span>Yangi To'lov</span>
     </a>
+    {% if user.is_director %}
     <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 0.8rem 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
         <i class="fas fa-wallet" style="color: var(--success);"></i>
         <div>
@@ -17,11 +18,12 @@
             <div style="font-weight: 700; font-size: 1.1rem; color: var(--success);">{{ monthly_income|money }} so'm</div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <div class="glass-panel">
     <div class="table-container">
-        <table>
+        <table class="mobile-card-table">
             <thead>
                 <tr>
                     <th>Sana</th>
@@ -30,23 +32,36 @@
                     <th>Summa</th>
                     <th>Usul</th>
                     <th>Admin</th>
+                    {% if user.is_director %}
+                    <th>Amallar</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for payment in payments %}
                 <tr>
-                    <td>{{ payment.payment_date|date:"Y-m-d" }}</td>
-                    <td>
+                    <td data-label="Sana">{{ payment.payment_date|date:"Y-m-d" }}</td>
+                    <td data-label="O'quvchi">
                         <div style="font-weight: 600;">{{ payment.student.get_full_name }}</div>
                     </td>
-                    <td>{{ payment.group.name }}</td>
-                    <td style="color: var(--success); font-weight: 700;">+{{ payment.amount|money }}</td>
-                    <td>
+                    <td data-label="Guruh">{{ payment.group.name }}</td>
+                    <td data-label="Summa" style="color: var(--success); font-weight: 700;">+{{ payment.amount|money }}</td>
+                    <td data-label="Usul">
                         <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text);">
                             {{ payment.get_method_display }}
                         </span>
                     </td>
-                    <td style="font-size: 0.85rem; color: var(--text-muted);">{{ payment.created_by.username|default:"-" }}</td>
+                    <td data-label="Admin" style="font-size: 0.85rem; color: var(--text-muted);">{{ payment.created_by.username|default:"-" }}</td>
+                    {% if user.is_director %}
+                    <td data-label="Amallar">
+                        <form action="{% url 'payments:delete_payment' payment.id %}" method="post" style="display:inline;" onsubmit="return confirm('Haqiqatdan ham ushbu to\'lovni o\'chirmoqchimisiz? Shu bilan birga o\'quvchi balansi ham qayta tiklanadi.');">
+                            {% csrf_token %}
+                            <button type="submit" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 5px;" title="O'chirish">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% empty %}
                 <tr>

@@ -11,4 +11,5 @@ urlpatterns = [
     path('<int:pk>/add-student/', views.add_student_to_group, name='add_student'),
     path('<int:pk>/delete/', views.delete_group, name='group_delete'),
     path('<int:pk>/toggle-pause/', views.toggle_pause_group, name='group_toggle_pause'),
+    path('rooms/', views.RoomAvailabilityView.as_view(), name='room_availability'),
 ]

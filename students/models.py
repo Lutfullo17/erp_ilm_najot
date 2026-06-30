@@ -2,12 +2,24 @@ from django.db import models
 
 
 class Student(models.Model):
+    class Gender(models.TextChoices):
+        MALE = 'MALE', 'Erkak'
+        FEMALE = 'FEMALE', 'Ayol'
+
+    class Status(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'Faol'
+        FROZEN = 'FROZEN', 'Muzlatilgan'
+        LEFT = 'LEFT', 'Ketgan'
+
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     phone = models.CharField(max_length=20, blank=True)
+    secondary_phone = models.CharField(max_length=20, blank=True, verbose_name="Qo'shimcha telefon")
     parent_phone = models.CharField(max_length=20, blank=True, verbose_name="Ota-ona telefon raqami")
     birth_date = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=Gender.choices, default=Gender.MALE, verbose_name="Jinsi")
     address = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, verbose_name="Holati")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

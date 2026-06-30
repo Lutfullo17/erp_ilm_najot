@@ -41,6 +41,8 @@ class Group(models.Model):
     start_date = models.DateField(null=True, blank=True, verbose_name="Boshlanish sanasi")
     lesson_days = models.CharField(max_length=100, blank=True, verbose_name="Dars kunlari")
     lesson_time = models.TimeField(null=True, blank=True, verbose_name="Dars vaqti")
+    duration = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name="Davomiyligi (soat)")
+    end_time = models.TimeField(null=True, blank=True, verbose_name="Tugash vaqti")
     room = models.IntegerField(choices=Room.choices, null=True, blank=True, verbose_name="Xona")
     is_active = models.BooleanField(default=True, verbose_name="Faol")
     is_paused = models.BooleanField(default=False, verbose_name="Vaqtincha to'xtatilgan")
@@ -61,27 +63,39 @@ class Group(models.Model):
         if self.teacher_id and not self.teacher.is_teacher:
             errors['teacher'] = "Guruh o'qituvchisi TEACHER role'da bo'lishi kerak."
 
-        # Vaqt va kun bo'yicha konflikt tekshiruvi (faqat lesson_time va lesson_days bo'lsa)
-        if self.lesson_time and self.lesson_days:
+        import datetime
+        # Calculate end_time based on lesson_time and duration
+        if self.lesson_time and self.duration:
+            hours = int(self.duration)
+            minutes = int((self.duration - hours) * 60)
+            td = datetime.timedelta(hours=hours, minutes=minutes)
+            start_dt = datetime.datetime.combine(datetime.date.today(), self.lesson_time)
+            self.end_time = (start_dt + td).time()
+
+        # Vaqt va kun bo'yicha konflikt tekshiruvi
+        if self.lesson_time and self.end_time and self.lesson_days:
+            # Dars kunlari ro'yxati
+            self_days = set(d.strip() for d in self.lesson_days.split(',') if d.strip())
+
             # Shu o'qituvchi o'sha vaqtda boshqa guruhda ham dars beradimi?
             if self.teacher_id:
                 teacher_conflict = Group.objects.filter(
                     teacher_id=self.teacher_id,
-                    lesson_time=self.lesson_time,
                     is_active=True,
+                    lesson_time__isnull=False,
+                    end_time__isnull=False
                 ).exclude(pk=self.pk)
 
-                # Dars kunlarida kesishuv bormi?
-                self_days = set(d.strip() for d in self.lesson_days.split(',') if d.strip())
-                for conflict_group in teacher_conflict:
-                    if conflict_group.lesson_days:
-                        conflict_days = set(d.strip() for d in conflict_group.lesson_days.split(',') if d.strip())
-                        overlap = self_days & conflict_days
-                        if overlap:
+                for cg in teacher_conflict:
+                    if not cg.lesson_days:
+                        continue
+                    cg_days = set(d.strip() for d in cg.lesson_days.split(',') if d.strip())
+                    overlap = self_days & cg_days
+                    if overlap:
+                        # overlap logic: start_A < end_B AND end_A > start_B
+                        if self.lesson_time < cg.end_time and self.end_time > cg.lesson_time:
                             errors['teacher'] = (
-                                f"Bu o'qituvchi soat {self.lesson_time.strftime('%H:%M')} da "
-                                f"{', '.join(overlap)} kuni(lari)da '{conflict_group.name}' guruhida "
-                                f"allaqachon dars beradi!"
+                                f"Tanlangan o'qituvchi ushbu vaqt oralig'ida boshqa guruhda dars o'tmoqda ({cg.name})."
                             )
                             break
 
@@ -89,20 +103,21 @@ class Group(models.Model):
             if self.room:
                 room_conflict = Group.objects.filter(
                     room=self.room,
-                    lesson_time=self.lesson_time,
                     is_active=True,
+                    lesson_time__isnull=False,
+                    end_time__isnull=False
                 ).exclude(pk=self.pk)
 
-                self_days = set(d.strip() for d in self.lesson_days.split(',') if d.strip())
-                for conflict_group in room_conflict:
-                    if conflict_group.lesson_days:
-                        conflict_days = set(d.strip() for d in conflict_group.lesson_days.split(',') if d.strip())
-                        overlap = self_days & conflict_days
-                        if overlap:
+                for cg in room_conflict:
+                    if not cg.lesson_days:
+                        continue
+                    cg_days = set(d.strip() for d in cg.lesson_days.split(',') if d.strip())
+                    overlap = self_days & cg_days
+                    if overlap:
+                        # overlap logic: start_A < end_B AND end_A > start_B
+                        if self.lesson_time < cg.end_time and self.end_time > cg.lesson_time:
                             errors['room'] = (
-                                f"Bu xona soat {self.lesson_time.strftime('%H:%M')} da "
-                                f"{', '.join(overlap)} kuni(lari)da '{conflict_group.name}' guruhi "
-                                f"tomonidan allaqachon band!"
+                                f"Tanlangan xona ushbu vaqt oralig'ida band ({cg.name})."
                             )
                             break
 

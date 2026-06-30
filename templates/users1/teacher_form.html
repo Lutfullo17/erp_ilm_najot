@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if object %}Tahrirlash{% else %}Yangi O'qituvchi{% endif %} | Ilm Najot ERP{% endblock %}
-{% block header_title %}{% if object %}O'qituvchini Tahrirlash{% else %}Yangi O'qituvchi Qo'shish{% endif %}{% endblock %}
+{% block title %}{% if teacher_obj %}Tahrirlash{% else %}Yangi O'qituvchi{% endif %} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{% if teacher_obj %}O'qituvchini Tahrirlash{% else %}Yangi O'qituvchi Qo'shish{% endif %}{% endblock %}
 
 {% block content %}
 <div style="max-width: 650px; margin: 0 auto;">
@@ -19,7 +19,7 @@
             <div class="form-group">
                 <label for="id_full_name"><i class="fas fa-user-tie"></i> Ism Familiya</label>
                 <input type="text" id="id_full_name" name="full_name" required
-                       value="{% if object %}{{ object.first_name }} {{ object.last_name }}{% endif %}"
+                       value="{% if teacher_obj %}{{ teacher_obj.first_name }} {{ teacher_obj.last_name }}{% endif %}"
                        placeholder="Masalan: Ali Valiyev">
                 {% if form.first_name.errors %}
                     <div class="error-msg">{{ form.first_name.errors.0 }}</div>
@@ -48,7 +48,7 @@
                 </div>
             </div>
 
-            {% if not object %}
+            {% if not teacher_obj %}
             <div class="grid-layout">
                 <div class="form-group">
                     <label for="id_password1"><i class="fas fa-lock"></i> Parol</label>

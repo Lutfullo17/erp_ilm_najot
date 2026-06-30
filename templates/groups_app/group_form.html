@@ -62,13 +62,29 @@
 
                 <!-- Dars vaqti -->
                 <div class="form-group">
-                    <label for="id_lesson_time"><i class="fas fa-clock"></i> Dars vaqti</label>
+                    <label for="id_lesson_time"><i class="fas fa-clock"></i> Dars boshlanish vaqti</label>
                     <input type="text" id="id_lesson_time" name="lesson_time"
                            placeholder="SS:DD (masalan: 14:30)"
                            value="{% if form.lesson_time.value %}{{ form.lesson_time.value }}{% endif %}"
-                           maxlength="5" inputmode="numeric">
+                           maxlength="5" inputmode="numeric" required>
                     {% if form.lesson_time.errors %}
                         <div class="error-msg">{{ form.lesson_time.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Davomiyligi -->
+                <div class="form-group">
+                    <label for="id_duration"><i class="fas fa-hourglass-half"></i> Davomiyligi</label>
+                    <select id="id_duration" name="duration" required>
+                        <option value="">-- Tanlang --</option>
+                        <option value="1.0" {% if form.duration.value|stringformat:'s' == '1.0' %}selected{% endif %}>1 soat</option>
+                        <option value="1.5" {% if form.duration.value|stringformat:'s' == '1.5' %}selected{% endif %}>1.5 soat</option>
+                        <option value="2.0" {% if form.duration.value|stringformat:'s' == '2.0' %}selected{% endif %}>2 soat</option>
+                        <option value="2.5" {% if form.duration.value|stringformat:'s' == '2.5' %}selected{% endif %}>2.5 soat</option>
+                        <option value="3.0" {% if form.duration.value|stringformat:'s' == '3.0' %}selected{% endif %}>3 soat</option>
+                    </select>
+                    {% if form.duration.errors %}
+                        <div class="error-msg">{{ form.duration.errors.0 }}</div>
                     {% endif %}
                 </div>
 

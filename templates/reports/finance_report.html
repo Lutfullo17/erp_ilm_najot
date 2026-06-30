@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}Tushum Hisoboti | Director{% endblock %}
+{% block header_title %}Moliyaviy Hisobotlar{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="glass-panel" style="text-align: center; padding: 2rem;">
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem;">UBM (Jami tushum)</div>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ total_income|money }}</div>
+    </div>
+    <div class="glass-panel" style="text-align: center; padding: 2rem;">
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Jami O'quvchilar</div>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_students }}</div>
+    </div>
+    <div class="glass-panel" style="text-align: center; padding: 2rem;">
+        <div style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Jami Guruhlar</div>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--warning);">{{ total_groups }}</div>
+    </div>
+</div>
+
+<div class="glass-panel">
+    <h2 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+        <i class="fas fa-chart-bar" style="color: var(--primary);"></i> Oylik tushum statistikasi (Oxirgi 12 oy)
+    </h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Oy</th>
+                    <th>Tushum miqdori</th>
+                    <th>O'sish/Kamayish</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in monthly_income %}
+                <tr>
+                    <td><div style="font-weight: 600;">{{ item.month|date:"F Y" }}</div></td>
+                    <td><span style="color: var(--success); font-weight: 600; font-size: 1.1rem;">{{ item.total|money }} so'm</span></td>
+                    <td>
+                        <div style="width: 100%; background: rgba(255,255,255,0.05); height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: {% widthratio item.total total_income 100 %}%; background: var(--primary); height: 100%;"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

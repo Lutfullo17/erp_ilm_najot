@@ -7,22 +7,21 @@
 <div class="glass-panel">
     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
         {% for group in groups %}
-        <a href="{% url 'groups_app:group_detail' group.id %}" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.03); text-decoration: none; color: inherit; transition: background 0.2s;" onmouseenter="this.style.background='rgba(99, 102, 241, 0.1)'" onmouseleave="this.style.background='rgba(255,255,255,0.03)'">
-            <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.03);">
+            <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
                 <div class="avatar" style="width: 40px; height: 40px; font-size: 0.85rem;">{{ group.name.0 }}</div>
                 <div>
                     <div style="font-weight: 600; font-size: 1rem;">{{ group.name }}</div>
-                    <div style="color: var(--text-muted); font-size: 0.8rem;">{{ group.students.count }} o'quvchi</div>
+                    <div style="color: var(--text-muted); font-size: 0.8rem;">{{ group.students.count }} o'quvchi &middot; {{ group.lesson_days }}</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <div style="text-align: right;">
-                    <div style="color: var(--text-muted); font-size: 0.75rem;">{{ group.lesson_days }}</div>
-                    <div style="color: var(--primary); font-weight: 600; font-size: 0.85rem;">{{ group.lesson_time|time:"H:i" }}</div>
-                </div>
-                <i class="fas fa-chevron-right" style="color: var(--text-muted); font-size: 0.75rem;"></i>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">{{ group.lesson_time|time:"H:i" }}</div>
+                <a href="{% url 'attendance:attendance_mark' group.id %}" style="padding: 0.5rem 1rem; border-radius: 10px; background: var(--primary); color: white; text-decoration: none; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">
+                    <i class="fas fa-check-double"></i> Davomat
+                </a>
             </div>
-        </a>
+        </div>
         {% empty %}
         <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
             <i class="fas fa-users" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>

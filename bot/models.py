@@ -13,6 +13,14 @@ class TelegramUser(models.Model):
         null=True,
         blank=True,
     )
+    user = models.ForeignKey(
+        'users1.User',
+        on_delete=models.SET_NULL,
+        related_name='telegram_users',
+        null=True,
+        blank=True,
+        verbose_name="Admin/O'qituvchi",
+    )
     is_verified = models.BooleanField(default=False)
     state = models.CharField(max_length=50, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -28,6 +36,11 @@ class TelegramUser(models.Model):
 
 
 class TelegramAppeal(models.Model):
+    class SenderType(models.TextChoices):
+        STUDENT = 'STUDENT', 'O\'quvchi'
+        ADMIN = 'ADMIN', 'Admin'
+        TEACHER = 'TEACHER', 'O\'qituvchi'
+
     telegram_user = models.ForeignKey(
         TelegramUser,
         on_delete=models.CASCADE,
@@ -39,6 +52,18 @@ class TelegramAppeal(models.Model):
         related_name='telegram_appeals',
     )
     message = models.TextField()
+    sender_type = models.CharField(
+        max_length=20,
+        choices=SenderType.choices,
+        default=SenderType.STUDENT,
+        verbose_name="Xabar turi",
+    )
+    recipient_type = models.CharField(
+        max_length=20,
+        choices=SenderType.choices,
+        blank=True,
+        verbose_name="Kimga yuborildi",
+    )
     is_resolved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

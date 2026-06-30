@@ -374,7 +374,49 @@
         .animate-fade-in {
             animation: fadeIn 0.5s ease forwards;
         }
-    </style>
+        /* Responsive Grid Utilities */
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+
+    @media (max-width: 1024px) {
+        .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+        .grid-4, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Mobile Table to Cards */
+    @media (max-width: 768px) {
+        .mobile-card-table thead { display: none; }
+        .mobile-card-table tr { 
+            display: block; 
+            margin-bottom: 1rem; 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            background: rgba(255,255,255,0.02);
+            overflow: hidden;
+        }
+        .mobile-card-table td { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 0.75rem 1rem; 
+            border-bottom: 1px solid var(--border);
+            text-align: right !important;
+            font-size: 0.85rem;
+        }
+        .mobile-card-table td::before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: left;
+            margin-right: 1rem;
+        }
+        .mobile-card-table td:last-child { border-bottom: none; }
+    }
+</style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -384,13 +426,37 @@
             <span>Najot ERP</span>
         </div>
         <ul class="nav-links">
-            {% if user.is_admin_role %}
+            {% if user.is_director %}
             <li class="nav-item">
-                <a href="{% url 'users1:admin_dashboard' %}" class="nav-link {% if 'admin' in request.path %}active{% endif %}">
+                <a href="{% url 'users1:admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Boshqaruv Paneli</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'reports:finance_report' %}" class="nav-link {% if 'reports' in request.path %}active{% endif %}">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Tushum Hisoboti</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_list' %}" class="nav-link {% if 'teachers' in request.path %}active{% endif %}">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <span>O'qituvchilar</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if user.is_administrator_role %}
+            <li class="nav-item">
+                <a href="{% url 'users1:administrator_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'administrator_dashboard' %}active{% endif %}">
                     <i class="fas fa-th-large"></i>
                     <span>Dashboard</span>
                 </a>
             </li>
+            {% endif %}
+
+            {% if user.is_admin_access %}
             <li class="nav-item">
                 <a href="{% url 'students:student_list' %}" class="nav-link {% if 'students' in request.path %}active{% endif %}">
                     <i class="fas fa-user-graduate"></i>
@@ -398,21 +464,21 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'groups_app:group_list' %}" class="nav-link {% if 'groups' in request.path %}active{% endif %}">
+                <a href="{% url 'groups_app:group_list' %}" class="nav-link {% if 'groups' in request.path and 'rooms' not in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Guruhlar</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'groups_app:room_availability' %}" class="nav-link {% if 'rooms' in request.path %}active{% endif %}">
+                    <i class="fas fa-calendar-week"></i>
+                    <span>Xonalar Bandligi</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="{% url 'payments:payment_list' %}" class="nav-link {% if 'payments' in request.path %}active{% endif %}">
                     <i class="fas fa-wallet"></i>
                     <span>To'lovlar</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{% url 'users1:teacher_list' %}" class="nav-link {% if 'teachers' in request.path %}active{% endif %}">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                    <span>O'qituvchilar</span>
                 </a>
             </li>
             {% endif %}
@@ -526,13 +592,13 @@
     </nav>
     {% endif %}
 
-    {% if user.is_admin_role %}
+    {% if user.is_admin_access %}
     <nav class="bottom-nav">
         <ul class="bottom-nav-items">
             <li>
-                <a href="{% url 'users1:admin_dashboard' %}" class="bottom-nav-item {% if 'admin' in request.path %}active{% endif %}">
+                <a href="{% if user.is_director %}{% url 'users1:admin_dashboard' %}{% else %}{% url 'users1:administrator_dashboard' %}{% endif %}" class="bottom-nav-item {% if 'dashboard' in request.resolver_match.url_name %}active{% endif %}">
                     <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
+                    <span>Home</span>
                 </a>
             </li>
             <li>
@@ -553,18 +619,23 @@
                     <span>To'lovlar</span>
                 </a>
             </li>
+            {% if user.is_admin_access %}
+            <li>
+                <a href="{% url 'groups_app:room_availability' %}" class="bottom-nav-item {% if 'rooms' in request.path %}active{% endif %}">
+                    <i class="fas fa-calendar-week"></i>
+                    <span>Xonalar</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if user.is_director %}
             <li>
                 <a href="{% url 'users1:teacher_list' %}" class="bottom-nav-item {% if 'teachers' in request.path %}active{% endif %}">
                     <i class="fas fa-chalkboard-teacher"></i>
                     <span>O'qituvchilar</span>
                 </a>
             </li>
-            <li>
-                <a href="{% url 'users1:logout' %}" class="bottom-nav-item" onclick="return confirm('Tizimdan chiqmoqchimisiz?');">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Chiqish</span>
-                </a>
-            </li>
+            {% endif %}
         </ul>
     </nav>
     {% endif %}

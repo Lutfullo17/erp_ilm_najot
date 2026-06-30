@@ -6,173 +6,241 @@
 
 {% block content %}
 <!-- Statistika kartalar -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem;">
-    <div class="glass-panel" style="padding: 1.5rem;">
+<div class="grid-4" style="margin-bottom: 2rem;">
+    <a href="{% url 'students:student_list' %}" class="glass-panel" style="padding: 1.25rem; border-bottom: 3px solid var(--primary); text-decoration: none; display: block; transition: transform 0.2s;">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Jami O'quvchilar</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: var(--text);">{{ total_students }}</div>
+            <div style="font-size: 0.75rem; color: var(--success);"><i class="fas fa-users"></i> Faol o'quvchilar</div>
+        </div>
+    </a>
+    <a href="{% url 'groups_app:group_list' %}" class="glass-panel" style="padding: 1.25rem; border-bottom: 3px solid var(--success); text-decoration: none; display: block; transition: transform 0.2s;">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Faol Guruhlar</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: var(--text);">{{ active_groups_count }}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ teachers_count }} ta o'qituvchi</div>
+        </div>
+    </a>
+    <a href="{% url 'payments:payment_list' %}" class="glass-panel" style="padding: 1.25rem; border-bottom: 3px solid var(--warning); text-decoration: none; display: block; transition: transform 0.2s;">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Oylik Tushum</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: var(--text);">{{ monthly_income|money }}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Joriy oy tushumi</div>
+        </div>
+    </a>
+    <a href="{% url 'payments:debtor_list' %}" class="glass-panel" style="padding: 1.25rem; border-bottom: 3px solid var(--danger); text-decoration: none; display: block; transition: transform 0.2s;">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Qarzdorlar</div>
+            <div style="font-size: 1.8rem; font-weight: 700; color: var(--danger);">{{ debtors_count }}</div>
+            <div style="font-size: 0.75rem; color: var(--danger);">To'lov muddati o'tgan</div>
+        </div>
+    </a>
+</div>
+
+<!-- O'rta qatordagi statistika -->
+<div class="grid-3" style="margin-bottom: 2rem;">
+    <a href="{% url 'reports:today_attendance' %}" class="glass-panel" style="padding: 1.25rem; text-decoration: none; transition: transform 0.2s; color: var(--text);">
         <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; background: rgba(239, 68, 68, 0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 1.25rem; color: var(--danger);"></i>
+            <div style="width: 45px; height: 45px; background: rgba(99, 102, 241, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-calendar-day" style="color: var(--primary);"></i>
             </div>
             <div>
-                <div style="font-size: 1.75rem; font-weight: 700;">{{ debtors_count }}</div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">Qarzdorlar</div>
+                <div style="font-size: 1.2rem; font-weight: 700;">{{ today_attendance }}</div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">Bugungi davomat</div>
+            </div>
+        </div>
+    </a>
+    <div class="glass-panel" style="padding: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 45px; height: 45px; background: rgba(16, 185, 129, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-history" style="color: var(--success);"></i>
+            </div>
+            <div>
+                <div style="font-size: 1.2rem; font-weight: 700;">{{ weekly_attendance }}</div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">Haftalik davomat</div>
             </div>
         </div>
     </div>
-
-    <div class="glass-panel" style="padding: 1.5rem;">
+    <div class="glass-panel" style="padding: 1.25rem;">
         <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; background: rgba(245, 158, 11, 0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-calendar-check" style="font-size: 1.25rem; color: var(--warning);"></i>
+            <div style="width: 45px; height: 45px; background: rgba(245, 158, 11, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-star" style="color: var(--warning);"></i>
             </div>
             <div>
-                <div style="font-size: 1.75rem; font-weight: 700;">{{ today_attendance }}</div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">Bugungi davomat</div>
+                <div style="font-size: 0.9rem; font-weight: 700;">{{ worst_group_by_debt.name|default:"Hamma to'lagan" }}</div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">Eng ko'p qarzdor guruh</div>
             </div>
         </div>
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-    <!-- Muddati kelgan o'quvchilar -->
-    <div class="glass-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h2 style="display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem;">
-                <i class="fas fa-clock" style="color: var(--danger);"></i> Muddati kelganlar
-            </h2>
-            <a href="{% url 'payments:debtor_list' %}" style="color: var(--primary); font-size: 0.85rem; text-decoration: none;">Barchasini ko'rish</a>
+{% if birthdays_today or missing_attendance %}
+<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+    {% if missing_attendance %}
+    {% for group in missing_attendance %}
+    <div class="glass-panel animate-fade-in" style="border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.05); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="width: 40px; height: 40px; background: var(--danger); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <div style="font-weight: 700; color: var(--danger); font-size: 0.95rem;">Davomat olinmagan!</div>
+                <div style="font-size: 0.9rem;">
+                    <strong>{{ group.name }}</strong> guruhida o'qituvchi <strong>{{ group.teacher.get_full_name }}</strong> tomonidan soat <strong>"{{ group.lesson_time|time:'H:i' }}"</strong> da dars boshlangan, lekin davomat hali olinmagan.
+                </div>
+            </div>
         </div>
-        <div style="max-height: 350px; overflow-y: auto;">
-            {% for item in grouped_debtors %}
-            <a href="{% url 'payments:group_debtor_list' item.group.id %}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1rem; margin-bottom: 0.5rem; border: 1px solid var(--border); border-radius: 12px; text-decoration: none; color: var(--text); transition: all 0.2s; background: rgba(255,255,255,0.03);" onmouseenter="this.style.background='rgba(99, 102, 241, 0.1)'; this.style.borderColor='rgba(99, 102, 241, 0.3)'" onmouseleave="this.style.background='rgba(255,255,255,0.03)'; this.style.borderColor='var(--border)'">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 40px; height: 40px; background: rgba(99, 102, 241, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-users" style="color: var(--primary); font-size: 0.9rem;"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight: 600; font-size: 0.95rem;">{{ item.group.name }}</div>
-                        <div style="color: var(--text-muted); font-size: 0.75rem;">{{ item.students|length }} o'quvchi qarzdor</div>
-                    </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <span style="color: var(--danger); font-weight: 600; font-size: 0.9rem;">{{ item.total_debt|money }} so'm</span>
-                    <i class="fas fa-chevron-right" style="color: var(--text-muted);"></i>
-                </div>
-            </a>
-            {% empty %}
-            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                <i class="fas fa-check-circle" style="font-size: 2rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>
-                Barcha to'lovlar o'z vaqtida
+        <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: var(--danger);">Davomatni ko'rish</a>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if birthdays_today %}
+    <div class="glass-panel animate-fade-in" style="border: 1px solid var(--warning); background: rgba(245, 158, 11, 0.05); padding: 1.25rem;">
+        <h3 style="color: var(--warning); font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-birthday-cake"></i> Bugungi tug'ilgan kunlar
+        </h3>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            {% for student in birthdays_today %}
+            <div style="background: rgba(255,255,255,0.05); padding: 0.5rem 1rem; border-radius: 12px; font-size: 0.9rem; border: 1px solid rgba(245, 158, 11, 0.2);">
+                {{ student.get_full_name }} ({{ student.birth_date|date:"Y" }}-yil)
             </div>
             {% endfor %}
         </div>
     </div>
+    {% endif %}
+</div>
+{% endif %}
 
-    <!-- Ota-onalardan kelgan xabarlar -->
-    <div class="glass-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h2 style="display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem;">
-                <i class="fas fa-envelope" style="color: var(--primary);"></i> Xabarlar
+<div class="grid-2" style="margin-bottom: 1.5rem; grid-template-columns: 1.5fr 1fr;">
+    <!-- Asosiy ishchi jadval (Qarzdorlar va Xabarlar o'rniga) -->
+    <div>
+        <!-- Oxirgi to'lovlar -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-money-bill-transfer" style="color: var(--success);"></i> Oxirgi to'lovlar
+                </h2>
+                <a href="{% url 'payments:payment_list' %}" style="color: var(--primary); font-size: 0.8rem; text-decoration: none;">Hammasi</a>
+            </div>
+            <div class="table-container">
+                <table class="mobile-card-table">
+                    <thead>
+                        <tr>
+                            <th>O'quvchi</th>
+                            <th>Guruh</th>
+                            <th>Miqdor</th>
+                            <th>Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in recent_payments %}
+                        <tr>
+                            <td data-label="O'quvchi"><div style="font-weight: 600; font-size: 0.9rem;">{{ p.student }}</div></td>
+                            <td data-label="Guruh"><span style="font-size: 0.85rem;">{{ p.group.name }}</span></td>
+                            <td data-label="Miqdor"><span style="color: var(--success); font-weight: 700; font-size: 0.9rem;">{{ p.amount|money }}</span></td>
+                            <td data-label="Admin" style="font-size: 0.8rem; color: var(--text-muted);">{{ p.created_by.first_name|default:p.created_by.username }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Oxirgi qo'shilgan o'quvchilar -->
+        <div class="glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-user-plus" style="color: var(--primary);"></i> Yangi o'quvchilar
+                </h2>
+                <a href="{% url 'students:student_list' %}" style="color: var(--primary); font-size: 0.8rem; text-decoration: none;">Hammasi</a>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for s in recent_students %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 35px; height: 35px; background: rgba(99, 102, 241, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: bold; font-size: 0.8rem;">
+                            {{ s.first_name.0 }}
+                        </div>
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 600;">{{ s.get_full_name }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ s.created_at|date:"d-M, Y" }}</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">{{ s.phone }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- O'ng taraf: Xabarlar va Guruhlar -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Xabarlar -->
+        <div class="glass-panel" style="flex-grow: 1;">
+            <h2 style="display: flex; justify-content: space-between; align-items: center; font-size: 1.1rem; margin-bottom: 1.25rem;">
+                <span><i class="fas fa-envelope" style="color: var(--primary);"></i> Xabarlar</span>
                 {% if pending_appeals_count > 0 %}
-                <span style="background: var(--danger); color: white; padding: 0.2rem 0.6rem; border-radius: 10px; font-size: 0.75rem;">{{ pending_appeals_count }}</span>
+                <span style="background: var(--danger); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 8px;">{{ pending_appeals_count }} ta yangi</span>
                 {% endif %}
             </h2>
-        </div>
-        <div style="max-height: 350px; overflow-y: auto;">
-            {% for appeal in pending_appeals %}
-            <div style="padding: 0.8rem; border-bottom: 1px solid var(--border); background: rgba(99, 102, 241, 0.05); border-radius: 10px; margin-bottom: 0.5rem;" id="appeal-{{ appeal.id }}">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-                    <div>
-                        <div style="font-weight: 600; font-size: 0.9rem;">{{ appeal.telegram_user.first_name }}</div>
-                        <div style="color: var(--text-muted); font-size: 0.75rem;">{{ appeal.student.last_name }} {{ appeal.student.first_name }} — {{ appeal.created_at|date:"d.m H:i" }}</div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                {% for appeal in pending_appeals %}
+                <div style="padding: 0.8rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.03); border-radius: 12px; margin-bottom: 0.75rem;" id="appeal-{{ appeal.id }}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; font-size: 0.85rem;">{{ appeal.telegram_user.first_name }} <span style="font-weight: normal; color: var(--text-muted); font-size: 0.75rem;">({{ appeal.student.first_name }})</span></div>
+                        <div style="color: var(--text-muted); font-size: 0.7rem;">{{ appeal.created_at|date:"H:i" }}</div>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text); margin-bottom: 0.75rem;">{{ appeal.message }}</div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="showReplyInput({{ appeal.id }})" style="background: var(--primary); border: none; color: white; border-radius: 8px; padding: 0.4rem 0.6rem; font-size: 0.75rem; cursor: pointer;">Javob</button>
+                        <button onclick="resolveAppeal({{ appeal.id }})" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; padding: 0.4rem 0.6rem; font-size: 0.75rem; cursor: pointer;">OK</button>
+                    </div>
+                    <div id="replyForm-{{ appeal.id }}" style="display: none; margin-top: 0.75rem;">
+                        <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 50px; font-size: 0.8rem;"></textarea>
+                        <button onclick="sendReply({{ appeal.id }})" class="btn btn-primary" style="margin-top: 0.5rem; padding: 0.4rem 1rem; width: 100%; font-size: 0.8rem;">Yuborish</button>
                     </div>
                 </div>
-                <div style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text);">{{ appeal.message }}</div>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="showReplyInput({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
-                        <i class="fas fa-reply"></i> Javob berish
-                    </button>
-                    <button onclick="resolveAppeal({{ appeal.id }})" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
-                        <i class="fas fa-check"></i> Hal qilish
-                    </button>
-                </div>
-                <div id="replyForm-{{ appeal.id }}" style="display: none; margin-top: 0.75rem;">
-                    <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 60px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; resize: vertical;" placeholder="Javob matni..."></textarea>
-                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <button onclick="sendReply({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.8rem;">
-                            <i class="fas fa-paper-plane"></i> Yuborish
-                        </button>
-                        <button onclick="hideReplyInput({{ appeal.id }})" class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.8rem;">Bekor</button>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
-                Yangi xabarlar yo'q
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- Guruhga xabar yuborish -->
-<div class="glass-panel" style="margin-bottom: 1.5rem;">
-    <h2 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; font-size: 1.1rem;">
-        <i class="fas fa-paper-plane" style="color: var(--success);"></i> Guruhga xabar yuborish
-    </h2>
-    <div style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 1rem; align-items: start;">
-        <div class="form-group" style="margin: 0;">
-            <select id="groupSelect" style="width: 100%;">
-                <option value="">-- Guruh tanlang --</option>
-                {% for group in groups %}
-                <option value="{{ group.id }}">{{ group.name }}</option>
+                {% empty %}
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">Yangi xabarlar yo'q</div>
                 {% endfor %}
-            </select>
+            </div>
         </div>
-        <div class="form-group" style="margin: 0;">
-            <textarea id="broadcastMessage" style="width: 100%; min-height: 50px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; resize: vertical;" placeholder="Xabar matni..."></textarea>
+
+        <!-- Tezkor amallar -->
+        <div class="glass-panel">
+            <h2 style="font-size: 1.1rem; margin-bottom: 1.25rem;"><i class="fas fa-bolt" style="color: var(--warning);"></i> Tezkor linklar</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <a href="{% url 'users1:teacher_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-plus"></i> O'qituvchi</a>
+                <a href="{% url 'groups_app:group_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-plus"></i> Guruh</a>
+                <a href="{% url 'students:student_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-plus"></i> O'quvchi</a>
+                <a href="{% url 'payments:payment_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-hand-holding-dollar"></i> To'lov</a>
+            </div>
         </div>
-        <button onclick="sendBroadcast()" class="btn btn-primary" style="height: 50px;">
-            <i class="fas fa-paper-plane"></i> Yuborish
-        </button>
     </div>
 </div>
 
-<!-- Tezkor havolalar -->
-<div class="glass-panel">
-    <h2 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; font-size: 1.1rem;">
-        <i class="fas fa-bolt" style="color: var(--warning);"></i> Tezkor havolalar
-    </h2>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-        <a href="{% url 'students:student_create' %}" style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 16px; text-decoration: none; color: var(--text); transition: all 0.3s;" onmouseenter="this.style.background='rgba(99, 102, 241, 0.2)'" onmouseleave="this.style.background='rgba(99, 102, 241, 0.1)'">
-            <div style="width: 45px; height: 45px; background: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-user-plus" style="color: white;"></i>
-            </div>
-            <div>
-                <div style="font-weight: 600;">Yangi o'quvchi</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">Qo'shish</div>
-            </div>
-        </a>
+<!-- Guruhga Broadcast -->
+<div class="glass-panel" style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.1rem; margin-bottom: 1.25rem;"><i class="fas fa-broadcast-tower" style="color: var(--secondary);"></i> Guruhga xabar yuborish (Telegram)</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;" class="flex-responsive">
+        <select id="groupSelect" style="flex: 1; min-width: 200px;">
+            <option value="">-- Guruh --</option>
+            {% for group in groups %}
+            <option value="{{ group.id }}">{{ group.name }}</option>
+            {% endfor %}
+        </select>
+        <textarea id="broadcastMessage" style="flex: 2; min-width: 200px; min-height: 48px; border-radius: 12px; font-size: 0.9rem;" placeholder="Xabar matni..."></textarea>
+        <button onclick="sendBroadcast()" class="btn btn-primary" style="padding: 1rem 1.5rem; flex-grow: 1; justify-content: center;"><i class="fas fa-paper-plane"></i> <span>Yuborish</span></button>
+    </div>
+</div>
 
-        <a href="{% url 'groups_app:group_create' %}" style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 16px; text-decoration: none; color: var(--text); transition: all 0.3s;" onmouseenter="this.style.background='rgba(16, 185, 129, 0.2)'" onmouseleave="this.style.background='rgba(16, 185, 129, 0.1)'">
-            <div style="width: 45px; height: 45px; background: var(--success); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-users" style="color: white;"></i>
-            </div>
-            <div>
-                <div style="font-weight: 600;">Yangi guruh</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">Yaratish</div>
-            </div>
-        </a>
-
-        <a href="{% url 'payments:payment_create' %}" style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 16px; text-decoration: none; color: var(--text); transition: all 0.3s;" onmouseenter="this.style.background='rgba(245, 158, 11, 0.2)'" onmouseleave="this.style.background='rgba(245, 158, 11, 0.1)'">
-            <div style="width: 45px; height: 45px; background: var(--warning); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-money-bill-wave" style="color: white;"></i>
-            </div>
-            <div>
-                <div style="font-weight: 600;">To'lov qabul qilish</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">Yangi to'lov</div>
-            </div>
-        </a>
+<!-- Hammaga Broadcast -->
+<div class="glass-panel" style="margin-bottom: 1.5rem; border: 1px solid rgba(99, 102, 241, 0.3);">
+    <h2 style="font-size: 1.1rem; margin-bottom: 1.25rem;"><i class="fas fa-globe" style="color: var(--primary);"></i> Hammaga xabar yuborish (Telegram)</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;" class="flex-responsive">
+        <textarea id="broadcastAllMessage" style="flex: 2; min-width: 200px; min-height: 48px; border-radius: 12px; font-size: 0.9rem;" placeholder="Barcha foydalanuvchilarga xabar..."></textarea>
+        <button onclick="sendBroadcastAll()" class="btn btn-primary" style="padding: 1rem 1.5rem; flex-grow: 1; justify-content: center; background: var(--primary);"><i class="fas fa-paper-plane"></i> <span>Hammaga yuborish</span></button>
     </div>
 </div>
 
@@ -262,6 +330,45 @@ function sendBroadcast() {
     .catch(() => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-paper-plane"></i> Yuborish';
+        alert('Tarmoq xatoligi');
+    });
+}
+
+function sendBroadcastAll() {
+    const message = document.getElementById('broadcastAllMessage').value.trim();
+
+    if (!message) { alert('Xabar matnini kiriting!'); return; }
+
+    if (!confirm('Xabar BARCHA foydalanuvchilarga yuborilsinmi?')) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuborilmoqda...';
+
+    fetch('{% url "users1:broadcast_all" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+            message: message,
+        }),
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Hammaga yuborish';
+        if (ok) {
+            alert(data.sent_count + ' ta foydalanuvchiga xabar yuborildi!');
+            document.getElementById('broadcastAllMessage').value = '';
+        } else {
+            alert(data.detail || 'Xatolik yuz berdi');
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Hammaga yuborish';
         alert('Tarmoq xatoligi');
     });
 }

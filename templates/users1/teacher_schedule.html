@@ -4,27 +4,101 @@
 {% block header_title %}Dars jadvali{% endblock %}
 
 {% block content %}
-<div class="glass-panel">
-    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        {% for item in schedule %}
-        <div style="padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
+<div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    {% for item in schedule %}
+    <div class="glass-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div style="display: flex; align-items: center; gap: 1rem;">
                 <div style="width: 45px; height: 45px; border-radius: 12px; background: var(--primary); display: flex; align-items: center; justify-content: center;">
                     <i class="fas fa-book" style="color: white; font-size: 1rem;"></i>
                 </div>
                 <div>
-                    <div style="font-weight: 600; font-size: 1rem;">{{ item.group.name }}</div>
+                    <div style="font-weight: 700; font-size: 1.1rem;">{{ item.group.name }}</div>
                     <div style="color: var(--text-muted); font-size: 0.8rem;">{{ item.days }}</div>
                 </div>
             </div>
-            <div style="color: var(--primary); font-weight: 700; font-size: 1.1rem;">{{ item.time|time:"H:i" }}</div>
+            <div style="color: var(--primary); font-weight: 700; font-size: 1.2rem;">{{ item.time|time:"H:i" }}</div>
         </div>
-        {% empty %}
-        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-            <i class="fas fa-calendar" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
-            <p>Jadval bo'sh</p>
+
+        <!-- Kelgusi darslar mavzulari -->
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            {% for date_info in item.upcoming_dates %}
+            <div style="padding: 0.75rem 1rem; border-radius: 10px; background: {% if forloop.first %}rgba(99, 102, 241, 0.1){% else %}rgba(255,255,255,0.03){% endif %}; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div style="min-width: 120px;">
+                    <div style="font-weight: 600; font-size: 0.85rem;">{{ date_info.day_name }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">{{ date_info.date|date:"d-M" }}</div>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text"
+                           class="topic-input"
+                           data-group-id="{{ item.group.id }}"
+                           data-date="{{ date_info.date|date:'Y-m-d' }}"
+                           value="{{ date_info.topic }}"
+                           placeholder="Mavzu kiriting..."
+                           style="width: 100%; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.85rem;">
+                </div>
+                <div style="font-size: 0.7rem; color: {% if date_info.has_plan %}var(--success){% elif date_info.has_session %}var(--warning){% else %}var(--text-muted){% endif %};">
+                    {% if date_info.has_plan %}<i class="fas fa-check-circle"></i> Rejada{% elif date_info.has_session %}<i class="fas fa-edit"></i> Davomatda{% else %}<i class="fas fa-clock"></i> Kutilmoqda{% endif %}
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+    {% empty %}
+    <div class="glass-panel" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+        <i class="fas fa-calendar" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+        <p>Jadval bo'sh</p>
+    </div>
+    {% endfor %}
 </div>
+
+<script>
+document.querySelectorAll('.topic-input').forEach(input => {
+    let timeout;
+    input.addEventListener('input', function() {
+        clearTimeout(timeout);
+        const el = this;
+        timeout = setTimeout(() => {
+            saveTopic(el);
+        }, 800);
+    });
+
+    input.addEventListener('blur', function() {
+        clearTimeout(timeout);
+        saveTopic(this);
+    });
+});
+
+function saveTopic(input) {
+    const groupId = input.dataset.groupId;
+    const date = input.dataset.date;
+    const topic = input.value.trim();
+
+    if (!topic) return;
+
+    fetch('{% url "attendance:save_lesson_plan" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+            group_id: parseInt(groupId),
+            date: date,
+            topic: topic,
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const badge = input.parentElement.nextElementSibling;
+            if (badge) {
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> Rejada';
+                badge.style.color = 'var(--success)';
+            }
+        }
+    })
+    .catch(() => {});
+}
+</script>
 {% endblock %}
