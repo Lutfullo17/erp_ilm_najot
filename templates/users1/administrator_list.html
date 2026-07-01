@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% block title %}Administratorlar - Ilm Najot ERP{% endblock %}
+{% block header_title %}Administratorlar Boshqaruvi{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-actions { display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+.user-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 1.5rem; backdrop-filter: blur(12px);
+    transition: all 0.3s; position: relative; overflow: hidden;
+}
+.user-card:hover { border-color: rgba(99,102,241,0.4); transform: translateY(-2px); }
+.user-card.blocked { border-color: rgba(239,68,68,0.3); }
+.user-avatar {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 700; color: white; margin-bottom: 1rem;
+}
+.user-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; }
+.user-meta { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem; }
+.user-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-sm { padding: 0.5rem 1rem; font-size: 0.8rem; border-radius: 10px; }
+.btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-warning { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+.btn-warning:hover { background: rgba(245,158,11,0.25); }
+.btn-success { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+.btn-success:hover { background: rgba(16,185,129,0.25); }
+.admins-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
+.blocked-badge {
+    position: absolute; top: 1rem; right: 1rem;
+    background: rgba(239,68,68,0.15); color: #ef4444;
+    padding: 0.25rem 0.75rem; border-radius: 10px; font-size: 0.75rem; font-weight: 700;
+}
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:#1e293b; border:1px solid var(--border); border-radius:24px; padding:2rem; width:100%; max-width:480px; margin:1rem; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+.modal-header h3 { font-size:1.2rem; font-weight:700; }
+.modal-close { background:none; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; }
+@media (max-width:1024px) { .admins-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width:600px) { .admins-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-actions">
+    <div>
+        <p style="color:var(--text-muted);">Jami: <strong style="color:var(--text);">{{ total_admins }}</strong> ta administrator</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('createModal')">
+        <i class="fas fa-plus"></i> Yangi Administrator
+    </button>
+</div>
+
+{% if administrators %}
+<div class="admins-grid">
+    {% for admin in administrators %}
+    <div class="user-card {% if admin.is_blocked %}blocked{% endif %}">
+        {% if admin.is_blocked %}
+        <span class="blocked-badge"><i class="fas fa-lock"></i> Bloklangan</span>
+        {% endif %}
+        <div class="user-avatar">{{ admin.first_name.0|upper|default:admin.username.0|upper }}</div>
+        <h3>{{ admin.get_full_name|default:admin.username }}</h3>
+        <div class="user-meta">
+            <div><i class="fas fa-at" style="width:16px;color:var(--primary)"></i> {{ admin.username }}</div>
+            {% if admin.phone %}<div><i class="fas fa-phone" style="width:16px;color:var(--success)"></i> {{ admin.phone }}</div>{% endif %}
+            <div><i class="fas fa-calendar" style="width:16px;color:var(--warning)"></i> {{ admin.date_joined|date:"d.m.Y" }}</div>
+        </div>
+        <div class="user-actions">
+            <button class="btn btn-sm btn-warning"
+                onclick="openLoginModal({{ admin.pk }}, '{{ admin.username }}')">
+                <i class="fas fa-at"></i> Login
+            </button>
+            <button class="btn btn-sm btn-danger"
+                onclick="openPasswordModal({{ admin.pk }}, '{{ admin.username }}')">
+                <i class="fas fa-key"></i> Parol
+            </button>
+            <button class="btn btn-sm {% if admin.is_blocked %}btn-success{% else %}btn-danger{% endif %}"
+                onclick="toggleBlock('admin', {{ admin.pk }}, '{{ admin.username }}', {{ admin.is_blocked|yesno:'true,false' }}, this)">
+                <i class="fas {% if admin.is_blocked %}fa-unlock{% else %}fa-ban{% endif %}"></i>
+                {% if admin.is_blocked %}Faollashtirish{% else %}Bloklash{% endif %}
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="glass-panel" style="text-align:center; padding:3rem;">
+    <i class="fas fa-user-shield" style="font-size:3rem; color:var(--text-muted); margin-bottom:1rem; display:block;"></i>
+    <p style="color:var(--text-muted);">Hech qanday administrator topilmadi</p>
+</div>
+{% endif %}
+
+<!-- Create Administrator Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-user-plus" style="color:var(--primary);margin-right:0.5rem"></i> Yangi Administrator</h3>
+            <button class="modal-close" onclick="closeModal('createModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="post" action="{% url 'users1:administrator_create' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Ism</label>
+                <input type="text" name="first_name" placeholder="Ism" required>
+            </div>
+            <div class="form-group">
+                <label>Familiya</label>
+                <input type="text" name="last_name" placeholder="Familiya">
+            </div>
+            <div class="form-group">
+                <label>Telefon</label>
+                <input type="text" name="phone" placeholder="+998 90 123 45 67">
+            </div>
+            <div class="form-group">
+                <label>Login</label>
+                <input type="text" name="username" placeholder="Login" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Parol</label>
+                <input type="password" name="password" placeholder="Parol (kamida 6 belgi)" required autocomplete="new-password">
+            </div>
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" style="flex:1;" onclick="closeModal('createModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Yaratish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Change Login Modal -->
+<div class="modal-overlay" id="loginModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-at" style="color:var(--primary);margin-right:0.5rem"></i> Login O'zgartirish</h3>
+            <button class="modal-close" onclick="closeModal('loginModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); margin-bottom:1.25rem;" id="loginModalDesc"></p>
+        <div class="form-group">
+            <label>Yangi Login</label>
+            <input type="text" id="newAdminUsername" placeholder="Yangi loginni kiriting" autocomplete="off">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('loginModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="changeAdminLogin()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-key" style="color:var(--danger);margin-right:0.5rem"></i> Parol Tiklash</h3>
+            <button class="modal-close" onclick="closeModal('passwordModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); margin-bottom:1.25rem;" id="passwordModalDesc"></p>
+        <div class="form-group">
+            <label>Yangi Parol</label>
+            <input type="password" id="newAdminPassword" placeholder="Yangi parol (kamida 6 belgi)">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('passwordModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="resetAdminPassword()">Tiklash</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:2rem;right:2rem;background:#1e293b;border:1px solid var(--border);border-radius:16px;padding:1rem 1.5rem;display:none;align-items:center;gap:0.75rem;z-index:99999;min-width:280px;">
+    <i id="toastIcon" class="fas fa-check-circle" style="color:var(--success);font-size:1.25rem;"></i>
+    <span id="toastMsg"></span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentAdminPk = null;
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }));
+
+function showToast(msg, isError=false) {
+    const t=document.getElementById('toast'),i=document.getElementById('toastIcon');
+    document.getElementById('toastMsg').textContent=msg;
+    i.className=isError?'fas fa-exclamation-circle':'fas fa-check-circle';
+    i.style.color=isError?'var(--danger)':'var(--success)';
+    t.style.display='flex';
+    setTimeout(()=>t.style.display='none',3500);
+}
+
+function openLoginModal(pk, username) {
+    currentAdminPk = pk;
+    document.getElementById('loginModalDesc').textContent = `Administrator: ${username}`;
+    document.getElementById('newAdminUsername').value = '';
+    openModal('loginModal');
+}
+function openPasswordModal(pk, username) {
+    currentAdminPk = pk;
+    document.getElementById('passwordModalDesc').textContent = `Administrator: ${username}`;
+    document.getElementById('newAdminPassword').value = '';
+    openModal('passwordModal');
+}
+
+async function changeAdminLogin() {
+    const username = document.getElementById('newAdminUsername').value.trim();
+    if (!username) return showToast('Login kiritilmagan', true);
+    const url = `/users/administrators/${currentAdminPk}/change-login/`;
+    const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({username})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('loginModal'); showToast(data.message); setTimeout(()=>location.reload(),1500); }
+    else showToast(data.error||'Xatolik', true);
+}
+
+async function resetAdminPassword() {
+    const new_password = document.getElementById('newAdminPassword').value;
+    if(new_password.length < 6) return showToast('Parol kamida 6 belgili bo\'lsin', true);
+    const url = `/users/administrators/${currentAdminPk}/reset-password/`;
+    const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({new_password})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('passwordModal'); showToast(data.message); }
+    else showToast(data.error||'Xatolik', true);
+}
+
+async function toggleBlock(type, pk, username, isBlocked, btn) {
+    const action = isBlocked ? 'faollashtirish' : 'bloklash';
+    if (!confirm(`${username} ni ${action}?`)) return;
+    const url = `/users/administrators/${pk}/toggle-block/`;
+    const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({})
+    });
+    const data = await res.json();
+    if(data.ok) { showToast(data.message); setTimeout(()=>location.reload(),1000); }
+    else showToast(data.error||'Xatolik', true);
+}
+</script>
+{% endblock %}

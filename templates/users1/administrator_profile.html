@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}Mening Profilim - Administrator{% endblock %}
+{% block header_title %}Mening Profilim{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Sticky read-only notice */
+.readonly-notice {
+    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(236,72,153,0.1));
+    border: 1px solid rgba(99,102,241,0.35);
+    border-radius: 18px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 10px;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+}
+.profile-hero {
+    background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(16,185,129,0.08) 100%);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 2.5rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    position: relative;
+    overflow: hidden;
+}
+.profile-hero::before {
+    content:'';
+    position:absolute;
+    top:-40px;right:-40px;
+    width:160px;height:160px;
+    background: radial-gradient(circle, rgba(99,102,241,0.15), transparent);
+    border-radius:50%;
+}
+.profile-avatar {
+    width: 100px; height: 100px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; font-weight: 800; color: white;
+    border: 3px solid rgba(255,255,255,0.2);
+    flex-shrink: 0;
+}
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.info-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    backdrop-filter: blur(12px);
+}
+.info-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.info-value { font-size: 1rem; font-weight: 600; color: var(--text); }
+.security-lock {
+    background: rgba(239,68,68,0.05);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 18px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+.lock-icon-wrap {
+    width: 44px; height: 44px;
+    background: rgba(239,68,68,0.12);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+@media (max-width: 600px) {
+    .info-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Always-visible Read-Only Notice -->
+<div class="readonly-notice">
+    <div style="width:44px;height:44px;background:rgba(99,102,241,0.18);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fas fa-info-circle" style="color:#818cf8;font-size:1.25rem;"></i>
+    </div>
+    <div>
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.25rem;">Faqat ko'rish uchun</div>
+        <p style="color:var(--text-muted);font-size:0.87rem;line-height:1.5;margin:0;">
+            Shaxsiy ma'lumotlaringizni o'zgartirish yoki login/parolni tiklash uchun <strong style="color:var(--text);">Director bilan bog'laning.</strong>
+        </p>
+    </div>
+</div>
+
+<!-- Profile Hero -->
+<div class="profile-hero">
+    <div class="profile-avatar">
+        {% if user.photo %}
+        <img src="{{ user.photo.url }}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">
+        {% else %}
+        {{ user.first_name.0|upper|default:user.username.0|upper }}
+        {% endif %}
+    </div>
+    <div>
+        <h2 style="font-size:1.8rem;font-weight:700;margin-bottom:0.4rem;">
+            {{ user.get_full_name|default:user.username }}
+        </h2>
+        <span style="background:rgba(99,102,241,0.15);color:#818cf8;padding:0.3rem 0.9rem;border-radius:20px;font-size:0.85rem;font-weight:600;display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:0.75rem;">
+            <i class="fas fa-user-shield"></i> Administrator
+        </span>
+        <div style="font-size:0.85rem;color:var(--text-muted);">
+            <i class="fas fa-calendar-alt" style="margin-right:0.4rem;color:var(--primary);"></i>
+            Ro'yxatdan o'tgan: {{ user.date_joined|date:"d.m.Y" }}
+        </div>
+    </div>
+</div>
+
+<!-- Info Grid -->
+<div class="info-grid">
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-user" style="margin-right:0.4rem;"></i>Ism</div>
+        <div class="info-value">{{ user.first_name|default:"—" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-user" style="margin-right:0.4rem;"></i>Familiya</div>
+        <div class="info-value">{{ user.last_name|default:"—" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-phone" style="margin-right:0.4rem;"></i>Telefon</div>
+        <div class="info-value">{{ user.phone|default:"—" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-at" style="margin-right:0.4rem;"></i>Login</div>
+        <div class="info-value" style="font-family:monospace;">{{ user.username }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-clock" style="margin-right:0.4rem;"></i>Akkount yaratilgan</div>
+        <div class="info-value">{{ user.date_joined|date:"d.m.Y H:i" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-sign-in-alt" style="margin-right:0.4rem;"></i>Oxirgi kirish</div>
+        <div class="info-value">{{ user.last_login|date:"d.m.Y H:i"|default:"—" }}</div>
+    </div>
+</div>
+
+<!-- Account Status -->
+<div style="margin-bottom:2rem;">
+    <div class="glass-panel" style="display:flex;align-items:center;gap:1rem;padding:1.25rem;">
+        <div style="width:44px;height:44px;background:{% if user.is_blocked %}rgba(239,68,68,0.15){% else %}rgba(16,185,129,0.15){% endif %};border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <i class="fas {% if user.is_blocked %}fa-lock{% else %}fa-check-circle{% endif %}" style="color:{% if user.is_blocked %}#ef4444{% else %}#10b981{% endif %};font-size:1.1rem;"></i>
+        </div>
+        <div>
+            <div style="font-weight:600;font-size:0.9rem;">Akkount holati</div>
+            <div style="font-size:0.85rem;color:{% if user.is_blocked %}#ef4444{% else %}#10b981{% endif %};">
+                {% if user.is_blocked %}Bloklangan — Director bilan bog'laning{% else %}Faol — normal ishlayapti{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Security Lock -->
+<div class="security-lock">
+    <div class="lock-icon-wrap">
+        <i class="fas fa-lock" style="color:#ef4444;font-size:1.1rem;"></i>
+    </div>
+    <div>
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.4rem;">Login va Parol o'zgartirib bo'lmaydi</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.6;">
+            Xavfsizlik siyosatimizga ko'ra, Administrator o'z loginini yoki parolini mustaqil o'zgartira olmaydi.
+            Zarur bo'lsa, <strong style="color:var(--text);">Director</strong> tomonidan Administrator ro'yxatida login yoki parol yangilanishi mumkin.
+        </div>
+    </div>
+</div>
+{% endblock %}

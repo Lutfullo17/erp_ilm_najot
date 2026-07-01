@@ -440,9 +440,33 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'users1:teacher_list' %}" class="nav-link {% if 'teachers' in request.path %}active{% endif %}">
+                <a href="{% url 'users1:teacher_list' %}" class="nav-link {% if 'teachers' in request.path and 'administrators' not in request.path %}active{% endif %}">
                     <i class="fas fa-chalkboard-teacher"></i>
                     <span>O'qituvchilar</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:administrator_list' %}" class="nav-link {% if 'administrators' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Administratorlar</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:penalty_list' %}" class="nav-link {% if 'penalties' in request.path %}active{% endif %}">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Jarima Tizimi</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:director_profile' %}" class="nav-link {% if 'admin/profile' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Profilim</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:audit_log' %}" class="nav-link {% if 'audit-log' in request.path %}active{% endif %}">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Audit Log</span>
                 </a>
             </li>
             {% endif %}
@@ -452,6 +476,12 @@
                 <a href="{% url 'users1:administrator_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'administrator_dashboard' %}active{% endif %}">
                     <i class="fas fa-th-large"></i>
                     <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:administrator_profile' %}" class="nav-link {% if 'administrator/profile' in request.path %}active{% endif %}">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Profilim</span>
                 </a>
             </li>
             {% endif %}

@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}{{ teacher.get_full_name }} - O'qituvchi{% endblock %}
+{% block header_title %}O'qituvchi Boshqaruvi{% endblock %}
+
+{% block extra_css %}
+<style>
+.back-link { display:inline-flex; align-items:center; gap:0.5rem; color:var(--text-muted); text-decoration:none; margin-bottom:1.5rem; font-size:0.9rem; transition:color 0.2s; }
+.back-link:hover { color:var(--primary); }
+.teacher-hero {
+    background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(16,185,129,0.1) 100%);
+    border: 1px solid var(--border); border-radius: 28px; padding: 2rem;
+    display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem;
+    position: relative; overflow: hidden;
+}
+.teacher-avatar {
+    width: 90px; height: 90px; border-radius: 24px;
+    background: linear-gradient(135deg, #6366f1, #10b981);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; font-weight: 800; color: white;
+    border: 3px solid rgba(255,255,255,0.2); flex-shrink: 0;
+}
+.teacher-info h2 { font-size: 1.7rem; font-weight: 700; margin-bottom: 0.25rem; }
+.teacher-info .username { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+.blocked-chip {
+    background: rgba(239,68,68,0.15); color: #ef4444;
+    padding: 0.3rem 0.9rem; border-radius: 10px; font-size: 0.8rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.active-chip {
+    background: rgba(16,185,129,0.15); color: #10b981;
+    padding: 0.3rem 0.9rem; border-radius: 10px; font-size: 0.8rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.two-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+.section-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; backdrop-filter: blur(12px); }
+.section-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; }
+.action-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.btn-sm { padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: 12px; }
+.btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); cursor: pointer; }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-warning { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); cursor: pointer; }
+.btn-warning:hover { background: rgba(245,158,11,0.25); }
+.btn-success { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); cursor: pointer; }
+.btn-success:hover { background: rgba(16,185,129,0.25); }
+.penalty-total {
+    font-size: 2.5rem; font-weight: 800; text-align: center; padding: 1.5rem;
+    background: rgba(239,68,68,0.1); border-radius: 16px; color: #ef4444; margin-bottom: 1rem;
+}
+.penalty-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border); }
+.penalty-item:last-child { border-bottom: none; }
+.pts-badge { background: rgba(239,68,68,0.15); color: #ef4444; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:#1e293b; border:1px solid var(--border); border-radius:24px; padding:2rem; width:100%; max-width:480px; margin:1rem; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+@media (max-width: 768px) { .two-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'users1:teacher_list' %}" class="back-link">
+    <i class="fas fa-arrow-left"></i> O'qituvchilar ro'yxatiga qaytish
+</a>
+
+<!-- Teacher Hero -->
+<div class="teacher-hero">
+    <div class="teacher-avatar">{{ teacher.first_name.0|upper|default:teacher.username.0|upper }}</div>
+    <div class="teacher-info">
+        <h2>{{ teacher.get_full_name|default:teacher.username }}</h2>
+        <div class="username"><i class="fas fa-at" style="color:var(--primary)"></i> {{ teacher.username }}</div>
+        {% if teacher.is_blocked %}
+        <span class="blocked-chip"><i class="fas fa-lock"></i> Bloklangan</span>
+        {% else %}
+        <span class="active-chip"><i class="fas fa-check-circle"></i> Faol</span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Penalty Summary -->
+<div class="section-card" style="margin-bottom:1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <h3><i class="fas fa-exclamation-triangle" style="color:#ef4444"></i> Jarima Holati</h3>
+        <button class="btn btn-sm btn-primary" onclick="openModal('penaltyModal')" style="cursor:pointer;">
+            <i class="fas fa-plus"></i> Qo'lda Jarima
+        </button>
+    </div>
+    <div class="penalty-total">{{ total_penalty_points }} ball</div>
+    <p style="text-align:center; color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">Jami to'plangan minus ball</p>
+    {% for penalty in penalties %}
+    <div class="penalty-item">
+        <div>
+            <div style="font-size:0.9rem; font-weight:600;">{{ penalty.reason }}</div>
+            <div style="font-size:0.78rem; color:var(--text-muted);">
+                {{ penalty.date }} · {{ penalty.group.name|default:"—" }} ·
+                {% if penalty.is_manual %}<span style="color:#f59e0b;">Qo'lda</span>{% else %}<span style="color:#6366f1;">Avtomatik</span>{% endif %}
+            </div>
+        </div>
+        <span class="pts-badge">{{ penalty.points }} ball</span>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-muted); text-align:center; padding:1rem;">Hali jarima yo'q</p>
+    {% endfor %}
+</div>
+
+<div class="two-grid">
+    <!-- Account Actions -->
+    <div class="section-card">
+        <h3><i class="fas fa-shield-alt" style="color:var(--primary)"></i> Akkount Boshqaruvi</h3>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.25rem;">
+            Faqat Director bu amrlarni bajara oladi.
+        </p>
+        <div class="action-row">
+            <button class="btn btn-sm btn-warning" onclick="openModal('loginModal')">
+                <i class="fas fa-at"></i> Login O'zgartirish
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="openModal('passwordModal')">
+                <i class="fas fa-key"></i> Parol Tiklash
+            </button>
+        </div>
+        {% if teacher.is_blocked %}
+        <button class="btn btn-sm btn-success" onclick="toggleBlock()" id="blockBtn">
+            <i class="fas fa-unlock"></i> Faollashtirish
+        </button>
+        {% else %}
+        <button class="btn btn-sm btn-danger" onclick="toggleBlock()" id="blockBtn">
+            <i class="fas fa-ban"></i> Bloklash
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Groups -->
+    <div class="section-card">
+        <h3><i class="fas fa-users" style="color:var(--success)"></i> Biriktirilgan Guruhlar</h3>
+        {% if teacher_groups %}
+        {% for group in teacher_groups %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem; border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:600;">{{ group.name }}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">{{ group.lesson_days }} · {{ group.lesson_time|time:"H:i"|default:"—" }}</div>
+            </div>
+            <span class="badge badge-success">{{ group.groupstudent_set.filter.is_active.count|default:"-" }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color:var(--text-muted); padding:1rem; text-align:center;">Hali guruh biriktirilmagan</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Audit Logs -->
+<div class="section-card">
+    <h3><i class="fas fa-history" style="color:var(--warning)"></i> Audit Loglari</h3>
+    {% if audit_logs %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Sana</th><th>Kim bajardi</th><th>Amal</th></tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                <tr>
+                    <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+                    <td>{{ log.user.get_full_name|default:log.user.username|default:"—" }}</td>
+                    <td>{{ log.action }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); padding:1rem; text-align:center;">Hali log yo'q</p>
+    {% endif %}
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="loginModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-at" style="color:var(--primary);margin-right:0.5rem"></i> Login O'zgartirish</h3>
+            <button onclick="closeModal('loginModal')" style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="form-group">
+            <label>Yangi Login</label>
+            <input type="text" id="newTeacherUsername" placeholder="Yangi loginni kiriting" autocomplete="off">
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('loginModal')">Bekor</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="changeTeacherLogin()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-key" style="color:var(--danger);margin-right:0.5rem"></i> Parol Tiklash</h3>
+            <button onclick="closeModal('passwordModal')" style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="form-group">
+            <label>Yangi Parol</label>
+            <input type="password" id="newTeacherPassword" placeholder="Yangi parol (kamida 6 belgi)">
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('passwordModal')">Bekor</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="resetTeacherPassword()">Tiklash</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="penaltyModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-minus-circle" style="color:var(--danger);margin-right:0.5rem"></i> Qo'lda Jarima</h3>
+            <button onclick="closeModal('penaltyModal')" style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:12px; padding:1rem; margin-bottom:1.25rem; font-size:0.85rem; color:#f59e0b;">
+            <i class="fas fa-info-circle"></i> Bu tuzatish faqat zarur holatlarda ishlatilsin. Barcha amallar Audit Logga yoziladi.
+        </div>
+        <div class="form-group">
+            <label>Minus Ball (manfiy son kiriting)</label>
+            <input type="number" id="penaltyPoints" placeholder="-5" max="0">
+        </div>
+        <div class="form-group">
+            <label>Sabab</label>
+            <input type="text" id="penaltyReason" placeholder="Jarima sababi">
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('penaltyModal')">Bekor</button>
+            <button class="btn btn-primary" style="flex:1; background:rgba(239,68,68,0.8);" onclick="addPenalty()">Jarima Berish</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:2rem;right:2rem;background:#1e293b;border:1px solid var(--border);border-radius:16px;padding:1rem 1.5rem;display:none;align-items:center;gap:0.75rem;z-index:99999;min-width:280px;">
+    <i id="toastIcon" class="fas fa-check-circle" style="color:var(--success);font-size:1.25rem;"></i>
+    <span id="toastMsg"></span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const teacherPk = {{ teacher.pk }};
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }));
+
+function showToast(msg, isError=false) {
+    const t=document.getElementById('toast'),i=document.getElementById('toastIcon');
+    document.getElementById('toastMsg').textContent=msg;
+    i.className=isError?'fas fa-exclamation-circle':'fas fa-check-circle';
+    i.style.color=isError?'var(--danger)':'var(--success)';
+    t.style.display='flex';
+    setTimeout(()=>t.style.display='none',3500);
+}
+
+async function changeTeacherLogin() {
+    const username = document.getElementById('newTeacherUsername').value.trim();
+    if (!username) return showToast('Login kiritilmagan', true);
+    const res = await fetch(`/users/teachers/${teacherPk}/change-login/`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({username})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('loginModal'); showToast(data.message); setTimeout(()=>location.reload(),1500); }
+    else showToast(data.error||'Xatolik', true);
+}
+
+async function resetTeacherPassword() {
+    const new_password = document.getElementById('newTeacherPassword').value;
+    if(new_password.length < 6) return showToast('Parol kamida 6 belgili bo\'lsin', true);
+    const res = await fetch(`/users/teachers/${teacherPk}/reset-password/`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({new_password})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('passwordModal'); showToast(data.message); }
+    else showToast(data.error||'Xatolik', true);
+}
+
+async function toggleBlock() {
+    const isBlocked = {{ teacher.is_blocked|yesno:'true,false' }};
+    const action = isBlocked ? 'faollashtirish' : 'bloklash';
+    if (!confirm(`${teacher.get_full_name} ni ${action}?`)) return;
+    const res = await fetch(`/users/teachers/${teacherPk}/toggle-block/`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({})
+    });
+    const data = await res.json();
+    if(data.ok) { showToast(data.message); setTimeout(()=>location.reload(),1000); }
+    else showToast(data.error||'Xatolik', true);
+}
+
+async function addPenalty() {
+    const points = parseInt(document.getElementById('penaltyPoints').value);
+    const reason = document.getElementById('penaltyReason').value.trim();
+    if (!reason) return showToast('Sabab kiritilmagan', true);
+    const res = await fetch(`/users/admin/penalties/teacher/${teacherPk}/add/`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({points, reason})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('penaltyModal'); showToast(data.message); setTimeout(()=>location.reload(),1500); }
+    else showToast(data.error||'Xatolik', true);
+}
+</script>
+{% endblock %}

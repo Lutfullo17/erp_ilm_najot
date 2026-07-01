@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% block title %}Director Profili - Ilm Najot ERP{% endblock %}
+{% block header_title %}Mening Profilim{% endblock %}
+
+{% block extra_css %}
+<style>
+.profile-hero {
+    background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(236,72,153,0.1) 100%);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 2.5rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+.profile-hero::before {
+    content:'';
+    position:absolute;
+    top:-60px;right:-60px;
+    width:200px;height:200px;
+    background: radial-gradient(circle, rgba(99,102,241,0.2), transparent);
+    border-radius:50%;
+}
+.avatar-upload { position: relative; display: inline-block; }
+.avatar-large {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3rem; font-weight: 800; color: white;
+    border: 4px solid rgba(255,255,255,0.2);
+    overflow: hidden; object-fit: cover;
+}
+.avatar-large img { width:100%; height:100%; object-fit:cover; }
+.avatar-upload-btn {
+    position: absolute; bottom: 4px; right: 4px;
+    width: 36px; height: 36px;
+    background: var(--primary);
+    border-radius: 50%; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 0.8rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.5);
+}
+.avatar-upload-btn:hover { transform: scale(1.1); }
+.profile-info h2 { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
+.profile-info .role-tag {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: rgba(99,102,241,0.2); color: #818cf8;
+    padding: 0.3rem 0.9rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+.info-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;
+    margin-bottom: 2rem;
+}
+.info-item {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.25rem; backdrop-filter: blur(12px);
+}
+.info-item .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.info-item .value { font-size: 1rem; font-weight: 600; color: var(--text); }
+.section-title {
+    font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.75rem;
+}
+.section-title i { color: var(--primary); }
+.action-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2rem; }
+.action-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 1.5rem; cursor: pointer;
+    transition: all 0.3s; text-align: center;
+    backdrop-filter: blur(12px);
+}
+.action-card:hover { border-color: var(--primary); transform: translateY(-4px); box-shadow: 0 12px 24px rgba(99,102,241,0.2); }
+.action-card .icon-wrap {
+    width: 56px; height: 56px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; margin: 0 auto 1rem;
+}
+.icon-primary { background: rgba(99,102,241,0.15); color: #818cf8; }
+.icon-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.icon-success { background: rgba(16,185,129,0.15); color: #10b981; }
+.action-card h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem; }
+.action-card p { font-size: 0.8rem; color: var(--text-muted); }
+/* Modal */
+.modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    z-index: 9999; align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+    background: #1e293b; border: 1px solid var(--border);
+    border-radius: 24px; padding: 2rem; width: 100%; max-width: 480px;
+    margin: 1rem; animation: slideUp 0.3s ease;
+}
+@keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.modal-header h3 { font-size: 1.25rem; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer; }
+.modal-close:hover { color: var(--text); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Profile Hero -->
+<div class="profile-hero">
+    <div class="avatar-upload">
+        <div class="avatar-large">
+            {% if user.photo %}
+            <img src="{{ user.photo.url }}" alt="avatar" id="profileImg">
+            {% else %}
+            <span id="profileInitial">{{ user.first_name.0|upper|default:user.username.0|upper }}</span>
+            <img src="" alt="" id="profileImg" style="display:none;">
+            {% endif %}
+        </div>
+        <button class="avatar-upload-btn" onclick="document.getElementById('photoInput').click()" title="Rasm o'zgartirish">
+            <i class="fas fa-camera"></i>
+        </button>
+        <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="uploadPhoto(event)">
+    </div>
+    <div class="profile-info">
+        <h2>{{ user.get_full_name|default:user.username }}</h2>
+        <div class="role-tag">
+            <i class="fas fa-crown"></i> Director
+        </div>
+        <p style="color:var(--text-muted); font-size:0.9rem;">
+            <i class="fas fa-calendar-alt" style="margin-right:0.4rem; color:var(--primary)"></i>
+            Ro'yxatdan o'tgan: {{ user.date_joined|date:"d.m.Y" }}
+        </p>
+    </div>
+</div>
+
+<!-- Info Grid -->
+<div class="info-grid">
+    <div class="info-item">
+        <div class="label"><i class="fas fa-user" style="margin-right:0.4rem"></i> Ism</div>
+        <div class="value">{{ user.first_name|default:"—" }}</div>
+    </div>
+    <div class="info-item">
+        <div class="label"><i class="fas fa-user" style="margin-right:0.4rem"></i> Familiya</div>
+        <div class="value">{{ user.last_name|default:"—" }}</div>
+    </div>
+    <div class="info-item">
+        <div class="label"><i class="fas fa-phone" style="margin-right:0.4rem"></i> Telefon</div>
+        <div class="value">{{ user.phone|default:"—" }}</div>
+    </div>
+    <div class="info-item">
+        <div class="label"><i class="fas fa-at" style="margin-right:0.4rem"></i> Login</div>
+        <div class="value">{{ user.username }}</div>
+    </div>
+    <div class="info-item">
+        <div class="label"><i class="fas fa-clock" style="margin-right:0.4rem"></i> Akkount yaratilgan</div>
+        <div class="value">{{ user.date_joined|date:"d.m.Y H:i" }}</div>
+    </div>
+    <div class="info-item">
+        <div class="label"><i class="fas fa-sign-in-alt" style="margin-right:0.4rem"></i> Oxirgi kirish</div>
+        <div class="value">{{ user.last_login|date:"d.m.Y H:i"|default:"—" }}</div>
+    </div>
+</div>
+
+<!-- Action Cards -->
+<div class="section-title">
+    <i class="fas fa-shield-alt"></i> Xavfsizlik Sozlamalari
+</div>
+<div class="action-cards">
+    <div class="action-card" onclick="openModal('loginModal')">
+        <div class="icon-wrap icon-primary"><i class="fas fa-at"></i></div>
+        <h4>Loginni o'zgartirish</h4>
+        <p>Tizimga kirish loginini yangilash</p>
+    </div>
+    <div class="action-card" onclick="openModal('passwordModal')">
+        <div class="icon-wrap icon-warning"><i class="fas fa-lock"></i></div>
+        <h4>Parolni o'zgartirish</h4>
+        <p>Yangi parol bilan xavfsizlikni oshiring</p>
+    </div>
+    <div class="action-card" onclick="document.getElementById('photoInput').click()">
+        <div class="icon-wrap icon-success"><i class="fas fa-camera"></i></div>
+        <h4>Profil rasmini yangilash</h4>
+        <p>Yangi profil rasmini yuklang</p>
+    </div>
+</div>
+
+<!-- Audit Logs -->
+<div class="glass-panel" style="margin-top:0.5rem;">
+    <div class="section-title">
+        <i class="fas fa-history"></i> So'nggi Audit Loglari
+    </div>
+    {% if audit_logs %}
+    <div class="table-container">
+        <table class="mobile-card-table">
+            <thead>
+                <tr>
+                    <th>Sana</th>
+                    <th>Amal</th>
+                    <th>IP manzil</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                <tr>
+                    <td data-label="Sana">{{ log.created_at|date:"d.m.Y H:i" }}</td>
+                    <td data-label="Amal">{{ log.action }}</td>
+                    <td data-label="IP">{{ log.ip_address|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); text-align:center; padding:2rem;">Hali hech qanday amal amalga oshirilmagan</p>
+    {% endif %}
+</div>
+
+<!-- ── Modals ─────────────────────────────── -->
+<!-- Login Change Modal -->
+<div class="modal-overlay" id="loginModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-at" style="color:var(--primary);margin-right:0.5rem"></i> Loginni O'zgartirish</h3>
+            <button class="modal-close" onclick="closeModal('loginModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="form-group">
+            <label>Yangi Login</label>
+            <input type="text" id="newUsername" placeholder="Yangi loginni kiriting" autocomplete="off">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('loginModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="changeLogin()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
+<!-- Password Change Modal -->
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-lock" style="color:var(--warning);margin-right:0.5rem"></i> Parolni O'zgartirish</h3>
+            <button class="modal-close" onclick="closeModal('passwordModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="form-group">
+            <label>Eski Parol</label>
+            <input type="password" id="oldPassword" placeholder="Eski parolni kiriting">
+        </div>
+        <div class="form-group">
+            <label>Yangi Parol</label>
+            <input type="password" id="newPassword" placeholder="Yangi parol (kamida 6 belgi)">
+        </div>
+        <div class="form-group">
+            <label>Yangi Parolni Tasdiqlash</label>
+            <input type="password" id="confirmPassword" placeholder="Yangi parolni qaytaring">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('passwordModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="changePassword()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" style="position:fixed;bottom:2rem;right:2rem;background:#1e293b;border:1px solid var(--border);border-radius:16px;padding:1rem 1.5rem;display:none;align-items:center;gap:0.75rem;z-index:99999;min-width:280px;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+    <i id="toastIcon" class="fas fa-check-circle" style="color:var(--success);font-size:1.25rem;"></i>
+    <span id="toastMsg"></span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// Close modal if clicking outside
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('active');
+    });
+});
+
+function showToast(msg, isError=false) {
+    const t = document.getElementById('toast');
+    const icon = document.getElementById('toastIcon');
+    document.getElementById('toastMsg').textContent = msg;
+    icon.className = isError ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
+    icon.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    t.style.display = 'flex';
+    setTimeout(() => t.style.display = 'none', 3500);
+}
+
+async function changeLogin() {
+    const username = document.getElementById('newUsername').value.trim();
+    if (!username) return showToast('Login kiritilmagan', true);
+    const res = await fetch("{% url 'users1:director_change_login' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (data.ok) {
+        closeModal('loginModal');
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        showToast(data.error || 'Xatolik yuz berdi', true);
+    }
+}
+
+async function changePassword() {
+    const old_password = document.getElementById('oldPassword').value;
+    const new_password = document.getElementById('newPassword').value;
+    const confirm_password = document.getElementById('confirmPassword').value;
+    if (!old_password || !new_password || !confirm_password) return showToast('Barcha maydonlarni to\'ldiring', true);
+    const res = await fetch("{% url 'users1:director_change_password' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({ old_password, new_password, confirm_password })
+    });
+    const data = await res.json();
+    if (data.ok) {
+        closeModal('passwordModal');
+        showToast(data.message);
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+    } else {
+        showToast(data.error || 'Xatolik yuz berdi', true);
+    }
+}
+
+async function uploadPhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('photo', file);
+    showToast('Yuklanmoqda...');
+    const res = await fetch("{% url 'users1:director_change_photo' %}", {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        body: formData
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const img = document.getElementById('profileImg');
+        const initial = document.getElementById('profileInitial');
+        img.src = data.photo_url;
+        img.style.display = 'block';
+        if (initial) initial.style.display = 'none';
+        showToast(data.message);
+    } else {
+        showToast(data.error || 'Xatolik yuz berdi', true);
+    }
+}
+</script>
+{% endblock %}

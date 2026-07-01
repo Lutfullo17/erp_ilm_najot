@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% block title %}Jarima Tizimi - Ilm Najot ERP{% endblock %}
+{% block header_title %}Jarima Tizimi{% endblock %}
+
+{% block extra_css %}
+<style>
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 2rem; }
+.stat-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 1.5rem; backdrop-filter: blur(12px);
+    text-align: center; transition: all 0.3s; cursor: default;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+.stat-card .val { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.25rem; line-height: 1; }
+.stat-card .lbl { font-size: 0.8rem; color: var(--text-muted); }
+.red-val { color: #ef4444; }
+.orange-val { color: #f59e0b; }
+.blue-val { color: #6366f1; }
+.green-val { color: #10b981; }
+
+/* Alert Panel */
+.alert-item {
+    background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 14px; padding: 1rem; margin-bottom: 0.75rem;
+    transition: all 0.2s;
+}
+.alert-item:hover { border-color: rgba(239,68,68,0.4); }
+.alert-item .teacher-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.3rem; }
+.alert-item .group-info { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+.alert-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-sm { padding: 0.45rem 0.9rem; font-size: 0.78rem; border-radius: 10px; cursor: pointer; border: none; font-weight: 600; transition: all 0.2s; }
+.btn-came { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+.btn-came:hover { background: rgba(16,185,129,0.3); }
+.btn-not-came { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+.btn-not-came:hover { background: rgba(239,68,68,0.3); }
+
+/* Teacher Stats */
+.teacher-stat {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.85rem; border-bottom: 1px solid var(--border);
+    transition: background 0.2s; border-radius: 10px;
+}
+.teacher-stat:hover { background: rgba(255,255,255,0.03); }
+.teacher-stat:last-child { border-bottom: none; }
+.pts-badge-red { background: rgba(239,68,68,0.15); color: #ef4444; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+.pts-badge-orange { background: rgba(245,158,11,0.15); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+.pts-badge-green { background: rgba(16,185,129,0.15); color: #10b981; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+
+.sections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+.section-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; backdrop-filter: blur(12px); }
+.section-card h3 { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.25rem; }
+
+.alert-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; background: #ef4444; color: white; border-radius: 50%; font-size: 0.7rem; font-weight: 800; margin-left: 0.5rem; }
+
+/* Consecutive Alert */
+.consecutive-alert {
+    background: rgba(239,68,68,0.07); border: 2px solid rgba(239,68,68,0.4);
+    border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    animation: pulse-border 2s infinite;
+}
+@keyframes pulse-border { 0%, 100% { border-color: rgba(239,68,68,0.4); } 50% { border-color: rgba(239,68,68,0.8); } }
+
+/* Manual Penalty Modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:#1e293b; border:1px solid var(--border); border-radius:24px; padding:2rem; width:100%; max-width:500px; margin:1rem; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+
+@media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .sections-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- 3+ Consecutive Alert (highest priority) -->
+{% if teachers_with_consecutive %}
+{% for item in teachers_with_consecutive %}
+<div class="consecutive-alert">
+    <div style="display:flex;align-items:center;gap:1rem;">
+        <div style="width:44px;height:44px;background:#ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div>
+            <div style="font-weight:700;color:#ef4444;font-size:0.95rem;">⚠️ Ketma-ket 3 ta darsda davomat olinmadi!</div>
+            <div style="font-size:0.88rem;margin-top:0.2rem;">
+                O'qituvchi: <strong>{{ item.teacher.get_full_name|default:item.teacher.username }}</strong>
+                — jiddiy holat, darhol murojaat qiling!
+            </div>
+        </div>
+    </div>
+    <a href="{% url 'users1:teacher_detail' item.teacher.pk %}" class="btn btn-primary" style="background:#ef4444;border-color:#ef4444;font-size:0.85rem;padding:0.5rem 1rem;white-space:nowrap;">
+        <i class="fas fa-eye"></i> Batafsil
+    </a>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Stats Row -->
+<div class="stats-row">
+    <div class="stat-card" style="border-bottom:3px solid #ef4444;">
+        <div class="val red-val">{{ monthly_total }}</div>
+        <div class="lbl">Shu oydagi jami minus ball</div>
+    </div>
+    <div class="stat-card" style="border-bottom:3px solid #f59e0b;">
+        <div class="val orange-val">{{ missed_alerts|length }}</div>
+        <div class="lbl">Kutayotgan ogohlantirishlar</div>
+    </div>
+    <div class="stat-card" style="border-bottom:3px solid #6366f1;">
+        <div class="val blue-val">{{ teachers|length }}</div>
+        <div class="lbl">Jami o'qituvchilar</div>
+    </div>
+    <div class="stat-card" style="border-bottom:3px solid #10b981;">
+        <div class="val green-val">{{ penalties|length }}</div>
+        <div class="lbl">Oxirgi 50 jarima</div>
+    </div>
+</div>
+
+<div class="sections-grid">
+    <!-- Pending Alerts Panel -->
+    <div class="section-card">
+        <h3>
+            <i class="fas fa-bell" style="color:#f59e0b"></i>
+            Kutayotgan Ogohlantirishlar
+            {% if missed_alerts %}<span class="alert-badge">{{ missed_alerts|length }}</span>{% endif %}
+        </h3>
+
+        {% if missed_alerts %}
+        {% for alert in missed_alerts %}
+        <div class="alert-item" id="alert-{{ alert.pk }}">
+            <div class="teacher-name">
+                <a href="{% url 'users1:teacher_detail' alert.teacher.pk %}" style="color:var(--text);text-decoration:none;">
+                    {{ alert.teacher.get_full_name|default:alert.teacher.username }}
+                </a>
+            </div>
+            <div class="group-info">
+                <i class="fas fa-users" style="color:var(--primary);margin-right:0.3rem;"></i>
+                {{ alert.group.name }}
+                {% if alert.group.lesson_time %}
+                · <i class="fas fa-clock" style="color:var(--warning);margin-right:0.2rem;"></i>
+                {{ alert.group.lesson_time|time:"H:i" }}{% if alert.group.end_time %} - {{ alert.group.end_time|time:"H:i" }}{% endif %}
+                {% endif %}
+                · <i class="fas fa-calendar" style="color:var(--text-muted);margin-right:0.2rem;"></i>
+                {{ alert.lesson_date|date:"d.m.Y" }}
+            </div>
+            <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;padding:0.5rem;background:rgba(255,255,255,0.03);border-radius:8px;">
+                ❓ Davomat olinmadi. <strong>O'qituvchi darsga keldimi?</strong>
+            </div>
+            <div class="alert-actions">
+                <button class="btn-sm btn-came" onclick="resolveAlert({{ alert.pk }}, 'came')">
+                    <i class="fas fa-check"></i> Keldi (-5 ball)
+                </button>
+                <button class="btn-sm btn-not-came" onclick="resolveAlert({{ alert.pk }}, 'not_came')">
+                    <i class="fas fa-times"></i> Kelmadi (-10 ball)
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;padding:2.5rem;color:var(--text-muted);">
+            <i class="fas fa-check-circle" style="font-size:2.5rem;color:var(--success);display:block;margin-bottom:0.75rem;"></i>
+            Kutayotgan ogohlantirish yo'q
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Teacher Penalty Stats -->
+    <div class="section-card">
+        <h3><i class="fas fa-chart-bar" style="color:var(--primary)"></i> O'qituvchilar Reytingi</h3>
+        {% if teacher_stats %}
+        {% for ts in teacher_stats %}
+        <div class="teacher-stat">
+            <div>
+                <a href="{% url 'users1:teacher_detail' ts.teacher.pk %}" style="color:var(--text);text-decoration:none;font-weight:600;font-size:0.9rem;">
+                    {{ ts.teacher.get_full_name|default:ts.teacher.username }}
+                </a>
+                <div style="font-size:0.78rem;color:var(--text-muted);">
+                    Shu oy: {{ ts.monthly_points }} ball
+                </div>
+            </div>
+            <span class="{% if ts.total_points < -15 %}pts-badge-red{% elif ts.total_points < -5 %}pts-badge-orange{% else %}pts-badge-green{% endif %}">
+                {{ ts.total_points }} ball
+            </span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color:var(--text-muted);text-align:center;padding:2rem;">Hali jarima yo'q</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Penalties Log -->
+<div class="section-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+        <h3 style="margin:0;"><i class="fas fa-history" style="color:var(--warning)"></i> So'nggi Jarimalar Tarixi</h3>
+        <div style="font-size:0.82rem;color:var(--text-muted);">
+            <i class="fas fa-info-circle"></i> Hech qanday yozuv o'chirilmaydi
+        </div>
+    </div>
+    <div class="table-container">
+        <table class="mobile-card-table">
+            <thead>
+                <tr>
+                    <th>O'qituvchi</th>
+                    <th>Guruh</th>
+                    <th>Sana</th>
+                    <th>Sabab</th>
+                    <th>Ball</th>
+                    <th>Tur</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for penalty in penalties %}
+                <tr>
+                    <td data-label="O'qituvchi">
+                        <a href="{% url 'users1:teacher_detail' penalty.teacher.pk %}" style="color:var(--primary);text-decoration:none;font-weight:600;">
+                            {{ penalty.teacher.get_full_name|default:penalty.teacher.username }}
+                        </a>
+                    </td>
+                    <td data-label="Guruh">{{ penalty.group.name|default:"—" }}</td>
+                    <td data-label="Sana" style="white-space:nowrap;">{{ penalty.date|date:"d.m.Y" }}</td>
+                    <td data-label="Sabab">{{ penalty.reason }}</td>
+                    <td data-label="Ball">
+                        <span class="pts-badge-red">{{ penalty.points }}</span>
+                    </td>
+                    <td data-label="Tur">
+                        {% if penalty.is_manual %}
+                        <span style="background:rgba(245,158,11,0.15);color:#f59e0b;padding:0.2rem 0.6rem;border-radius:8px;font-size:0.75rem;font-weight:600;">
+                            <i class="fas fa-hand-paper"></i> Qo'lda
+                        </span>
+                        {% else %}
+                        <span style="background:rgba(99,102,241,0.15);color:#818cf8;padding:0.2rem 0.6rem;border-radius:8px;font-size:0.75rem;font-weight:600;">
+                            <i class="fas fa-robot"></i> Avtomatik
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">
+                        Hali jarima yo'q
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;bottom:2rem;right:2rem;background:#1e293b;border:1px solid var(--border);border-radius:16px;padding:1rem 1.5rem;display:none;align-items:center;gap:0.75rem;z-index:99999;min-width:280px;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+    <i id="toastIcon" class="fas fa-check-circle" style="color:var(--success);font-size:1.25rem;"></i>
+    <span id="toastMsg"></span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// teachers_with_consecutive is passed from view context
+const teachersWithConsecutive = {{ teachers_with_3_consecutive|length|default:0 }};
+
+function showToast(msg, isError=false) {
+    const t=document.getElementById('toast'),i=document.getElementById('toastIcon');
+    document.getElementById('toastMsg').textContent=msg;
+    i.className=isError?'fas fa-exclamation-circle':'fas fa-check-circle';
+    i.style.color=isError?'var(--danger)':'var(--success)';
+    t.style.display='flex';
+    setTimeout(()=>t.style.display='none',3500);
+}
+
+async function resolveAlert(alertPk, decision) {
+    const labels = {
+        came: 'Keldi — davomat olinmagan (-5 ball)',
+        not_came: 'Kelmadi — darsni qo\'ldirdi (-10 ball)'
+    };
+    if (!confirm(`Tasdiqlaysizmi?\n${labels[decision]}`)) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
+
+    const res = await fetch(`/users/admin/penalties/alert/${alertPk}/resolve/`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({ decision })
+    });
+    const data = await res.json();
+    if (data.ok) {
+        showToast(data.message);
+        const alertEl = document.getElementById(`alert-${alertPk}`);
+        if (alertEl) {
+            alertEl.style.opacity = '0';
+            alertEl.style.transform = 'translateX(20px)';
+            alertEl.style.transition = 'all 0.4s';
+            setTimeout(() => { alertEl.remove(); location.reload(); }, 1500);
+        }
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = decision === 'came' ? '<i class="fas fa-check"></i> Keldi (-5 ball)' : '<i class="fas fa-times"></i> Kelmadi (-10 ball)';
+        showToast(data.error || 'Xatolik', true);
+    }
+}
+</script>
+{% endblock %}
