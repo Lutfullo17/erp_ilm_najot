@@ -14,7 +14,7 @@ from users1.views import AdminAccessRequiredMixin
 from .models import PaymentTransaction, StudentMonthBalance
 from students.models import Student
 from groups_app.models import Group, GroupStudent
-from .services import PaymentInputError, apply_payment, get_student_payment_state
+from .services import PaymentInputError, apply_payment, get_student_payment_state, first_day_of_month
 
 
 def _serialize_student_for_payment(student):
@@ -143,8 +143,10 @@ class DebtorListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     context_object_name = 'debtors'
 
     def get_queryset(self):
+        today_month = first_day_of_month(date.today())
         return StudentMonthBalance.objects.filter(
-            status__in=['OPEN', 'PARTIAL']
+            status__in=['OPEN', 'PARTIAL'],
+            month__lte=today_month,
         ).select_related('student', 'group')
 
 
@@ -155,9 +157,11 @@ class GroupDebtorView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
 
     def get_queryset(self):
         self.group = get_object_or_404(Group, pk=self.kwargs['group_id'])
+        today_month = first_day_of_month(date.today())
         return StudentMonthBalance.objects.filter(
             group=self.group,
-            status__in=['OPEN', 'PARTIAL']
+            status__in=['OPEN', 'PARTIAL'],
+            month__lte=today_month,
         ).select_related('student').order_by('student__last_name')
 
     def get_context_data(self, **kwargs):

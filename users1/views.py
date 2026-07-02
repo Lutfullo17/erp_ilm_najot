@@ -2,6 +2,7 @@ import json as json_module
 import os
 from collections import defaultdict
 
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import update_session_auth_hash
@@ -12,15 +13,23 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django import forms
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Sum
 from django.utils import timezone
 
 from students.models import Student
 from payments.models import StudentMonthBalance, MonthBalanceStatus, PaymentTransaction
+from payments.services import first_day_of_month
 from attendance.models import AttendanceRecord, AttendanceSession
 from groups_app.models import Group, GroupStudent
 from bot.models import TelegramAppeal, TelegramUser
-from .models import User, AuditLog, TeacherPenalty, MissedAttendanceAlert
+from .models import (
+    User,
+    AuditLog,
+    TeacherPenalty,
+    MissedAttendanceAlert,
+    ScheduleChangeRequest,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +49,45 @@ def create_audit_log(request, action, target_user=None):
         action=action,
         ip_address=get_client_ip(request),
     )
+
+
+def _parse_lesson_days(lesson_days):
+    return {d.strip() for d in lesson_days.split(',') if d.strip()} if lesson_days else set()
+
+
+def _times_overlap(start_a, end_a, start_b, end_b):
+    return start_a < end_b and end_a > start_b
+
+
+def _compute_end_time(group):
+    if group.end_time:
+        return group.end_time
+    if group.lesson_time and group.duration is not None:
+        import datetime
+        hours = int(group.duration)
+        minutes = int((group.duration - hours) * 60)
+        return (datetime.datetime.combine(datetime.date.today(), group.lesson_time) + datetime.timedelta(hours=hours, minutes=minutes)).time()
+    return None
+
+
+def _duration_to_decimal_hours(start_time, end_time):
+    import datetime
+    start_dt = datetime.datetime.combine(datetime.date.today(), start_time)
+    end_dt = datetime.datetime.combine(datetime.date.today(), end_time)
+    diff = end_dt - start_dt
+    return diff.seconds / 3600
+
+
+def _start_of_week(value):
+    return value - timezone.timedelta(days=value.weekday())
+
+
+def _get_week_override(group, week_start):
+    return ScheduleChangeRequest.objects.filter(
+        group=group,
+        status=ScheduleChangeRequest.Status.APPROVED,
+        effective_week_start=week_start,
+    ).order_by('-submitted_at').first()
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +115,117 @@ class TeacherCreateForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class ScheduleChangeRequestForm(forms.ModelForm):
+    DAY_CHOICES = [
+        ('Dushanba', 'Dushanba'),
+        ('Seshanba', 'Seshanba'),
+        ('Chorshanba', 'Chorshanba'),
+        ('Payshanba', 'Payshanba'),
+        ('Juma', 'Juma'),
+        ('Shanba', 'Shanba'),
+        ('Yakshanba', 'Yakshanba'),
+    ]
+
+    new_day = forms.ChoiceField(choices=DAY_CHOICES, label='Yangi dars kuni')
+    new_start_time = forms.TimeField(
+        widget=forms.TextInput(attrs={
+            'type': 'text',
+            'placeholder': 'HH:MM',
+            'pattern': '([01]\\d|2[0-3]):[0-5]\\d',
+            'inputmode': 'numeric',
+            'maxlength': '5',
+        }),
+        label='Yangi boshlanish vaqti',
+        input_formats=['%H:%M'],
+        help_text='Format: HH:MM'
+    )
+    new_end_time = forms.TimeField(
+        widget=forms.TextInput(attrs={
+            'type': 'text',
+            'placeholder': 'HH:MM',
+            'pattern': '([01]\\d|2[0-3]):[0-5]\\d',
+            'inputmode': 'numeric',
+            'maxlength': '5',
+        }),
+        label='Yangi tugash vaqti',
+        input_formats=['%H:%M'],
+        help_text='Format: HH:MM'
+    )
+    reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), label='Sabab')
+
+    class Meta:
+        model = ScheduleChangeRequest
+        fields = ['new_day', 'new_start_time', 'new_end_time', 'reason']
+
+    def __init__(self, *args, group=None, teacher=None, old_day=None, old_start_time=None, old_end_time=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.group = group
+        self.teacher = teacher
+        self.old_day = old_day
+        self.old_start_time = old_start_time
+        self.old_end_time = old_end_time
+
+        if group is not None:
+            self.fields['new_day'].initial = old_day
+            self.fields['new_start_time'].initial = old_start_time.strftime('%H:%M') if old_start_time else ''
+            self.fields['new_end_time'].initial = old_end_time.strftime('%H:%M') if old_end_time else ''
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_day = cleaned_data.get('new_day')
+        new_start = cleaned_data.get('new_start_time')
+        new_end = cleaned_data.get('new_end_time')
+
+        if new_start and new_end and new_start >= new_end:
+            raise ValidationError('Yangi boshlanish vaqti tugash vaqtidan kichik bo‘lishi kerak.')
+
+        if self.group is None or self.teacher is None:
+            return cleaned_data
+
+        if new_day == self.old_day and new_start == self.old_start_time and new_end == self.old_end_time:
+            raise ValidationError('Yangi vaqt hozirgi vaqt bilan bir xil. Iltimos, boshqa vaqt tanlang.')
+
+        # O'qituvchi konfliktlari
+        conflicts = Group.objects.filter(
+            teacher=self.teacher,
+            is_active=True,
+            lesson_time__isnull=False,
+            end_time__isnull=False
+        ).exclude(pk=self.group.pk)
+
+        for other in conflicts:
+            other_days = _parse_lesson_days(other.lesson_days)
+            if new_day in other_days and _times_overlap(new_start, new_end, other.lesson_time, other.end_time):
+                raise ValidationError('Siz tanlagan vaqtda boshqa guruhga dars o‘tasiz.')
+
+        # Xona konfliktlari
+        if self.group.room:
+            room_conflicts = Group.objects.filter(
+                room=self.group.room,
+                is_active=True,
+                lesson_time__isnull=False,
+                end_time__isnull=False
+            ).exclude(pk=self.group.pk)
+            for other in room_conflicts:
+                other_days = _parse_lesson_days(other.lesson_days)
+                if new_day in other_days and _times_overlap(new_start, new_end, other.lesson_time, other.end_time):
+                    raise ValidationError('Siz tanlagan xonada boshqa guruh band.')
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.teacher = self.teacher
+        instance.group = self.group
+        instance.old_day = self.old_day
+        instance.old_start_time = self.old_start_time
+        instance.old_end_time = self.old_end_time
+        instance.status = ScheduleChangeRequest.Status.PENDING
+        if commit:
+            instance.save()
+        return instance
 
 
 # ---------------------------------------------------------------------------
@@ -601,13 +760,13 @@ class PenaltyListView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
             role=User.Role.TEACHER, 
             is_deleted=False
         ).annotate(
-            total_points=Sum('teacherpenalty__points'),
+            total_points=Sum('penalties__points'),
             monthly_points=Sum(
                 Case(
                     When(
-                        teacherpenalty__created_at__year=this_year,
-                        teacherpenalty__created_at__month=this_month,
-                        then='teacherpenalty__points'
+                        penalties__created_at__year=this_year,
+                        penalties__created_at__month=this_month,
+                        then='penalties__points'
                     ),
                     default=0,
                     output_field=DecimalField()
@@ -854,12 +1013,174 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
         context['groups_without_attendance'] = groups_without_attendance
         context['overdue_groups'] = overdue_groups
 
+        context['recent_schedule_reviews'] = ScheduleChangeRequest.objects.filter(
+            teacher=user,
+            status__in=[ScheduleChangeRequest.Status.APPROVED, ScheduleChangeRequest.Status.REJECTED],
+            reviewed_at__isnull=False
+        ).order_by('-reviewed_at')[:5]
+
         # Penalty info
         context['total_penalty_points'] = TeacherPenalty.objects.filter(teacher=user).aggregate(
             total=Sum('points')
         )['total'] or 0
 
         return context
+
+
+class ScheduleChangeRequestCreateView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
+    template_name = 'users1/schedule_change_request_form.html'
+
+    def get(self, request, *args, **kwargs):
+        group = get_object_or_404(
+            Group,
+            pk=kwargs.get('group_pk'),
+            teacher=request.user,
+            is_active=True,
+        )
+
+        lesson_days = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+        if not lesson_days:
+            messages.error(request, 'Guruhning hozirgi dars kuni mavjud emas.')
+            return redirect('users1:teacher_schedule')
+
+        old_day = request.GET.get('day')
+        if old_day not in lesson_days:
+            old_day = lesson_days[0]
+
+        old_start_time = group.lesson_time
+        old_end_time = _compute_end_time(group)
+        form = ScheduleChangeRequestForm(
+            group=group,
+            teacher=request.user,
+            old_day=old_day,
+            old_start_time=old_start_time,
+            old_end_time=old_end_time,
+        )
+        return render(request, self.template_name, {
+            'group': group,
+            'old_day': old_day,
+            'old_start_time': old_start_time,
+            'old_end_time': old_end_time,
+            'form': form,
+        })
+
+    def post(self, request, *args, **kwargs):
+        group = get_object_or_404(
+            Group,
+            pk=kwargs.get('group_pk'),
+            teacher=request.user,
+            is_active=True,
+        )
+
+        lesson_days = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+        if not lesson_days:
+            messages.error(request, 'Guruhning hozirgi dars kuni mavjud emas.')
+            return redirect('users1:teacher_schedule')
+
+        old_day = request.GET.get('day')
+        if old_day not in lesson_days:
+            old_day = lesson_days[0]
+
+        old_start_time = group.lesson_time
+        old_end_time = _compute_end_time(group)
+        form = ScheduleChangeRequestForm(
+            request.POST,
+            group=group,
+            teacher=request.user,
+            old_day=old_day,
+            old_start_time=old_start_time,
+            old_end_time=old_end_time,
+        )
+        if form.is_valid():
+            schedule_request = form.save()
+            create_audit_log(
+                request,
+                f"Jadval o'zgartirish arizasi yaratildi: {group.name} ({old_day} {old_start_time} -> {schedule_request.new_day} {schedule_request.new_start_time})",
+                target_user=request.user,
+            )
+            messages.success(request, 'Dars jadvalini o‘zgartirish bo‘yicha arizangiz yuborildi.')
+            return redirect('users1:teacher_schedule_request_history')
+
+        return render(request, self.template_name, {
+            'group': group,
+            'old_day': old_day,
+            'old_start_time': old_start_time,
+            'old_end_time': old_end_time,
+            'form': form,
+        })
+
+
+class TeacherScheduleRequestHistoryView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
+    template_name = 'users1/teacher_schedule_request_history.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        context['requests'] = ScheduleChangeRequest.objects.filter(
+            teacher=user
+        ).select_related('group', 'reviewed_by').order_by('-submitted_at')
+        return context
+
+
+class ScheduleChangeRequestDetailView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
+    template_name = 'users1/schedule_change_request_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        schedule_request = get_object_or_404(
+            ScheduleChangeRequest.objects.select_related('group', 'teacher', 'reviewed_by'),
+            pk=kwargs.get('request_pk')
+        )
+        context['schedule_request'] = schedule_request
+        return context
+
+
+@login_required
+@require_http_methods(['POST'])
+def review_schedule_change_request(request, request_pk):
+    if not request.user.is_director:
+        raise PermissionDenied
+    schedule_request = get_object_or_404(ScheduleChangeRequest, pk=request_pk)
+    if schedule_request.status != ScheduleChangeRequest.Status.PENDING:
+        messages.error(request, 'Ushbu ariza allaqachon ko‘rib chiqilgan.')
+        return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
+
+    decision = request.POST.get('decision')
+    comment = request.POST.get('review_comment', '').strip()
+
+    if decision not in ['approve', 'reject']:
+        messages.error(request, 'Noto‘g‘ri qaror tanlandi.')
+        return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
+
+    if decision == 'reject' and not comment:
+        messages.error(request, 'Rad etish uchun izoh kiritish majburiy.')
+        return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
+
+    if decision == 'approve':
+        schedule_request.status = ScheduleChangeRequest.Status.APPROVED
+        schedule_request.effective_week_start = _start_of_week(timezone.localdate())
+        schedule_request.save(update_fields=['status', 'effective_week_start'])
+        create_audit_log(
+            request,
+            f"Jadval o'zgartirish arizasi tasdiqlandi: {schedule_request.group.name} ({schedule_request.old_day} {schedule_request.old_start_time}-{schedule_request.old_end_time} → {schedule_request.new_day} {schedule_request.new_start_time}-{schedule_request.new_end_time})",
+            target_user=schedule_request.teacher,
+        )
+        messages.success(request, 'Ariza tasdiqlandi. O‘zgartirish bir hafta davomida qo‘llanadi va keyingi haftadan avvalgiga qaytadi.')
+    else:
+        schedule_request.status = ScheduleChangeRequest.Status.REJECTED
+        create_audit_log(
+            request,
+            f"Jadval o'zgartirish arizasi rad etildi: {schedule_request.group.name}",
+            target_user=schedule_request.teacher,
+        )
+        messages.success(request, 'Ariza rad etildi.')
+
+    schedule_request.reviewed_by = request.user
+    schedule_request.review_comment = comment
+    schedule_request.reviewed_at = timezone.now()
+    schedule_request.save()
+
+    return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
 
 
 # ---------------------------------------------------------------------------
@@ -978,37 +1299,74 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        groups = self.request.user.teaching_groups.filter(is_active=True)
+        groups = self.request.user.teaching_groups.filter(is_active=True).order_by('lesson_time', 'name')
         today = timezone.localdate()
+        day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 
-        schedule = []
-        for group in groups:
-            if group.lesson_days and group.lesson_time:
-                from attendance.models import LessonPlan, AttendanceSession
-                upcoming_dates = []
-                for i in range(7):
-                    check_date = today + timezone.timedelta(days=i)
-                    day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
-                    if day_names[check_date.weekday()] in group.lesson_days:
-                        plan = LessonPlan.objects.filter(group=group, date=check_date).first()
-                        session = AttendanceSession.objects.filter(group=group, date=check_date).first()
-                        upcoming_dates.append({
-                            'date': check_date,
-                            'day_name': day_names[check_date.weekday()],
-                            'topic': plan.topic if plan else (session.lesson_topic if session and session.lesson_topic else ''),
-                            'has_plan': bool(plan),
-                            'has_session': bool(session),
-                            'is_exam': plan.is_exam if plan else False,
+        week_offset = int(self.request.GET.get('week_offset', 0))
+        start_of_week = today - timezone.timedelta(days=today.weekday()) + timezone.timedelta(days=7 * week_offset)
+        week_days = []
+        for i in range(7):
+            check_date = start_of_week + timezone.timedelta(days=i)
+            day_name = day_names[check_date.weekday()]
+            lessons = []
+
+            for group in groups:
+                if not group.lesson_days or not group.lesson_time:
+                    continue
+
+                override = _get_week_override(group, start_of_week)
+                if override:
+                    if day_name == override.new_day:
+                        lessons.append({
+                            'group': group,
+                            'time': override.new_start_time,
+                            'room': group.room,
                         })
+                    elif day_name == override.old_day:
+                        continue
+                    else:
+                        lesson_days = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+                        if day_name not in lesson_days:
+                            continue
+                        lessons.append({
+                            'group': group,
+                            'time': group.lesson_time,
+                            'room': group.room,
+                        })
+                else:
+                    lesson_days = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+                    if day_name not in lesson_days:
+                        continue
 
-                schedule.append({
-                    'group': group,
-                    'time': group.lesson_time,
-                    'days': group.lesson_days,
-                    'upcoming_dates': upcoming_dates,
-                })
-        context['schedule'] = schedule
+                    lessons.append({
+                        'group': group,
+                        'time': group.lesson_time,
+                        'room': group.room,
+                    })
+
+            week_days.append({
+                'date': check_date,
+                'day_name': day_name,
+                'lessons': sorted(lessons, key=lambda item: (item['time'], item['group'].name)),
+            })
+
+        context['week_days'] = week_days
+        context['week_offset'] = week_offset
+        context['week_start'] = start_of_week
+        context['week_end'] = start_of_week + timezone.timedelta(days=6)
+        context['prev_week_offset'] = week_offset - 1
+        context['next_week_offset'] = week_offset + 1
         context['today'] = today
+        context['schedule'] = [
+            {
+                'group': group,
+                'time': group.lesson_time,
+                'days': group.lesson_days,
+            }
+            for group in groups
+            if group.lesson_days and group.lesson_time
+        ]
         return context
 
 
@@ -1136,8 +1494,11 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         context['admins_count'] = User.objects.filter(role=User.Role.ADMINISTRATOR).count()
 
         # Qarzdorlar soni
+        today = timezone.localdate()
+        today_month = first_day_of_month(today)
         context['debtors_count'] = StudentMonthBalance.objects.filter(
-            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL]
+            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL],
+            month__lte=today_month,
         ).values('student').distinct().count()
 
         # Bugungi tug'ilgan kunlar
@@ -1173,8 +1534,11 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         context['recent_students'] = Student.objects.filter(is_active=True).order_by('-created_at')[:5]
 
         # Guruhlar bo'yicha qarzlar
+        today = timezone.localdate()
+        today_month = first_day_of_month(today)
         debtors_qs = StudentMonthBalance.objects.filter(
-            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL]
+            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL],
+            month__lte=today_month,
         ).select_related('student', 'group').order_by('group__name', 'month')
 
         grouped_debtors = defaultdict(lambda: {'group': None, 'students': [], 'total_debt': 0})
@@ -1229,6 +1593,13 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
             status=MissedAttendanceAlert.Status.PENDING
         ).select_related('teacher', 'group').order_by('-created_at')
         context['pending_alerts_count'] = context['pending_alerts'].count()
+
+        context['pending_schedule_requests'] = ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.PENDING
+        ).select_related('teacher', 'group').order_by('-submitted_at')[:5]
+        context['pending_schedule_requests_count'] = ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.PENDING
+        ).count()
 
         context['monthly_penalty_total'] = TeacherPenalty.objects.filter(
             created_at__year=this_year,
@@ -1476,7 +1847,17 @@ def broadcast_all(request):
 # ---------------------------------------------------------------------------
 # Bot holati sahifasi
 # ---------------------------------------------------------------------------
-class BotStatusView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
+class BotStatusView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    def test_func(self):
+        return self.request.user.is_authenticated and (
+            self.request.user.is_director or self.request.user.is_administrator_role
+        )
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return redirect('users1:login')
+        return redirect('users1:teacher_dashboard')
+
     template_name = 'users1/bot_status.html'
 
     def get_context_data(self, **kwargs):
@@ -1568,6 +1949,13 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
         ).select_related('teacher', 'group').order_by('-created_at')[:10]
         context['pending_alerts_count'] = MissedAttendanceAlert.objects.filter(
             status=MissedAttendanceAlert.Status.PENDING
+        ).count()
+
+        context['pending_schedule_requests'] = ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.PENDING
+        ).select_related('teacher', 'group').order_by('-submitted_at')[:5]
+        context['pending_schedule_requests_count'] = ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.PENDING
         ).count()
 
         # Botga ulangan/ulnmagan o'quvchilar

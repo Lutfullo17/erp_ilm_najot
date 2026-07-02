@@ -5,17 +5,41 @@ Bu modul attendance app signals bilan birgalikda ishlaydi.
 Management command yoki scheduler orqali chaqirilishi kerak:
     python manage.py check_missed_attendance
 """
+import datetime
+import logging
+
 from django.utils import timezone
 
 from groups_app.models import Group
 from attendance.models import AttendanceSession
 from users1.models import MissedAttendanceAlert, TeacherPenalty, User
 
+logger = logging.getLogger(__name__)
+
+
+def _normalize_day_names(lesson_days):
+    if not lesson_days:
+        return []
+    return [day.strip().lower() for day in lesson_days.split(',') if day.strip()]
+
+
+def _get_group_end_time(group):
+    if group.end_time:
+        return group.end_time
+
+    if group.lesson_time and group.duration:
+        hours = int(group.duration)
+        minutes = int((group.duration - hours) * 60)
+        td = datetime.timedelta(hours=hours, minutes=minutes)
+        return (datetime.datetime.combine(datetime.date.today(), group.lesson_time) + td).time()
+
+    return None
+
 
 def check_and_create_missed_alerts():
     """
     Dars vaqti o'tgan, lekin davomat olinmagan guruhlar uchun
-    MissedAttendanceAlert yaratadi va xabar yuboradi.
+    MissedAttendanceAlert yaratadi.
     """
     today = timezone.localdate()
     now_time = timezone.localtime().time()
@@ -52,25 +76,8 @@ def check_and_create_missed_alerts():
             )
             if created:
                 created_count += 1
-                # Xabar yuborish
-                try:
-                    notify_staff_about_missed_attendance(alert)
-                except Exception:
-                    pass
 
     return created_count
-
-
-def notify_staff_about_missed_attendance(alert):
-    """
-    Director va Administrator'larga Telegram xabar yuboradi
-    davomat olinmagan guruh haqida.
-    """
-    try:
-        from bot.notifications import notify_missed_attendance_to_staff
-        notify_missed_attendance_to_staff(alert)
-    except Exception:
-        pass
 
 
 def get_teacher_consecutive_missed_count(teacher):

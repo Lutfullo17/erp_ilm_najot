@@ -155,10 +155,10 @@
                 ❓ Davomat olinmadi. <strong>O'qituvchi darsga keldimi?</strong>
             </div>
             <div class="alert-actions">
-                <button class="btn-sm btn-came" onclick="resolveAlert({{ alert.pk }}, 'came')">
+                <button class="btn-sm btn-came" onclick="resolveAlert({{ alert.pk }}, 'came', this)">
                     <i class="fas fa-check"></i> Keldi (-5 ball)
                 </button>
-                <button class="btn-sm btn-not-came" onclick="resolveAlert({{ alert.pk }}, 'not_came')">
+                <button class="btn-sm btn-not-came" onclick="resolveAlert({{ alert.pk }}, 'not_came', this)">
                     <i class="fas fa-times"></i> Kelmadi (-10 ball)
                 </button>
             </div>
@@ -313,16 +313,18 @@ function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }));
 
-async function resolveAlert(alertPk, decision) {
+async function resolveAlert(alertPk, decision, button) {
     const labels = {
         came: 'Keldi — davomat olinmagan (-5 ball)',
         not_came: 'Kelmadi — darsni qo\'ldirdi (-10 ball)'
     };
     if (!confirm(`Tasdiqlaysizmi?\n${labels[decision]}`)) return;
 
-    const btn = event.target;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
+    const btn = button || document.activeElement;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
+    }
 
     const res = await fetch(`/users/admin/penalties/alert/${alertPk}/resolve/`, {
         method: 'POST',

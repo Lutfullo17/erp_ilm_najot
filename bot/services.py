@@ -415,10 +415,12 @@ def handle_menu(chat_id, text, telegram_user):
         contact_info = (
             "<b>📞 ALOQA MA'LUMOTLARI</b>\n"
             "──────────────────\n"
-            "📍 <b>Manzil:</b> Namangan viloyati, ...\n"
-            "📞 <b>Telefon:</b> +998 90 123 45 67\n"
-            "🌐 <b>Telegram:</b> @adminga_yozing\n\n"
-            "Ish vaqtimiz: 08:30 - 18:30"
+            "📍 <b>Manzil:</b> Urgut tumani, Quyi Tegana \n"
+            "📞 <b>Telefon:</b> +998 93 331 44 74\n"
+            "🌐 <b>Telegram:</b> @Quvonchbek474\n\n"
+            "🌐 <b>Telegram Kanal:</b> @ilm_najotedu\n\n"
+
+            "Ish vaqtimiz: 08:00 - 19:00"
         )
         send_telegram_message(chat_id, contact_info, main_menu_keyboard(telegram_user))
     elif text == MENU_APPEAL:
@@ -458,18 +460,16 @@ def handle_appeal(chat_id, text, telegram_user):
         sender_type=sender_type,
         recipient_type=recipient_type,
     )
-    send_telegram_message(chat_id, 'Murojaatingiz qabul qilindi. Adminlar uni o\'rganib chiqishadi.', main_menu_keyboard(telegram_user))
+    send_telegram_message(chat_id, 'Murojaatingiz qabul qilindi. Tez orada sizga javob beramiz.', main_menu_keyboard(telegram_user))
 
     # Adminga sodda ko'rinishda xabar yuborish
     staff_users = TelegramUser.objects.filter(
         user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER],
         is_verified=True,
     ).exclude(telegram_id=chat_id) # O'ziga o'zi bormasligi uchun
-
-    notification_text = f"🔔 <b>Yangi murojaat:</b>\n{message}"
     
     for staff in staff_users:
-        send_telegram_message(staff.telegram_id, notification_text)
+        send_telegram_message(staff.telegram_id)
 
 
 def get_sender_type(telegram_user):
@@ -553,29 +553,6 @@ def handle_callback_query(callback_query):
     if not is_staff:
         answer_callback_query(query_id, "Sizda ruxsat yo'q.")
         return
-
-    # Admin/O'qituvchi "Javob berish" tugmasini bosganda
-    if data.startswith('reply:'):
-        target_id = int(data.split(':', 1)[1])
-        staff_name = telegram_user.first_name or telegram_user.username or 'Admin'
-        STATE_REPLY_TARGET[from_chat] = {
-            'target_id': target_id,
-            'staff_name': staff_name,
-        }
-        telegram_user.state = STATE_REPLY_TO_APPEAL
-        telegram_user.save(update_fields=['state', 'updated_at'])
-        answer_callback_query(query_id, "Javob yozing.")
-        send_telegram_message(from_chat, "O'quvchiga javob yozing:")
-
-    # Admin/O'qituvchi "Hal qilindi" tugmasini bosganda
-    elif data.startswith('resolve:'):
-        target_id = int(data.split(':', 1)[1])
-        TelegramAppeal.objects.filter(
-            telegram_user__telegram_id=target_id,
-            is_resolved=False,
-        ).update(is_resolved=True)
-        answer_callback_query(query_id, "Murojaat hal qilindi deb belgilandi.")
-        send_telegram_message(from_chat, "✅ Murojaat hal qilindi deb belgilandi.")
 
 
 def handle_update(update):

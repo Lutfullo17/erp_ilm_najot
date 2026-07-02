@@ -4,143 +4,52 @@
 {% block header_title %}Dars jadvali{% endblock %}
 
 {% block content %}
-<div style="display: flex; flex-direction: column; gap: 1.5rem;">
-    {% for item in schedule %}
-    <div class="glass-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <div style="width: 45px; height: 45px; border-radius: 12px; background: var(--primary); display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-book" style="color: white; font-size: 1rem;"></i>
+<div class="glass-panel" style="padding: 1rem 1rem 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div>
+            <h2 style="margin: 0; font-size: 1.05rem;">Haftalik dars jadvali</h2>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">{{ week_start|date:"d M" }} - {{ week_end|date:"d M Y" }} oralig‘idagi darslaringiz.</div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ prev_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">← Oldingi hafta</a>
+            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ next_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">Keyingi hafta →</a>
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 0.75rem; min-width: 900px;">
+            {% for day in week_days %}
+            <div style="border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.03); min-height: 260px;">
+                <div style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
+                    <div style="font-weight: 700; font-size: 0.9rem;">{{ day.day_name }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{{ day.date|date:"d-M" }}</div>
                 </div>
-                <div>
-                    <div style="font-weight: 700; font-size: 1.1rem;">{{ item.group.name }}</div>
-                    <div style="color: var(--text-muted); font-size: 0.8rem;">{{ item.days }}</div>
+                <div style="padding: 0.75rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                    {% if day.lessons %}
+                        {% for lesson in day.lessons %}
+                        <div style="padding: 0.65rem; border-radius: 10px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.16);">
+                            <div style="font-weight: 700; font-size: 0.82rem;">{{ lesson.group.name }}</div>
+                            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.2rem;">{{ lesson.time|time:"H:i" }}</div>
+                            {% if lesson.room %}
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Xona: {{ lesson.room }}</div>
+                            {% endif %}
+                            <div style="margin-top: 0.65rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                <a href="{% url 'users1:schedule_change_request_create' lesson.group.id %}?day={{ day.day_name }}" class="btn btn-sm btn-outline" style="padding: 0.35rem 0.6rem; font-size: 0.72rem;">Jadvalni o'zgartirish</a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding: 0.7rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">Bo‘sh</div>
+                    {% endif %}
                 </div>
             </div>
-            <div style="color: var(--primary); font-weight: 700; font-size: 1.2rem;">{{ item.time|time:"H:i" }}</div>
-        </div>
-
-        <!-- Kelgusi darslar mavzulari -->
-        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-            {% for date_info in item.upcoming_dates %}
-            <div style="padding: 0.75rem 1rem; border-radius: 10px; background: {% if forloop.first %}rgba(99, 102, 241, 0.1){% else %}rgba(255,255,255,0.03){% endif %}; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                <div style="min-width: 120px;">
-                    <div style="font-weight: 600; font-size: 0.85rem;">{{ date_info.day_name }}</div>
-                    <div style="color: var(--text-muted); font-size: 0.75rem;">{{ date_info.date|date:"d-M" }}</div>
-                </div>
-                <div style="flex: 1; min-width: 200px;">
-                    <input type="text"
-                           class="topic-input"
-                           data-group-id="{{ item.group.id }}"
-                           data-date="{{ date_info.date|date:'Y-m-d' }}"
-                           value="{{ date_info.topic }}"
-                           placeholder="Mavzu kiriting..."
-                           style="width: 100%; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.85rem;">
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 6px; {% if date_info.is_exam %}background: rgba(245,158,11,0.15); color: #f59e0b;{% else %}background: rgba(255,255,255,0.05); color: var(--text-muted);{% endif %}">
-                        <input type="checkbox" class="exam-toggle" data-group-id="{{ item.group.id }}" data-date="{{ date_info.date|date:'Y-m-d' }}" {% if date_info.is_exam %}checked{% endif %} style="display: none;">
-                        <i class="fas fa-file-alt"></i> Imtihon
-                    </label>
-                    <div style="font-size: 0.7rem; color: {% if date_info.has_plan %}var(--success){% elif date_info.has_session %}var(--warning){% else %}var(--text-muted){% endif %};">
-                        {% if date_info.has_plan %}<i class="fas fa-check-circle"></i> Rejada{% elif date_info.has_session %}<i class="fas fa-edit"></i> Davomatda{% else %}<i class="fas fa-clock"></i> Kutilmoqda{% endif %}
-                    </div>
-                </div>
+            {% empty %}
+            <div class="glass-panel" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">
+                <i class="fas fa-calendar" style="font-size: 2rem; margin-bottom: 0.75rem; display: block; opacity: 0.3;"></i>
+                <p>Jadval bo‘sh</p>
             </div>
             {% endfor %}
         </div>
     </div>
-    {% empty %}
-    <div class="glass-panel" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-        <i class="fas fa-calendar" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
-        <p>Jadval bo'sh</p>
-    </div>
-    {% endfor %}
 </div>
-
-<script>
-document.querySelectorAll('.topic-input').forEach(input => {
-    let timeout;
-    input.addEventListener('input', function() {
-        clearTimeout(timeout);
-        const el = this;
-        timeout = setTimeout(() => {
-            saveTopic(el);
-        }, 800);
-    });
-
-    input.addEventListener('blur', function() {
-        clearTimeout(timeout);
-        saveTopic(this);
-    });
-});
-
-document.querySelectorAll('.exam-toggle').forEach(checkbox => {
-    checkbox.addEventListener('change', function() {
-        const groupId = this.dataset.groupId;
-        const date = this.dataset.date;
-        const isExam = this.checked;
-        const label = this.parentElement;
-
-        fetch('{% url "attendance:save_lesson_plan" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}',
-            },
-            body: JSON.stringify({
-                group_id: parseInt(groupId),
-                date: date,
-                topic: isExam ? 'Imtihon' : '',
-                is_exam: isExam,
-            }),
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                if (isExam) {
-                    label.style.background = 'rgba(245,158,11,0.15)';
-                    label.style.color = '#f59e0b';
-                } else {
-                    label.style.background = 'rgba(255,255,255,0.05)';
-                    label.style.color = 'var(--text-muted)';
-                }
-            }
-        })
-        .catch(() => {});
-    });
-});
-
-function saveTopic(input) {
-    const groupId = input.dataset.groupId;
-    const date = input.dataset.date;
-    const topic = input.value.trim();
-
-    if (!topic) return;
-
-    fetch('{% url "attendance:save_lesson_plan" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}',
-        },
-        body: JSON.stringify({
-            group_id: parseInt(groupId),
-            date: date,
-            topic: topic,
-        }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.ok) {
-            const badge = input.parentElement.nextElementSibling;
-            if (badge) {
-                badge.innerHTML = '<i class="fas fa-check-circle"></i> Rejada';
-                badge.style.color = 'var(--success)';
-            }
-        }
-    })
-    .catch(() => {});
-}
-</script>
 {% endblock %}

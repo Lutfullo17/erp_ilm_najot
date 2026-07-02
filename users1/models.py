@@ -198,3 +198,57 @@ class MissedAttendanceAlert(models.Model):
 
     def __str__(self):
         return f"{self.teacher} - {self.group} - {self.lesson_date}"
+
+
+class ScheduleChangeRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Kutilmoqda'
+        APPROVED = 'APPROVED', 'Tasdiqlandi'
+        REJECTED = 'REJECTED', 'Rad etildi'
+        CANCELLED = 'CANCELLED', 'Bekor qilindi'
+
+    teacher = models.ForeignKey(
+        'users1.User',
+        on_delete=models.CASCADE,
+        related_name='schedule_change_requests',
+        limit_choices_to={'role': 'TEACHER'},
+        verbose_name="O'qituvchi"
+    )
+    group = models.ForeignKey(
+        'groups_app.Group',
+        on_delete=models.CASCADE,
+        verbose_name="Guruh"
+    )
+    old_day = models.CharField(max_length=20, verbose_name="Hozirgi dars kuni")
+    old_start_time = models.TimeField(verbose_name="Hozirgi boshlanish vaqti")
+    old_end_time = models.TimeField(verbose_name="Hozirgi tugash vaqti")
+    new_day = models.CharField(max_length=20, verbose_name="Yangi dars kuni")
+    new_start_time = models.TimeField(verbose_name="Yangi boshlanish vaqti")
+    new_end_time = models.TimeField(verbose_name="Yangi tugash vaqti")
+    reason = models.TextField(verbose_name="Sabab")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Holati"
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="Yuborilgan sana")
+    effective_week_start = models.DateField(null=True, blank=True, verbose_name="Qaysi hafta uchun amal qiladi")
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="Ko'rib chiqilgan sana")
+    reviewed_by = models.ForeignKey(
+        'users1.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='schedule_requests_reviewed',
+        verbose_name="Kim ko'rib chiqdi"
+    )
+    review_comment = models.TextField(blank=True, default='', verbose_name="Ko'rib chiqish izohi")
+
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = "Jadval o'zgartirish arizasi"
+        verbose_name_plural = "Jadval o'zgartirish arizalari"
+
+    def __str__(self):
+        return f"{self.teacher.get_full_name()} - {self.group.name} - {self.status}"

@@ -1,6 +1,10 @@
+import logging
+
 from django.conf import settings
 from .services import send_telegram_message, money
 from .models import TelegramUser
+
+logger = logging.getLogger(__name__)
 
 
 def notify_attendance_absent(attendance_record):
@@ -141,27 +145,23 @@ def notify_missed_attendance_to_staff(alert):
 
     sent = False
     for staff in staff_users:
-        # TelegramUser modelidan staff user ga bog'langan telegram accountni topish
         tg_user = TelegramUser.objects.filter(user=staff, is_verified=True).first()
         if tg_user:
             try:
                 send_telegram_message(tg_user.telegram_id, message)
                 sent = True
             except Exception:
-                pass
+                logger.exception('Failed to send missed attendance message to staff user %s', staff.pk)
 
-    # Agar TelegramUser orqali topilmasa, STAFF_TELEGRAM_IDS settingdan qidirish
     if not sent:
-        try:
-            from django.conf import settings
-            staff_ids = getattr(settings, 'STAFF_TELEGRAM_IDS', [])
-            for telegram_id in staff_ids:
-                try:
-                    send_telegram_message(telegram_id, message)
-                    sent = True
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        staff_ids = getattr(settings, 'STAFF_TELEGRAM_IDS', [])
+        if not staff_ids:
+            logger.warning('No staff TelegramUser entries or STAFF_TELEGRAM_IDS configured for missed attendance notification')
+        for telegram_id in staff_ids:
+            try:
+                send_telegram_message(telegram_id, message)
+                sent = True
+            except Exception:
+                logger.exception('Failed to send missed attendance message to fallback telegram_id %s', telegram_id)
 
     return sent

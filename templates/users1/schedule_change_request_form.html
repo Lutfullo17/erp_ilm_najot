@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Jadval o'zgartirish so'rovi{% endblock %}
+{% block header_title %}Jadval o'zgartirish so'rovi{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 1.5rem; max-width: 760px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h2 style="margin: 0;">{{ group.name }} uchun ariza</h2>
+            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem;">Hozirgi dars: {{ old_day }} {{ old_start_time|time:"H:i" }} - {{ old_end_time|time:"H:i" }}</div>
+        </div>
+        <a href="{% url 'users1:teacher_schedule' %}" class="btn btn-outline" style="padding: 0.65rem 1rem;">Jadvalga qaytish</a>
+    </div>
+
+    <form method="post" action="?day={{ old_day }}">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+        <div style="padding: 1rem; border-radius: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #b91c1c;">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+        <div style="display: grid; gap: 1rem;">
+            <div class="form-group">
+                <label for="id_new_day" style="font-weight: 600;">Yangi dars kuni</label>
+                {{ form.new_day }}
+                {{ form.new_day.errors }}
+            </div>
+            <div class="form-group">
+                <label for="id_new_start_time" style="font-weight: 600;">Yangi boshlanish vaqti</label>
+                {{ form.new_start_time }}
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">{{ form.new_start_time.help_text }}</div>
+                {{ form.new_start_time.errors }}
+            </div>
+            <div class="form-group">
+                <label for="id_new_end_time" style="font-weight: 600;">Yangi tugash vaqti</label>
+                {{ form.new_end_time }}
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">{{ form.new_end_time.help_text }}</div>
+                {{ form.new_end_time.errors }}
+            </div>
+            <div class="form-group">
+                <label for="id_reason" style="font-weight: 600;">O'zgartirish sababi</label>
+                {{ form.reason }}
+                {{ form.reason.errors }}
+            </div>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                <button type="submit" class="btn btn-primary" style="padding: 0.85rem 1.25rem;">Arizani yuborish</button>
+                <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-outline" style="padding: 0.85rem 1.25rem;">Ariza tarixiga o‘tish</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function formatTimeInput(input) {
+    let value = input.value.replace(/\D/g, '').slice(0, 4);
+    if (value.length >= 3) {
+        value = value.slice(0, 2) + ':' + value.slice(2);
+    }
+    input.value = value;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const startInput = document.getElementById('id_new_start_time');
+    const endInput = document.getElementById('id_new_end_time');
+    [startInput, endInput].forEach(function (input) {
+        if (!input) return;
+        input.addEventListener('input', function () {
+            formatTimeInput(input);
+        });
+    });
+});
+</script>
+{% endblock %}
