@@ -37,8 +37,14 @@
                            placeholder="Mavzu kiriting..."
                            style="width: 100%; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.85rem;">
                 </div>
-                <div style="font-size: 0.7rem; color: {% if date_info.has_plan %}var(--success){% elif date_info.has_session %}var(--warning){% else %}var(--text-muted){% endif %};">
-                    {% if date_info.has_plan %}<i class="fas fa-check-circle"></i> Rejada{% elif date_info.has_session %}<i class="fas fa-edit"></i> Davomatda{% else %}<i class="fas fa-clock"></i> Kutilmoqda{% endif %}
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 6px; {% if date_info.is_exam %}background: rgba(245,158,11,0.15); color: #f59e0b;{% else %}background: rgba(255,255,255,0.05); color: var(--text-muted);{% endif %}">
+                        <input type="checkbox" class="exam-toggle" data-group-id="{{ item.group.id }}" data-date="{{ date_info.date|date:'Y-m-d' }}" {% if date_info.is_exam %}checked{% endif %} style="display: none;">
+                        <i class="fas fa-file-alt"></i> Imtihon
+                    </label>
+                    <div style="font-size: 0.7rem; color: {% if date_info.has_plan %}var(--success){% elif date_info.has_session %}var(--warning){% else %}var(--text-muted){% endif %};">
+                        {% if date_info.has_plan %}<i class="fas fa-check-circle"></i> Rejada{% elif date_info.has_session %}<i class="fas fa-edit"></i> Davomatda{% else %}<i class="fas fa-clock"></i> Kutilmoqda{% endif %}
+                    </div>
                 </div>
             </div>
             {% endfor %}
@@ -66,6 +72,42 @@ document.querySelectorAll('.topic-input').forEach(input => {
     input.addEventListener('blur', function() {
         clearTimeout(timeout);
         saveTopic(this);
+    });
+});
+
+document.querySelectorAll('.exam-toggle').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const groupId = this.dataset.groupId;
+        const date = this.dataset.date;
+        const isExam = this.checked;
+        const label = this.parentElement;
+
+        fetch('{% url "attendance:save_lesson_plan" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                group_id: parseInt(groupId),
+                date: date,
+                topic: isExam ? 'Imtihon' : '',
+                is_exam: isExam,
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                if (isExam) {
+                    label.style.background = 'rgba(245,158,11,0.15)';
+                    label.style.color = '#f59e0b';
+                } else {
+                    label.style.background = 'rgba(255,255,255,0.05)';
+                    label.style.color = 'var(--text-muted)';
+                }
+            }
+        })
+        .catch(() => {});
     });
 });
 

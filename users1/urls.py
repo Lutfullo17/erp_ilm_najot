@@ -38,15 +38,18 @@ urlpatterns = [
     path('teachers/<int:pk>/delete/', views.delete_teacher, name='teacher_delete'),
     path('teachers/<int:pk>/change-login/', views.director_change_teacher_login, name='teacher_change_login'),
     path('teachers/<int:pk>/reset-password/', views.director_reset_teacher_password, name='teacher_reset_password'),
-    path('teachers/<int:pk>/toggle-block/', views.director_toggle_teacher_block, name='teacher_toggle_block'),
 
     # ── Administrator Portal ────────────────────────────────────────────────
     path('administrator/', views.AdministratorDashboardView.as_view(), name='administrator_dashboard'),
     path('administrator/profile/', views.AdministratorProfileView.as_view(), name='administrator_profile'),
 
+    # ── Bot holati ──────────────────────────────────────────────────
+    path('bot-status/', views.BotStatusView.as_view(), name='bot_status'),
+
     # ── Teacher Portal ──────────────────────────────────────────────────────
     path('teacher/', views.TeacherDashboardView.as_view(), name='teacher_dashboard'),
     path('teacher/groups/', views.TeacherGroupsView.as_view(), name='teacher_groups'),
+    path('teacher/groups/<int:pk>/', views.TeacherGroupDetailView.as_view(), name='teacher_group_detail'),
     path('teacher/messages/', views.TeacherMessagesView.as_view(), name='teacher_messages'),
     path('teacher/schedule/', views.TeacherScheduleView.as_view(), name='teacher_schedule'),
     path('teacher/students/', views.TeacherStudentsView.as_view(), name='teacher_students'),

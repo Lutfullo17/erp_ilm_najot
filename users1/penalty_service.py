@@ -145,23 +145,3 @@ def apply_penalty_for_alert(alert, decision, resolved_by):
         )
 
     return penalty
-
-
-def get_teacher_total_penalty(teacher):
-    """Teacher umumiy jarima ballini qaytaradi"""
-    from django.db.models import Sum
-    result = TeacherPenalty.objects.filter(teacher=teacher).aggregate(total=Sum('points'))
-    return result['total'] or 0
-
-
-def get_monthly_penalty_stats(year=None, month=None):
-    """Oylik jarima statistikasi"""
-    from django.db.models import Sum
-    today = timezone.localdate()
-    year = year or today.year
-    month = month or today.month
-
-    return TeacherPenalty.objects.filter(
-        created_at__year=year,
-        created_at__month=month,
-    ).aggregate(total=Sum('points'))['total'] or 0

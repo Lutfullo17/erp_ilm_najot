@@ -1,6 +1,6 @@
 import json
 from datetime import date
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -41,12 +41,16 @@ def _serialize_student_for_payment(student):
 
 @require_http_methods(['GET'])
 def api_get_student_for_payment(request, student_id):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
     return JsonResponse(_serialize_student_for_payment(student))
 
 
 @require_http_methods(['GET'])
 def api_search_students(request):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     query = request.GET.get('q', '').strip()
     if len(query) < 2:
         return JsonResponse({'students': []})
@@ -163,11 +167,11 @@ class GroupDebtorView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
         context['total_debt'] = total
         return context
 
-from django.db import transaction
-
 @require_http_methods(['GET'])
 @transaction.atomic
 def student_balance(request, student_id, group_id):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     try:
         months = int(request.GET.get('months', 6))
         months = max(1, min(months, 24))
@@ -183,6 +187,8 @@ def student_balance(request, student_id, group_id):
 
 @require_http_methods(['GET'])
 def api_student_all_debts(request, student_id):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
     # Check debts in all active student groups
     debt_info = []
@@ -208,6 +214,8 @@ def api_student_all_debts(request, student_id):
 
 @require_http_methods(['POST'])
 def create_payment(request):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     try:
         payload = json.loads(request.body.decode('utf-8'))
         data = apply_payment(

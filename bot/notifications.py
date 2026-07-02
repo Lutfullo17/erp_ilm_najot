@@ -12,9 +12,13 @@ def notify_attendance_absent(attendance_record):
     telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
     
     message = (
-        f"<b>⚠️ Davomat ma'lumoti</b>\n\n"
-        f"Farzandingiz <b>{student}</b> bugungi ({attendance_record.session.date}) darsga kelmadi.\n"
-        f"Guruh: {attendance_record.session.group.name}"
+        f"<b>⚠️ DAVOMAT MA'LUMOTI</b>\n"
+        f"──────────────────\n"
+        f"👤 O'quvchi: <b>{student}</b>\n"
+        f"📅 Sana: <b>{attendance_record.session.date}</b>\n"
+        f"📚 Guruh: <b>{attendance_record.session.group.name}</b>\n\n"
+        f"❌ Farzandingiz bugun darsga kelmadi.\n"
+        f"Iltimos, sababini ma'muriyatga ma'lum qiling."
     )
     
     for tg_user in telegram_users:
@@ -30,11 +34,13 @@ def notify_grade_added(grade_record):
     status = "O'tdi ✅" if percentage >= 60 else "O'tmadi ❌"
     
     message = (
-        f"<b>📝 Yangi baho</b>\n\n"
-        f"O'quvchi: <b>{student}</b>\n"
-        f"Mavzu: {grade_record.session.title}\n"
-        f"Baho: <b>{money(grade_record.percentage)}%</b>\n"
-        f"Imtihon natijasi: {status}"
+        f"<b>📝 YANGI BAHO QO'YILDI</b>\n"
+        f"──────────────────\n"
+        f"👤 O'quvchi: <b>{student}</b>\n"
+        f"📖 Mavzu: <b>{grade_record.session.title}</b>\n"
+        f"📊 Natija: <code>{money(grade_record.percentage)}%</code>\n"
+        f"📝 Holat: <b>{status}</b>\n\n"
+        f"Farzandingizning bilim olishini qo'llab-quvvatlang! ✨"
     )
     
     for tg_user in telegram_users:
@@ -47,12 +53,13 @@ def notify_payment_received(payment_transaction):
     telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
     
     message = (
-        f"<b>💰 To'lov qabul qilindi</b>\n\n"
-        f"O'quvchi: <b>{student}</b>\n"
-        f"Sana: {payment_transaction.payment_date}\n"
-        f"Miqdor: <b>{money(payment_transaction.amount)} so'm</b>\n"
-        f"To'lov turi: {payment_transaction.get_method_display()}\n\n"
-        f"To'lov uchun rahmat!"
+        f"<b>💰 TO'LOV QABUL QILINDI</b>\n"
+        f"──────────────────\n"
+        f"👤 O'quvchi: <b>{student}</b>\n"
+        f"📅 Sana: <b>{payment_transaction.payment_date}</b>\n"
+        f"💵 Miqdor: <b>{money(payment_transaction.amount)} so'm</b>\n"
+        f"💳 Usul: <b>{payment_transaction.get_method_display()}</b>\n\n"
+        f"✅ To'lovingiz tasdiqlandi. Rahmat!"
     )
     
     for tg_user in telegram_users:
@@ -65,11 +72,13 @@ def notify_payment_reminder(balance):
     telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
     
     message = (
-        f"<b>🔔 To'lov eslatmasi</b>\n\n"
-        f"Hurmatli ota-ona, <b>{student}</b> uchun <b>{balance.group.name}</b> guruhidan "
-        f"<b>{balance.month:%Y-%m}</b> oyi uchun to'lov muddati keldi.\n"
-        f"Qarz miqdori: <b>{money(balance.debt_amount)} so'm</b>.\n\n"
-        f"Iltimos, o'z vaqtida to'lovni amalga oshiring."
+        f"<b>🔔 TO'LOV UCHUN ESLATMA</b>\n"
+        f"──────────────────\n"
+        f"👤 O'quvchi: <b>{student}</b>\n"
+        f"📚 Guruh: <b>{balance.group.name}</b>\n"
+        f"📅 Oy: <b>{balance.month:%Y-%m}</b>\n"
+        f"❗ Qarz miqdori: <b>{money(balance.debt_amount)} so'm</b>\n\n"
+        f"⏳ Iltimos, to'lovni o'z vaqtida amalga oshiring."
     )
     
     for tg_user in telegram_users:
@@ -82,10 +91,13 @@ def notify_payment_deleted(payment_transaction):
     telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
     
     message = (
-        f"<b>❌ To'lov bekor qilindi</b>\n\n"
-        f"O'quvchi: <b>{student}</b> uchun kiritilgan <b>{money(payment_transaction.amount)} so'm</b> miqdoridagi to'lov "
-        f"({payment_transaction.payment_date}) ma'muriyat tomonidan bekor qilindi.\n\n"
-        f"Agar biron bir savolingiz bo'lsa, ma'muriyatga murojaat qiling."
+        f"<b>❌ TO'LOV BEKOR QILINDI</b>\n"
+        f"──────────────────\n"
+        f"👤 O'quvchi: <b>{student}</b>\n"
+        f"📅 Sana: <b>{payment_transaction.payment_date}</b>\n"
+        f"💵 Miqdor: <b><s>{money(payment_transaction.amount)} so'm</s></b>\n\n"
+        f"⚠️ Ushbu to'lov ma'muriyat tomonidan bekor qilindi.\n"
+        f"Savollar bo'lsa, ma'muriyatga murojaat qiling."
     )
     
     for tg_user in telegram_users:
@@ -109,13 +121,14 @@ def notify_missed_attendance_to_staff(alert):
         time_str += f" - {group.end_time.strftime('%H:%M')}"
 
     message = (
-        f"⚠️ <b>Davomat olinmadi!</b>\n\n"
+        f"<b>🚨 DIQQAT: DAVOMAT OLINMADI</b>\n"
+        f"──────────────────\n"
         f"📚 Guruh: <b>{group.name}</b>\n"
         f"👨‍🏫 O'qituvchi: <b>{teacher_name}</b>\n"
-        f"🕐 Vaqt: {time_str}\n"
-        f"📅 Sana: {lesson_date.strftime('%d.%m.%Y')}\n\n"
+        f"🕐 Vaqt: <code>{time_str}</code>\n"
+        f"📅 Sana: <b>{lesson_date.strftime('%d.%m.%Y')}</b>\n\n"
         f"❓ O'qituvchi darsga keldimi?\n"
-        f"ERP tizimida <b>Jarima tizimi</b> bo'limiga kiring va holat belgilang."
+        f"ERP tizimida <b>Jarima tizimi</b> bo'limiga kiring."
     )
 
     from users1.models import User

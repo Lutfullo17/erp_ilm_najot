@@ -70,6 +70,22 @@
             </div>
             {% endif %}
 
+            {% if teacher_obj %}
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_new_password"><i class="fas fa-key"></i> Yangi Parol (ixtiyoriy)</label>
+                    <input type="password" id="id_new_password" name="new_password"
+                           placeholder="Yangi parol (kamida 6 belgi)" autocomplete="new-password">
+                </div>
+
+                <div class="form-group">
+                    <label for="id_new_password2"><i class="fas fa-shield-alt"></i> Parolni tasdiqlash</label>
+                    <input type="password" id="id_new_password2" name="new_password2"
+                           placeholder="Qaytadan kiriting" autocomplete="new-password">
+                </div>
+            </div>
+            {% endif %}
+
             <div class="form-actions">
                 <a href="{% url 'users1:teacher_list' %}" class="btn btn-outline">
                     <i class="fas fa-times"></i> Bekor qilish

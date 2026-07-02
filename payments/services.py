@@ -266,20 +266,6 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
         'remaining': serialize_money(remaining),
     }
 
-    return {
-        'payment': {
-            'id': payment.id,
-            'amount': serialize_money(payment.amount),
-            'payment_date': payment.payment_date.isoformat(),
-            'method': payment.method,
-        },
-        'student': {'id': student.id, 'full_name': str(student)},
-        'group': {'id': group.id, 'name': group.name, 'monthly_fee': serialize_money(group.monthly_fee)},
-        'allocations': allocations,
-        'summary': build_payment_summary(allocated_balances, payment_month),
-        'remaining': serialize_money(remaining),
-    }
-
 
 @transaction.atomic
 def delete_payment(user, payment_id):

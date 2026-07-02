@@ -1,19 +1,17 @@
-from datetime import timedelta
+from datetime import datetime, date, timedelta
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views import View
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from users1.views import TeacherRequiredMixin, AdminAccessRequiredMixin
-from groups_app.models import Group, GroupStudent
-from students.models import Student
+from groups_app.models import Group
 from .models import AttendanceSession, AttendanceRecord, AttendanceStatus, LessonPlan
-import datetime
 
 
-class AttendanceMarkView(LoginRequiredMixin, View):
+class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
         user = self.request.user
         if user.is_admin_access:
@@ -25,9 +23,9 @@ class AttendanceMarkView(LoginRequiredMixin, View):
 
     def get(self, request, group_id):
         group = get_object_or_404(Group, id=group_id)
-        today = datetime.date.today()
+        today = date.today()
 
-        now = datetime.datetime.now().time()
+        now = datetime.now().time()
         if request.user.is_teacher and not request.user.is_admin_access:
             days_map = {0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba', 4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'}
             today_name = days_map[today.weekday()]
@@ -69,11 +67,15 @@ class AttendanceMarkView(LoginRequiredMixin, View):
 
         if request.user.is_teacher and not request.user.is_admin_access:
             if group.lesson_time and now <= group.lesson_time:
-                time_diff = datetime.datetime.combine(today, now) - datetime.datetime.combine(today, group.lesson_time)
+                time_diff = datetime.combine(today, now) - datetime.combine(today, group.lesson_time)
                 if time_diff <= timedelta(minutes=10):
                     show_start_alert = True
 
             if group.end_time and now > group.end_time:
+                is_locked = True
+
+            # Davomat allaqachon olingan bo'lsa, faqat ko'rish rejimida
+            if session.records.exists():
                 is_locked = True
 
         return render(request, 'attendance/mark_attendance.html', {
@@ -90,8 +92,8 @@ class AttendanceMarkView(LoginRequiredMixin, View):
 
     def post(self, request, group_id):
         group = get_object_or_404(Group, id=group_id)
-        today = datetime.date.today()
-        now = datetime.datetime.now().time()
+        today = date.today()
+        now = datetime.now().time()
 
         if request.user.is_teacher and not request.user.is_admin_access:
             days_map = {0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba', 4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'}
@@ -125,6 +127,12 @@ class AttendanceMarkView(LoginRequiredMixin, View):
             date=today,
             defaults={'teacher': group.teacher}
         )
+
+        # O'qituvchi faqat birinchi marta davomat olishi mumkin, o'zgartira olmaydi
+        if request.user.is_teacher and not request.user.is_admin_access:
+            if session.records.exists():
+                messages.error(request, "Davomat allaqachon olingan. O'zgartirish uchun Admin bilan bog'laning.")
+                return redirect('users1:teacher_groups')
 
         session.lesson_topic = request.POST.get('lesson_topic', '')
         session.homework = request.POST.get('homework', '')
@@ -164,7 +172,7 @@ def admin_override_attendance(request, group_id):
         return JsonResponse({'detail': "Sana talab qilinadi."}, status=400)
 
     try:
-        override_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        override_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return JsonResponse({'detail': "Noto'g'ri sana formati."}, status=400)
 
@@ -173,6 +181,9 @@ def admin_override_attendance(request, group_id):
         date=override_date,
         defaults={'teacher': group.teacher}
     )
+
+    # Mavjud davomat yozuvlarini o'chirish — admin qayta kiritishi mumkin
+    session.records.all().delete()
 
     from users1.models import AuditLog
     AuditLog.objects.create(
@@ -196,6 +207,10 @@ def admin_override_attendance(request, group_id):
 
 @require_http_methods(['POST'])
 def save_lesson_plan(request):
+    user = request.user
+    if not user.is_authenticated or not (user.is_admin_access or user.is_teacher):
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
+
     import json
     try:
         payload = json.loads(request.body.decode('utf-8'))
@@ -205,6 +220,7 @@ def save_lesson_plan(request):
     group_id = payload.get('group_id')
     date_str = payload.get('date')
     topic = payload.get('topic', '').strip()
+    is_exam = payload.get('is_exam', False)
 
     if not group_id or not date_str:
         return JsonResponse({'detail': 'Guruh va sana talab qilinadi'}, status=400)
@@ -214,7 +230,7 @@ def save_lesson_plan(request):
         return JsonResponse({'detail': 'Guruh topilmadi'}, status=404)
 
     try:
-        plan_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        plan_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return JsonResponse({'detail': "Noto'g'ri sana formati"}, status=400)
 
@@ -224,6 +240,7 @@ def save_lesson_plan(request):
         defaults={
             'teacher': request.user,
             'topic': topic,
+            'is_exam': is_exam,
         }
     )
 

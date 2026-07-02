@@ -1,17 +1,18 @@
 import json as json_module
 import os
+from collections import defaultdict
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import update_session_auth_hash
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django import forms
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum
 from django.utils import timezone
 
 from students.models import Student
@@ -385,11 +386,11 @@ class TeacherListView(LoginRequiredMixin, DirectorRequiredMixin, ListView):
     context_object_name = 'teachers'
 
     def get_queryset(self):
-        return User.objects.filter(role='TEACHER').order_by('last_name', 'first_name')
+        return User.objects.filter(role='TEACHER', is_deleted=False).order_by('last_name', 'first_name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['total_teachers'] = User.objects.filter(role='TEACHER').count()
+        context['total_teachers'] = User.objects.filter(role='TEACHER', is_deleted=False).count()
         return context
 
 
@@ -434,6 +435,24 @@ class TeacherUpdateView(LoginRequiredMixin, DirectorRequiredMixin, UpdateView):
         parts = full_name.split(None, 1)
         self.object.first_name = parts[0]
         self.object.last_name = parts[1] if len(parts) > 1 else ''
+
+        # Login tekshiruvi
+        new_username = form.cleaned_data.get('username')
+        if User.objects.filter(username=new_username).exclude(pk=self.object.pk).exists():
+            form.add_error('username', "Bu login allaqachon band.")
+            return self.form_invalid(form)
+
+        # Parol o'zgartirish
+        new_password = self.request.POST.get('new_password', '').strip()
+        new_password2 = self.request.POST.get('new_password2', '').strip()
+        if new_password:
+            if len(new_password) < 6:
+                form.add_error(None, "Parol kamida 6 belgidan iborat bo'lishi kerak.")
+                return self.form_invalid(form)
+            if new_password != new_password2:
+                form.add_error(None, "Parollar mos kelmaydi.")
+                return self.form_invalid(form)
+            self.object.set_password(new_password)
 
         user = form.save()
         create_audit_log(self.request, f"O'qituvchi ma'lumotlari yangilandi: {user.username}", target_user=user)
@@ -515,25 +534,6 @@ def director_reset_teacher_password(request, pk):
     return JsonResponse({'ok': True, 'message': 'Parol muvaffaqiyatli tiklandi'})
 
 
-@require_http_methods(['POST'])
-def director_toggle_teacher_block(request, pk):
-    """Director teacher akkauntini bloklaydi/faollashtiradi"""
-    if not request.user.is_authenticated or not request.user.is_director:
-        return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
-
-    teacher = get_object_or_404(User, pk=pk, role=User.Role.TEACHER)
-    teacher.is_blocked = not teacher.is_blocked
-    teacher.save()
-
-    action = "bloklandi" if teacher.is_blocked else "faollashtirildi"
-    create_audit_log(request, f"O'qituvchi akkaunti {action}: {teacher.username}", target_user=teacher)
-    return JsonResponse({
-        'ok': True,
-        'is_blocked': teacher.is_blocked,
-        'message': f"Akkount {action}"
-    })
-
-
 # ---------------------------------------------------------------------------
 # Teacher Management (Director sees detail of each teacher)
 # ---------------------------------------------------------------------------
@@ -566,26 +566,36 @@ class PenaltyListView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
         this_year = today.year
 
         context['penalties'] = TeacherPenalty.objects.select_related('teacher', 'group').order_by('-created_at')[:50]
-        context['teachers'] = User.objects.filter(role=User.Role.TEACHER)
+        context['teachers'] = User.objects.filter(role=User.Role.TEACHER, is_deleted=False)
 
-        # Teacher-based stats
-        teacher_stats = []
-        for teacher in User.objects.filter(role=User.Role.TEACHER):
-            total = TeacherPenalty.objects.filter(teacher=teacher).aggregate(
-                total=Sum('points')
-            )['total'] or 0
-            monthly = TeacherPenalty.objects.filter(
-                teacher=teacher,
-                created_at__year=this_year,
-                created_at__month=this_month,
-            ).aggregate(total=Sum('points'))['total'] or 0
-            teacher_stats.append({
-                'teacher': teacher,
-                'total_points': total,
-                'monthly_points': monthly,
-            })
-        teacher_stats.sort(key=lambda x: x['total_points'])
-        context['teacher_stats'] = teacher_stats
+        # Teacher-based stats (Optimized)
+        from django.db.models import Case, When, DecimalField
+        teacher_stats_qs = User.objects.filter(
+            role=User.Role.TEACHER, 
+            is_deleted=False
+        ).annotate(
+            total_points=Sum('teacherpenalty__points'),
+            monthly_points=Sum(
+                Case(
+                    When(
+                        teacherpenalty__created_at__year=this_year,
+                        teacherpenalty__created_at__month=this_month,
+                        then='teacherpenalty__points'
+                    ),
+                    default=0,
+                    output_field=DecimalField()
+                )
+            )
+        ).order_by('total_points')
+
+        context['teacher_stats'] = [
+            {
+                'teacher': t,
+                'total_points': t.total_points or 0,
+                'monthly_points': t.monthly_points or 0,
+            }
+            for t in teacher_stats_qs
+        ]
 
         context['monthly_total'] = TeacherPenalty.objects.filter(
             created_at__year=this_year,
@@ -598,7 +608,7 @@ class PenaltyListView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
 
         # Ketma-ket 3 ta darsda davomat olinmagan teacherlar
         teachers_with_3_consecutive = []
-        for teacher in User.objects.filter(role=User.Role.TEACHER):
+        for teacher in User.objects.filter(role=User.Role.TEACHER, is_deleted=False):
             recent_alerts = MissedAttendanceAlert.objects.filter(
                 teacher=teacher,
                 status__in=[MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME],
@@ -772,6 +782,33 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
                 lesson_data = {'group': group, 'time': group.lesson_time, 'days': group.lesson_days}
 
                 if is_today:
+                    # Dars holatini aniqlash
+                    import datetime
+                    if group.end_time:
+                        end_time = group.end_time
+                    elif group.duration:
+                        hours = int(group.duration)
+                        minutes = int((group.duration - hours) * 60)
+                        td = datetime.timedelta(hours=hours, minutes=minutes)
+                        end_time = (datetime.datetime.combine(today, group.lesson_time) + td).time()
+                    else:
+                        end_time = group.lesson_time
+
+                    if now_time < group.lesson_time:
+                        delta = datetime.datetime.combine(today, group.lesson_time) - datetime.datetime.combine(today, now_time)
+                        total_mins = int(delta.total_seconds() // 60)
+                        hours, mins = divmod(total_mins, 60)
+                        lesson_data['lesson_status'] = 'upcoming'
+                        lesson_data['time_remaining'] = f"{hours} soat {mins} daqiqa" if hours else f"{mins} daqiqa"
+                    elif now_time <= end_time:
+                        delta = datetime.datetime.combine(today, end_time) - datetime.datetime.combine(today, now_time)
+                        total_mins = int(delta.total_seconds() // 60)
+                        hours, mins = divmod(total_mins, 60)
+                        lesson_data['lesson_status'] = 'active'
+                        lesson_data['time_remaining'] = f"{hours} soat {mins} daqiqa" if hours else f"{mins} daqiqa"
+                    else:
+                        lesson_data['lesson_status'] = 'ended'
+                        lesson_data['time_remaining'] = None
                     today_lesson_count += 1
                     has_session = AttendanceSession.objects.filter(group=group, date=today).exists()
 
@@ -828,6 +865,74 @@ class TeacherGroupsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
         return context
 
 
+class TeacherGroupDetailView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
+    template_name = 'users1/teacher_group_detail.html'
+
+    def get(self, request, *args, **kwargs):
+        group = get_object_or_404(
+            Group,
+            pk=kwargs.get('pk'),
+            teacher=request.user,
+            is_active=True,
+        )
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        group = get_object_or_404(
+            Group,
+            pk=self.kwargs.get('pk'),
+            teacher=self.request.user,
+            is_active=True,
+        )
+        context['group'] = group
+
+        students = Student.objects.filter(
+            groupstudent__group=group,
+            groupstudent__is_active=True,
+            is_active=True,
+        )
+
+        # O'quvchilar va ularning oxirgi davomati
+        attendance_qs = AttendanceRecord.objects.filter(
+            student__in=students,
+            session__group=group,
+        ).select_related('session')
+
+        students_with_status = []
+        for student in students:
+            last_record = attendance_qs.filter(student=student).order_by('-session__date').first()
+            students_with_status.append({
+                'student': student,
+                'last_status': last_record.status if last_record else None,
+                'last_date': last_record.session.date if last_record else None,
+            })
+        context['students_with_status'] = students_with_status
+        context['student_count'] = students.count()
+
+        # Dars vaqti hozir yoniqmi?
+        is_lesson_active = False
+        if group.lesson_time and group.lesson_days:
+            day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+            today_name = day_names[timezone.localdate().weekday()]
+            lesson_days_list = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+
+            if today_name in lesson_days_list:
+                now_time = timezone.localtime().time()
+                import datetime
+                if group.end_time:
+                    end_time = group.end_time
+                else:
+                    hours = int(group.duration) if group.duration else 0
+                    minutes = int((group.duration - hours) * 60) if group.duration else 0
+                    td = datetime.timedelta(hours=hours, minutes=minutes)
+                    end_time = (datetime.datetime.combine(datetime.date.today(), group.lesson_time) + td).time()
+                is_lesson_active = group.lesson_time <= now_time <= end_time
+
+        context['is_lesson_active'] = is_lesson_active
+        return context
+
+
 class TeacherMessagesView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
     template_name = 'users1/teacher_messages.html'
 
@@ -866,6 +971,7 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
                             'topic': plan.topic if plan else (session.lesson_topic if session and session.lesson_topic else ''),
                             'has_plan': bool(plan),
                             'has_session': bool(session),
+                            'is_exam': plan.is_exam if plan else False,
                         })
 
                 schedule.append({
@@ -893,36 +999,48 @@ class TeacherStudentsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
         students_data = []
         seen_students = set()
 
-        for group in groups:
-            memberships = GroupStudent.objects.filter(
-                group=group,
-                is_active=True,
-                student__is_active=True,
-            ).select_related('student')
+        # Optimized TeacherStudentsView
+        all_students = Student.objects.filter(
+            groupstudent__group__in=groups,
+            groupstudent__is_active=True,
+            is_active=True
+        ).distinct().prefetch_related('groupstudent_set__group')
 
-            for membership in memberships:
-                student = membership.student
-                if student.pk in seen_students:
-                    continue
-                seen_students.add(student.pk)
+        # To avoid N+1 for groups list
+        # We can also get all active memberships in one go
+        memberships_dict = defaultdict(list)
+        all_memberships = GroupStudent.objects.filter(
+            student__in=all_students,
+            is_active=True,
+            group__is_active=True
+        ).select_related('group')
+        for m in all_memberships:
+            memberships_dict[m.student_id].append(m.group.name)
 
-                last_attendance = AttendanceRecord.objects.filter(
-                    student=student,
-                    session__teacher=user,
-                ).select_related('session').order_by('-session__date').first()
+        # To avoid N+1 for last attendance
+        # We can use a Subquery or just fetch the latest record per student
+        # Since we only want the absolute latest for THIS teacher, let's use a trick
+        from django.db.models import OuterRef, Subquery
+        last_att_subquery = AttendanceRecord.objects.filter(
+            student=OuterRef('pk'),
+            session__teacher=user
+        ).select_related('session').order_by('-session__date')
+        
+        all_students_with_last_att = all_students.annotate(
+            last_record_id=Subquery(last_att_subquery.values('id')[:1]),
+        )
+        
+        # Now fetch the actual records to avoid N+1 again
+        record_ids = [s.last_record_id for s in all_students_with_last_att if s.last_record_id]
+        records_lookup = {r.student_id: r for r in AttendanceRecord.objects.filter(id__in=record_ids).select_related('session')}
 
-                student_groups = Group.objects.filter(
-                    groupstudent__student=student,
-                    groupstudent__is_active=True,
-                    is_active=True,
-                ).values_list('name', flat=True)
-
-                students_data.append({
-                    'student': student,
-                    'groups': list(student_groups),
-                    'last_attendance': last_attendance,
-                })
-
+        for student in all_students:
+            students_data.append({
+                'student': student,
+                'groups': memberships_dict[student.pk],
+                'last_attendance': records_lookup.get(student.pk),
+            })
+        
         context['students_data'] = students_data
         return context
 
@@ -987,7 +1105,7 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         # Asosiy statistika
         context['total_students'] = Student.objects.filter(is_active=True).count()
         context['active_groups_count'] = Group.objects.filter(is_active=True).count()
-        context['teachers_count'] = User.objects.filter(role=User.Role.TEACHER).count()
+        context['teachers_count'] = User.objects.filter(role=User.Role.TEACHER, is_deleted=False).count()
         context['admins_count'] = User.objects.filter(role=User.Role.ADMINISTRATOR).count()
 
         # Qarzdorlar soni
@@ -1028,7 +1146,6 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         context['recent_students'] = Student.objects.filter(is_active=True).order_by('-created_at')[:5]
 
         # Guruhlar bo'yicha qarzlar
-        from collections import defaultdict
         debtors_qs = StudentMonthBalance.objects.filter(
             status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL]
         ).select_related('student', 'group').order_by('group__name', 'month')
@@ -1051,8 +1168,8 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         ).select_related('telegram_user', 'student').order_by('-created_at')[:10]
         context['pending_appeals_count'] = TelegramAppeal.objects.filter(is_resolved=False).count()
 
-        # DAVOMAT olinmagan guruhlar
-        missing_attendance = []
+        # DAVOMAT olinmagan guruhlar (Optimized)
+        from attendance.models import AttendanceSession
         days_map = {
             0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba',
             4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'
@@ -1066,10 +1183,13 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
             end_time__lt=now_time
         ).select_related('teacher')
 
-        for group in groups_today:
-            if not AttendanceSession.objects.filter(group=group, date=today).exists():
-                missing_attendance.append(group)
+        groups_today_ids = groups_today.values_list('id', flat=True)
+        sessions_today_group_ids = set(AttendanceSession.objects.filter(
+            group_id__in=groups_today_ids, 
+            date=today
+        ).values_list('group_id', flat=True))
 
+        missing_attendance = [g for g in groups_today if g.id not in sessions_today_group_ids]
         context['missing_attendance'] = missing_attendance
         context['groups'] = Group.objects.filter(is_active=True).order_by('name')
 
@@ -1092,7 +1212,7 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
 
         # Ketma-ket 3 ta darsda davomat olinmagan teacherlar
         teachers_with_3_consecutive = []
-        for teacher in User.objects.filter(role=User.Role.TEACHER):
+        for teacher in User.objects.filter(role=User.Role.TEACHER, is_deleted=False):
             recent_alerts = MissedAttendanceAlert.objects.filter(
                 teacher=teacher,
                 status__in=[MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME],
@@ -1101,6 +1221,17 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
             if len(recent_alerts) >= 3:
                 teachers_with_3_consecutive.append(teacher)
         context['teachers_with_3_consecutive'] = teachers_with_3_consecutive
+
+        # Botga ulangan/ulnmagan o'quvchilar
+        from bot.models import TelegramUser as BotTelegramUser
+        all_students = Student.objects.filter(is_active=True)
+        bot_connected_ids = BotTelegramUser.objects.filter(
+            student__isnull=False,
+            is_verified=True,
+        ).values_list('student_id', flat=True)
+        context['bot_connected_count'] = all_students.filter(pk__in=bot_connected_ids).count()
+        context['bot_not_connected_count'] = all_students.exclude(pk__in=bot_connected_ids).count()
+        context['blocked_students_count'] = Student.objects.filter(is_active=False).count()
 
         return context
 
@@ -1177,6 +1308,8 @@ def send_teacher_message(request):
 
 @require_http_methods(['POST'])
 def reply_appeal(request, appeal_id):
+    if not request.user.is_authenticated or not (request.user.is_admin_access or request.user.is_teacher):
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     appeal = TelegramAppeal.objects.filter(id=appeal_id).first()
     if not appeal:
         return JsonResponse({'detail': 'Xabar topilmadi'}, status=404)
@@ -1200,6 +1333,8 @@ def reply_appeal(request, appeal_id):
 
 @require_http_methods(['POST'])
 def resolve_appeal(request, appeal_id):
+    if not request.user.is_authenticated or not (request.user.is_admin_access or request.user.is_teacher):
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     appeal = TelegramAppeal.objects.filter(id=appeal_id).first()
     if not appeal:
         return JsonResponse({'detail': 'Xabar topilmadi'}, status=404)
@@ -1212,6 +1347,8 @@ def resolve_appeal(request, appeal_id):
 
 @require_http_methods(['POST'])
 def broadcast_to_group(request):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     try:
         payload = json_module.loads(request.body.decode('utf-8'))
     except Exception:
@@ -1235,13 +1372,24 @@ def broadcast_to_group(request):
         is_active=True,
     )
 
+    sender = request.user
+    if sender.is_director:
+        sender_label = "Director"
+    elif sender.is_administrator_role:
+        sender_label = "Admin"
+    else:
+        sender_label = "O'qituvchi"
+    formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
+
     sent_count = 0
     for student in students:
-        telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
+        telegram_users = TelegramUser.objects.filter(student=student, is_verified=True).exclude(
+            user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER]
+        )
         for tu in telegram_users:
             try:
                 from bot.services import send_telegram_message
-                send_telegram_message(tu.telegram_id, text)
+                send_telegram_message(tu.telegram_id, formatted_msg)
                 sent_count += 1
             except Exception:
                 pass
@@ -1251,6 +1399,8 @@ def broadcast_to_group(request):
 
 @require_http_methods(['POST'])
 def broadcast_all(request):
+    if not request.user.is_authenticated or not request.user.is_director:
+        return JsonResponse({'detail': "Faqat Director uchun ruxsat bor."}, status=403)
     try:
         payload = json_module.loads(request.body.decode('utf-8'))
     except Exception:
@@ -1260,18 +1410,71 @@ def broadcast_all(request):
     if not text:
         return JsonResponse({'detail': 'Xabar matnini kiriting'}, status=400)
 
-    telegram_users = TelegramUser.objects.filter(is_verified=True)
+    sender = request.user
+    if sender.is_director:
+        sender_label = "Director"
+    elif sender.is_administrator_role:
+        sender_label = "Admin"
+    else:
+        sender_label = "O'qituvchi"
+    formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
+
+    telegram_users = TelegramUser.objects.filter(is_verified=True).exclude(
+        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER]
+    )
 
     sent_count = 0
     for tu in telegram_users:
         try:
             from bot.services import send_telegram_message
-            send_telegram_message(tu.telegram_id, text)
+            send_telegram_message(tu.telegram_id, formatted_msg)
             sent_count += 1
         except Exception:
             pass
 
     return JsonResponse({'ok': True, 'sent_count': sent_count})
+
+
+# ---------------------------------------------------------------------------
+# Bot holati sahifasi
+# ---------------------------------------------------------------------------
+class BotStatusView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
+    template_name = 'users1/bot_status.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        status = self.request.GET.get('status', 'connected')
+
+        from bot.models import TelegramUser as BotTelegramUser
+        all_students = Student.objects.filter(is_active=True)
+        blocked_students = Student.objects.filter(is_active=False)
+
+        bot_connected_ids = list(BotTelegramUser.objects.filter(
+            student__isnull=False,
+            is_verified=True,
+        ).values_list('student_id', flat=True))
+
+        if status == 'connected':
+            students = all_students.filter(pk__in=bot_connected_ids).order_by('last_name', 'first_name')
+            title = "Botga ulangan o'quvchilar"
+        elif status == 'not_connected':
+            students = all_students.exclude(pk__in=bot_connected_ids).order_by('last_name', 'first_name')
+            title = "Botga ulanmagan o'quvchilar"
+        elif status == 'blocked':
+            students = blocked_students.order_by('last_name', 'first_name')
+            title = "Bloklangan/o'chirilgan o'quvchilar"
+        else:
+            students = all_students.order_by('last_name', 'first_name')
+            title = "Barcha o'quvchilar"
+
+        context['students'] = students
+        context['title'] = title
+        context['current_status'] = status
+        context['connected_count'] = all_students.filter(pk__in=bot_connected_ids).count()
+        context['not_connected_count'] = all_students.exclude(pk__in=bot_connected_ids).count()
+        context['blocked_count'] = blocked_students.count()
+
+        return context
 
 
 # ---------------------------------------------------------------------------
@@ -1297,7 +1500,8 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
 
         context['groups'] = Group.objects.filter(is_active=True).order_by('name')
 
-        missing_attendance = []
+        # DAVOMAT olinmagan guruhlar (Optimized)
+        from attendance.models import AttendanceSession
         days_map = {
             0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba',
             4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'
@@ -1311,10 +1515,13 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
             end_time__lt=now_time
         ).select_related('teacher')
 
-        for group in groups_today:
-            if not AttendanceSession.objects.filter(group=group, date=today).exists():
-                missing_attendance.append(group)
+        groups_today_ids = groups_today.values_list('id', flat=True)
+        sessions_today_group_ids = set(AttendanceSession.objects.filter(
+            group_id__in=groups_today_ids, 
+            date=today
+        ).values_list('group_id', flat=True))
 
+        missing_attendance = [g for g in groups_today if g.id not in sessions_today_group_ids]
         context['missing_attendance'] = missing_attendance
 
         # Pending alerts for administrator notification
@@ -1324,5 +1531,16 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
         context['pending_alerts_count'] = MissedAttendanceAlert.objects.filter(
             status=MissedAttendanceAlert.Status.PENDING
         ).count()
+
+        # Botga ulangan/ulnmagan o'quvchilar
+        from bot.models import TelegramUser as BotTelegramUser
+        all_students = Student.objects.filter(is_active=True)
+        bot_connected_ids = BotTelegramUser.objects.filter(
+            student__isnull=False,
+            is_verified=True,
+        ).values_list('student_id', flat=True)
+        context['bot_connected_count'] = all_students.filter(pk__in=bot_connected_ids).count()
+        context['bot_not_connected_count'] = all_students.exclude(pk__in=bot_connected_ids).count()
+        context['blocked_students_count'] = Student.objects.filter(is_active=False).count()
 
         return context

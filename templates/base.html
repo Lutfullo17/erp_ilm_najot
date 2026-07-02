@@ -1,9 +1,16 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Ilm Najot ERP{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/logo.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/logo.png' %}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'images/logo.png' %}">
+
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -425,8 +432,8 @@
 <body>
     <div class="sidebar" id="sidebar">
         <div class="logo">
-            <i class="fas fa-rocket"></i>
-            <span>Najot ERP</span>
+            <img src="{% static 'images/logo.png' %}" alt="Logo" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid white; box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);">
+            <span style="font-size: 1.5rem;">Ilm Najot</span>
         </div>
         <ul class="nav-links">
             {% if user.is_director %}
@@ -708,5 +715,6 @@
             }
         }
     </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

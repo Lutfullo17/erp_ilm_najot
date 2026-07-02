@@ -93,6 +93,7 @@ class LessonPlan(models.Model):
     )
     date = models.DateField(verbose_name="Sana")
     topic = models.CharField(max_length=255, verbose_name="Mavzu")
+    is_exam = models.BooleanField(default=False, verbose_name="Imtihon")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

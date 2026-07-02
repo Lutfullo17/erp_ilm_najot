@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from datetime import date
 import decimal
 from decimal import Decimal
@@ -207,10 +208,34 @@ def attendance_text(student):
     if not records:
         return "Davomat ma'lumotlari hali yo'q."
 
-    lines = ['Oxirgi davomatlar:']
+    status_map = {
+        'PRESENT': '✅ Keldi',
+        'ABSENT': '❌ Kelmadi',
+        'EXCUSED': '🟡 Sababli',
+        'LATE': '⏳ Kechikdi',
+    }
+
+    present_count = sum(1 for r in records if r.status == 'PRESENT')
+    absent_count = sum(1 for r in records if r.status == 'ABSENT')
+
+    lines = [
+        "<b>📊 OXIRGI DAVOMATLAR</b>",
+        "──────────────────",
+        f"✅ Keldi: <b>{present_count}</b>  |  ❌ Kelmadi: <b>{absent_count}</b>\n",
+    ]
+
+    grouped = defaultdict(list)
     for record in records:
-        lines.append(f'{record.session.date:%Y-%m-%d} | {record.session.group.name} | {record.get_status_display()}')
-    return '\n'.join(lines)
+        grouped[record.session.date].append(record)
+
+    for date, day_records in grouped.items():
+        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+        for record in day_records:
+            status_text = status_map.get(record.status, record.get_status_display())
+            lines.append(f"  • <code>{record.session.group.name:<12}</code> — {status_text}")
+        lines.append("")
+
+    return '\n'.join(lines).strip()
 
 
 def grades_text(student):
@@ -218,10 +243,32 @@ def grades_text(student):
     if not records:
         return "Baho ma'lumotlari hali yo'q."
 
-    lines = ['Oxirgi baholar:']
+    passed = sum(1 for r in records if float(r.percentage) >= 60)
+    failed = len(records) - passed
+
+    lines = [
+        "<b>📝 OXIRGI BAHOLAR</b>",
+        "──────────────────",
+        f"✅ O'tdi: <b>{passed}</b>  |  ❌ O'tmadi: <b>{failed}</b>\n",
+    ]
+
+    grouped = defaultdict(list)
     for record in records:
-        lines.append(f'{record.session.date:%Y-%m-%d} | {record.session.title} | {money(record.percentage)}%')
-    return '\n'.join(lines)
+        grouped[record.session.date].append(record)
+
+    for date, day_records in grouped.items():
+        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+        for record in day_records:
+            pct = float(record.percentage)
+            emoji = "✅" if pct >= 60 else "❌"
+            percentage_str = money(record.percentage)
+            lines.append(
+                f"  • <code>{record.session.group.name:<12}</code>\n"
+                f"    {emoji} <b>{percentage_str}%</b> — <i>{record.session.title}</i>"
+            )
+        lines.append("")
+
+    return '\n'.join(lines).strip()
 
 
 def payments_text(student):
@@ -229,24 +276,37 @@ def payments_text(student):
     if not balances:
         return "To'lov ma'lumotlari hali yo'q."
 
-    lines = ["<b>💰 To'lov tarixi:</b>\n"]
+    total_debt = sum(float(b.debt_amount) for b in balances)
+    total_paid = sum(float(b.paid_amount) for b in balances)
+
+    lines = [
+        "<b>💰 TO'LOV BALANSLARI</b>",
+        "──────────────────",
+        f"💵 Jami to'langan: <code>{money(total_paid)}</code> so'm",
+        f"❗ Jami qarz: <b>{money(total_debt)}</b> so'm\n",
+    ]
+
     for balance in balances:
         if balance.status == 'CLOSED':
-            status_emoji = '✅ Yopildi'
+            status_emoji = '✅'
+            status_text = 'Yopildi'
         elif balance.status == 'PARTIAL':
-            status_emoji = '⚠️ Qisman'
+            status_emoji = '⚠️'
+            status_text = 'Qisman'
         else:
-            status_emoji = '❌ To\'lanmagan'
+            status_emoji = '❌'
+            status_text = "To'lanmagan"
 
+        month_str = balance.month.strftime('%Y-yil, %m-oy') if balance.month else '---'
+
+        lines.append(f"{status_emoji} <b>{month_str}</b> — <code>{balance.group.name}</code>")
         lines.append(
-            f"📆 <b>Oy:</b> {balance.month.strftime('%Y yil, %m-oy')}\n"
-            f"📚 <b>Guruh:</b> {balance.group.name}\n"
-            f"📊 <b>Holati:</b> {status_emoji}\n"
-            f"💵 <b>To'langan:</b> {money(balance.paid_amount)} so'm\n"
-            f"❗️ <b>Qarz:</b> {money(balance.debt_amount)} so'm\n"
-            f"------------------------------"
+            f"  ├  💵 To'langan: <code>{money(balance.paid_amount)}</code>\n"
+            f"  └  ❗ Qarz: <b>{money(balance.debt_amount)}</b> so'm"
         )
-    return '\n'.join(lines)
+        lines.append("")
+
+    return '\n'.join(lines).strip()
 
 
 def schedule_text(student):
@@ -254,12 +314,25 @@ def schedule_text(student):
     if not groups:
         return "Jadval uchun faol guruh topilmadi."
 
-    lines = ['Guruhlaringiz:']
+    lines = [
+        "<b>📅 DARS JADVALI</b>",
+        "──────────────────",
+        f"📚 Faol guruhlar: <b>{groups.count()}</b>\n",
+    ]
+
     for group in groups:
         days = group.lesson_days or '---'
         time = group.lesson_time.strftime('%H:%M') if group.lesson_time else '---'
-        lines.append(f'<b>{group.name}</b>\n🗓 {days}\n⏰ {time}\n📍 Xona: {group.get_room_display()}')
-    return '\n\n'.join(lines)
+        end_time = group.end_time.strftime('%H:%M') if group.end_time else ''
+        time_display = f"{time}" + (f" - {end_time}" if end_time else "")
+
+        lines.append(f"📖 <b>{group.name}</b>")
+        lines.append(f"  ├  🗓 Kunlari: <code>{days}</code>")
+        lines.append(f"  ├  ⏰ Vaqti: <code>{time_display}</code>")
+        lines.append(f"  └  📍 Xonasi: <code>{group.get_room_display()}</code>")
+        lines.append("")
+
+    return '\n'.join(lines).strip()
 
 
 def homework_text(student):
@@ -271,10 +344,23 @@ def homework_text(student):
     if not sessions:
         return "Hozircha uyga vazifa ma'lumotlari yo'q."
 
-    lines = ['Oxirgi uyga vazifalar:']
+    lines = [
+        "<b>📚 OXIRGI UYGA VAZIFALAR</b>",
+        "──────────────────\n"
+    ]
+
+    grouped = defaultdict(list)
     for session in sessions:
-        lines.append(f"<b>{session.date:%d.%m} | {session.group.name}:</b>\n{session.homework}")
-    return '\n\n'.join(lines)
+        grouped[session.date].append(session)
+
+    for date, day_sessions in grouped.items():
+        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+        for session in day_sessions:
+            lines.append(f"  • <code>{session.group.name}</code>")
+            lines.append(f"    <i>{session.homework}</i>")
+        lines.append("")
+
+    return '\n'.join(lines).strip()
 
 
 def topic_text(student):
@@ -286,18 +372,23 @@ def topic_text(student):
     if not sessions:
         return "Hozircha o'tilgan darslar haqida ma'lumot yo'q."
 
-    lines = ["O'tilgan dars mavzulari:"]
+    lines = [
+        "<b>📖 O'TILGAN DARS MAVZULARI</b>",
+        "──────────────────\n"
+    ]
+
+    grouped = defaultdict(list)
     for session in sessions:
-        lines.append(f"<b>{session.date:%d.%m} | {session.group.name}:</b>\n{session.lesson_topic}")
-    return '\n\n'.join(lines)
+        grouped[session.date].append(session)
 
+    for date, day_sessions in grouped.items():
+        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+        for session in day_sessions:
+            lines.append(f"  • <code>{session.group.name}</code>")
+            lines.append(f"    <i>{session.lesson_topic}</i>")
+        lines.append("")
 
-def get_staff_telegram_users():
-    """Admin va o'qituvchilarning TelegramUserlarini qaytaradi."""
-    return TelegramUser.objects.filter(
-        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER],
-        is_verified=True,
-    ).select_related('user')
+    return '\n'.join(lines).strip()
 
 
 def handle_menu(chat_id, text, telegram_user):
@@ -370,9 +461,10 @@ def handle_appeal(chat_id, text, telegram_user):
         return
 
     appeal_text = (
-        f"<b>✉️ Yangi murojaat</b>\n\n"
-        f"<b>O'quvchi:</b> {student_name}\n"
-        f"<b>Xabar:</b>\n{message}"
+        f"<b>✉️ YANGI MUROJAAT</b>\n"
+        f"──────────────────\n"
+        f"👤 <b>O'quvchi:</b> {student_name}\n"
+        f"💬 <b>Xabar:</b>\n<i>{message}</i>"
     )
 
     inline_markup = {
@@ -397,7 +489,6 @@ def get_sender_type(telegram_user):
     return TelegramAppeal.SenderType.STUDENT
 
 
-STATE_REPLY_TO_APPEAL = 'REPLY_TO_APPEAL'
 STATE_REPLY_TARGET = {}  # chat_id -> {target_id, recipient_label}
 
 
@@ -414,9 +505,10 @@ def handle_reply_to_appeal(chat_id, text, telegram_user):
     staff_name = target.get('staff_name', 'Admin')
 
     appeal_msg = (
-        f"<b>💬 Javob keldi!</b>\n\n"
-        f"<b>Sizning murojatingiz {staff_name} dan javob keldi:</b>\n\n"
-        f"{text}"
+        f"<b>💬 JAVOB KELDI!</b>\n"
+        f"──────────────────\n"
+        f"👤 <b>Yuboruvchi:</b> {staff_name}\n"
+        f"📝 <b>Javob:</b>\n{text}"
     )
     send_telegram_message(target_id, appeal_msg, main_menu_keyboard())
     send_telegram_message(chat_id, 'Javob yuborildi.', main_menu_keyboard())

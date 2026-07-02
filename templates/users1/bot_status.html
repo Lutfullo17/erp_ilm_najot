@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Bot holati | Ilm Najot ERP{% endblock %}
+{% block header_title %}Bot holati{% endblock %}
+
+{% block content %}
+<!-- Statistika -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+    <a href="?status=connected" style="padding: 1.25rem; border-radius: 14px; text-decoration: none; display: block; text-align: center; transition: all 0.2s; border: 2px solid {% if current_status == 'connected' %}#10b981{% else %}transparent{% endif %}; background: {% if current_status == 'connected' %}rgba(16,185,129,0.1){% else %}rgba(255,255,255,0.03){% endif %};">
+        <div style="font-size: 1.8rem; font-weight: 700; color: #10b981;">{{ connected_count }}</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">Botga ulangan</div>
+    </a>
+    <a href="?status=not_connected" style="padding: 1.25rem; border-radius: 14px; text-decoration: none; display: block; text-align: center; transition: all 0.2s; border: 2px solid {% if current_status == 'not_connected' %}#f59e0b{% else %}transparent{% endif %}; background: {% if current_status == 'not_connected' %}rgba(245,158,11,0.1){% else %}rgba(255,255,255,0.03){% endif %};">
+        <div style="font-size: 1.8rem; font-weight: 700; color: #f59e0b;">{{ not_connected_count }}</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">Botga ulanmagan</div>
+    </a>
+    <a href="?status=blocked" style="padding: 1.25rem; border-radius: 14px; text-decoration: none; display: block; text-align: center; transition: all 0.2s; border: 2px solid {% if current_status == 'blocked' %}#ef4444{% else %}transparent{% endif %}; background: {% if current_status == 'blocked' %}rgba(239,68,68,0.1){% else %}rgba(255,255,255,0.03){% endif %};">
+        <div style="font-size: 1.8rem; font-weight: 700; color: #ef4444;">{{ blocked_count }}</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">Bloklangan/o'chirilgan</div>
+    </a>
+</div>
+
+<!-- O'quvchilar ro'yxati -->
+<div class="glass-panel">
+    <h3 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        {% if current_status == 'connected' %}
+        <i class="fas fa-check-circle" style="color: #10b981;"></i>
+        {% elif current_status == 'not_connected' %}
+        <i class="fas fa-exclamation-circle" style="color: #f59e0b;"></i>
+        {% else %}
+        <i class="fas fa-ban" style="color: #ef4444;"></i>
+        {% endif %}
+        {{ title }}
+        <span class="badge" style="margin-left: auto; font-size: 0.75rem; padding: 0.3rem 0.7rem; background: rgba(255,255,255,0.1);">{{ students|length }}</span>
+    </h3>
+
+    <div class="table-container">
+        <table class="mobile-card-table">
+            <thead>
+                <tr>
+                    <th>Ism</th>
+                    <th>Telefon</th>
+                    <th>Guruh</th>
+                    <th>Holat</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <td data-label="Ism">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div class="avatar" style="width: 35px; height: 35px; font-size: 0.7rem; flex-shrink: 0;">
+                                {{ student.first_name.0 }}{{ student.last_name.0 }}
+                            </div>
+                            <div style="font-weight: 600; font-size: 0.9rem;">{{ student.last_name }} {{ student.first_name }}</div>
+                        </div>
+                    </td>
+                    <td data-label="Telefon" style="color: var(--text-muted); font-size: 0.85rem;">{{ student.phone|default:"-" }}</td>
+                    <td data-label="Guruh">
+                        {% for gs in student.groupstudent_set.all %}
+                        {% if gs.is_active %}
+                        <span class="badge" style="background: rgba(99,102,241,0.15); color: var(--primary); font-size: 0.7rem; padding: 0.2rem 0.5rem;">{{ gs.group.name }}</span>
+                        {% endif %}
+                        {% empty %}
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">-</span>
+                        {% endfor %}
+                    </td>
+                    <td data-label="Holat">
+                        {% if current_status == 'connected' %}
+                        <span class="badge badge-success" style="font-size: 0.75rem;"><i class="fas fa-check"></i> Ulangan</span>
+                        {% elif current_status == 'not_connected' %}
+                        <span class="badge badge-warning" style="font-size: 0.75rem;"><i class="fas fa-clock"></i> Ulashmagan</span>
+                        {% else %}
+                        <span class="badge badge-danger" style="font-size: 0.75rem;"><i class="fas fa-ban"></i> Bloklangan</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fas fa-user-slash" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.3;"></i>
+                        <p>Rostda ham hech narsa yo'qmi?</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

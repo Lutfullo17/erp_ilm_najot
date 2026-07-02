@@ -153,6 +153,9 @@ class GroupUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView):
 
 
 def add_student_to_group(request, pk):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        messages.error(request, "Ruxsat yo'q.")
+        return redirect('users1:login')
     group = get_object_or_404(Group, pk=pk)
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
@@ -167,14 +170,29 @@ def add_student_to_group(request, pk):
 
 @require_http_methods(['POST'])
 def delete_group(request, pk):
+    if not request.user.is_authenticated or not request.user.is_director:
+        messages.error(request, "Faqat Director guruhlarni o'chira oladi.")
+        return redirect('groups_app:group_list')
+    from django.db.models import ProtectedError
     group = get_object_or_404(Group, pk=pk)
-    group.delete()
-    messages.success(request, f"'{group.name}' guruh o'chirildi.")
+    try:
+        group.delete()
+        messages.success(request, f"'{group.name}' guruhi butunlay o'chirildi.")
+    except ProtectedError:
+        # Agar guruhda darslar yoki baholar bo'lsa, o'chirib bo'lmaydi
+        messages.error(
+            request, 
+            f"'{group.name}' guruhini o'chirib bo'lmaydi, chunki unda davomat yoki baholash ma'lumotlari mavjud. "
+            "Uni arxivlash (statusini faol emas qilish) tavsiya etiladi."
+        )
     return redirect('groups_app:group_list')
 
 
 @require_http_methods(['POST'])
 def toggle_pause_group(request, pk):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        messages.error(request, "Ruxsat yo'q.")
+        return redirect('groups_app:group_list')
     group = get_object_or_404(Group, pk=pk)
     group.is_paused = not group.is_paused
     group.save()

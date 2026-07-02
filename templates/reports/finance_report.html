@@ -4,49 +4,161 @@
 {% block title %}Tushum Hisoboti | Director{% endblock %}
 {% block header_title %}Moliyaviy Hisobotlar{% endblock %}
 
+{% block extra_css %}
+<style>
+    .stat-card {
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card i {
+        position: absolute;
+        right: -10px;
+        bottom: -10px;
+        font-size: 5rem;
+        opacity: 0.05;
+        transform: rotate(-15deg);
+    }
+    .month-selector {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--card-bg);
+        padding: 0.75rem 1.5rem;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 2rem;
+    }
+    .month-selector input {
+        background: transparent;
+        border: none;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0.5rem;
+        width: auto;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
-    <div class="glass-panel" style="text-align: center; padding: 2rem;">
-        <div style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem;">UBM (Jami tushum)</div>
-        <div style="font-size: 2rem; font-weight: 700; color: var(--success);">{{ total_income|money }}</div>
+
+<!-- Month Selection -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h2 style="font-size: 1.5rem; font-weight: 700;">
+        <i class="fas fa-calendar-check" style="color: var(--primary);"></i> 
+        {{ selected_month|date:"F Y" }} uchun hisobot
+    </h2>
+    <form method="get" class="month-selector">
+        <label for="month" style="margin: 0; color: var(--text-muted);">Oyni tanlang:</label>
+        <input type="month" name="month" id="month" value="{{ selected_month|date:'Y-m' }}" onchange="this.form.submit()">
+    </form>
+</div>
+
+<!-- Month Summary Cards -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 2rem;">
+    <div class="glass-panel stat-card">
+        <i class="fas fa-hand-holding-usd"></i>
+        <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Kutilayotgan tushum</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ month_stats.expected|money }}</div>
     </div>
-    <div class="glass-panel" style="text-align: center; padding: 2rem;">
-        <div style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Jami O'quvchilar</div>
-        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ total_students }}</div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-money-bill-wave"></i>
+        <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Amaldagi tushum</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">{{ month_stats.collected|money }}</div>
     </div>
-    <div class="glass-panel" style="text-align: center; padding: 2rem;">
-        <div style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem;">Jami Guruhlar</div>
-        <div style="font-size: 2rem; font-weight: 700; color: var(--warning);">{{ total_groups }}</div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-exclamation-circle"></i>
+        <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Mavjud qarz</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger);">{{ month_stats.debt|money }}</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-users"></i>
+        <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">To'lagan o'quvchilar</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning);">{{ month_stats.paid_users }} / {{ month_stats.total_users }}</div>
     </div>
 </div>
 
-<div class="glass-panel">
-    <h2 style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-        <i class="fas fa-chart-bar" style="color: var(--primary);"></i> Oylik tushum statistikasi (Oxirgi 12 oy)
-    </h2>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Oy</th>
-                    <th>Tushum miqdori</th>
-                    <th>O'sish/Kamayish</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in monthly_income %}
-                <tr>
-                    <td><div style="font-weight: 600;">{{ item.month|date:"F Y" }}</div></td>
-                    <td><span style="color: var(--success); font-weight: 600; font-size: 1.1rem;">{{ item.total|money }} so'm</span></td>
-                    <td>
-                        <div style="width: 100%; background: rgba(255,255,255,0.05); height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: {% widthratio item.total total_income 100 %}%; background: var(--primary); height: 100%;"></div>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="grid-3 animate-fade-in">
+    <!-- Group-wise Detail -->
+    <div class="glass-panel" style="grid-column: span 2;">
+        <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-users-cog" style="color: var(--primary);"></i> Guruhlar bo'yicha tahlil
+        </h3>
+        <div class="table-container">
+            <table class="mobile-card-table">
+                <thead>
+                    <tr>
+                        <th>Guruh</th>
+                        <th>O'quvchilar</th>
+                        <th>To'lov holati</th>
+                        <th>Tushum / Kutilgan</th>
+                        <th>Qarz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in group_stats %}
+                    <tr>
+                        <td data-label="Guruh">
+                            <div style="font-weight: 700; color: var(--text);">{{ stat.group.name }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ stat.group.teacher }}</div>
+                        </td>
+                        <td data-label="O'quvchilar">
+                            <div style="font-weight: 600;">{{ stat.total_students }} ta</div>
+                        </td>
+                        <td data-label="To'lov holati">
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.4rem;">
+                                <span class="badge badge-success" title="To'liq to'lagan">{{ stat.paid }}</span>
+                                <span class="badge badge-warning" title="Qisman to'lagan">{{ stat.partial }}</span>
+                                <span class="badge badge-danger" title="To'lamagan">{{ stat.unpaid }}</span>
+                            </div>
+                            <div style="width: 100px; background: rgba(255,255,255,0.05); height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="width: {{ stat.percent }}%; background: {% if stat.percent < 50 %}var(--danger){% elif stat.percent < 90 %}var(--warning){% else %}var(--success){% endif %}; height: 100%;"></div>
+                            </div>
+                        </td>
+                        <td data-label="Tushum / Kutilgan">
+                            <div style="font-weight: 600; color: var(--success);">{{ stat.collected|money }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ stat.expected|money }} dan</div>
+                        </td>
+                        <td data-label="Qarz">
+                            <div style="font-weight: 700; color: {% if stat.debt > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                                {{ stat.debt|money }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Monthly Trend -->
+    <div class="glass-panel">
+        <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-chart-line" style="color: var(--secondary);"></i> Oxirgi 12 oy tushumi
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for item in monthly_income %}
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 80px; font-size: 0.85rem; color: var(--text-muted);">{{ item.month|date:"M Y" }}</div>
+                <div style="flex-grow: 1;">
+                    <div style="height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden;">
+                        <div style="width: {% widthratio item.total total_income 100 %}%; background: linear-gradient(to right, var(--primary), var(--secondary)); height: 100%;"></div>
+                    </div>
+                </div>
+                <div style="width: 100px; text-align: right; font-weight: 600; font-size: 0.85rem;">{{ item.total|money }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-muted);">Jami tushum (Umumiy):</span>
+            <span style="font-size: 1.25rem; font-weight: 800; color: var(--success);">{{ total_income|money }}</span>
+        </div>
     </div>
 </div>
+
 {% endblock %}

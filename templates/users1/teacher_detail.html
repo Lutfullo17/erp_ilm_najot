@@ -103,31 +103,6 @@
 </div>
 
 <div class="two-grid">
-    <!-- Account Actions -->
-    <div class="section-card">
-        <h3><i class="fas fa-shield-alt" style="color:var(--primary)"></i> Akkount Boshqaruvi</h3>
-        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.25rem;">
-            Faqat Director bu amrlarni bajara oladi.
-        </p>
-        <div class="action-row">
-            <button class="btn btn-sm btn-warning" onclick="openModal('loginModal')">
-                <i class="fas fa-at"></i> Login O'zgartirish
-            </button>
-            <button class="btn btn-sm btn-danger" onclick="openModal('passwordModal')">
-                <i class="fas fa-key"></i> Parol Tiklash
-            </button>
-        </div>
-        {% if teacher.is_blocked %}
-        <button class="btn btn-sm btn-success" onclick="toggleBlock()" id="blockBtn">
-            <i class="fas fa-unlock"></i> Faollashtirish
-        </button>
-        {% else %}
-        <button class="btn btn-sm btn-danger" onclick="toggleBlock()" id="blockBtn">
-            <i class="fas fa-ban"></i> Bloklash
-        </button>
-        {% endif %}
-    </div>
-
     <!-- Groups -->
     <div class="section-card">
         <h3><i class="fas fa-users" style="color:var(--success)"></i> Biriktirilgan Guruhlar</h3>
@@ -173,40 +148,6 @@
 </div>
 
 <!-- Modals -->
-<div class="modal-overlay" id="loginModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3><i class="fas fa-at" style="color:var(--primary);margin-right:0.5rem"></i> Login O'zgartirish</h3>
-            <button onclick="closeModal('loginModal')" style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="form-group">
-            <label>Yangi Login</label>
-            <input type="text" id="newTeacherUsername" placeholder="Yangi loginni kiriting" autocomplete="off">
-        </div>
-        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
-            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('loginModal')">Bekor</button>
-            <button class="btn btn-primary" style="flex:1;" onclick="changeTeacherLogin()">Saqlash</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="passwordModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3><i class="fas fa-key" style="color:var(--danger);margin-right:0.5rem"></i> Parol Tiklash</h3>
-            <button onclick="closeModal('passwordModal')" style="background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="form-group">
-            <label>Yangi Parol</label>
-            <input type="password" id="newTeacherPassword" placeholder="Yangi parol (kamida 6 belgi)">
-        </div>
-        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
-            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('passwordModal')">Bekor</button>
-            <button class="btn btn-primary" style="flex:1;" onclick="resetTeacherPassword()">Tiklash</button>
-        </div>
-    </div>
-</div>
-
 <div class="modal-overlay" id="penaltyModal">
     <div class="modal">
         <div class="modal-header">
@@ -251,43 +192,6 @@ function showToast(msg, isError=false) {
     i.style.color=isError?'var(--danger)':'var(--success)';
     t.style.display='flex';
     setTimeout(()=>t.style.display='none',3500);
-}
-
-async function changeTeacherLogin() {
-    const username = document.getElementById('newTeacherUsername').value.trim();
-    if (!username) return showToast('Login kiritilmagan', true);
-    const res = await fetch(`/users/teachers/${teacherPk}/change-login/`, {
-        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
-        body: JSON.stringify({username})
-    });
-    const data = await res.json();
-    if(data.ok) { closeModal('loginModal'); showToast(data.message); setTimeout(()=>location.reload(),1500); }
-    else showToast(data.error||'Xatolik', true);
-}
-
-async function resetTeacherPassword() {
-    const new_password = document.getElementById('newTeacherPassword').value;
-    if(new_password.length < 6) return showToast('Parol kamida 6 belgili bo\'lsin', true);
-    const res = await fetch(`/users/teachers/${teacherPk}/reset-password/`, {
-        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
-        body: JSON.stringify({new_password})
-    });
-    const data = await res.json();
-    if(data.ok) { closeModal('passwordModal'); showToast(data.message); }
-    else showToast(data.error||'Xatolik', true);
-}
-
-async function toggleBlock() {
-    const isBlocked = {{ teacher.is_blocked|yesno:'true,false' }};
-    const action = isBlocked ? 'faollashtirish' : 'bloklash';
-    if (!confirm(`${teacher.get_full_name} ni ${action}?`)) return;
-    const res = await fetch(`/users/teachers/${teacherPk}/toggle-block/`, {
-        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
-        body: JSON.stringify({})
-    });
-    const data = await res.json();
-    if(data.ok) { showToast(data.message); setTimeout(()=>location.reload(),1000); }
-    else showToast(data.error||'Xatolik', true);
 }
 
 async function addPenalty() {

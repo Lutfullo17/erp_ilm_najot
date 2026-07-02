@@ -10,51 +10,6 @@ from groups_app.models import Group
 from .models import GradeRecord, GradeSession
 
 
-def notify_parent_of_grades(student, group, grade_date, title, percentage, comment):
-    """Ota-onaga baho haqida Telegram xabar yuborish."""
-    try:
-        from bot.models import TelegramUser
-        from bot.services import send_telegram_message
-
-        telegram_users = TelegramUser.objects.filter(
-            student=student,
-            is_verified=True,
-        ).select_related('student')
-
-        if not telegram_users.exists():
-            return
-
-        teacher_name = group.teacher.get_full_name() if group.teacher else "O'qituvchi"
-        grade_display = f"{percentage}%"
-        if percentage >= 90:
-            emoji = "A'lo"
-        elif percentage >= 70:
-            emoji = "Yaxshi"
-        elif percentage >= 50:
-            emoji = "O'rtacha"
-        else:
-            emoji = "Past"
-
-        message = (
-            f"<b>📝 Yangi baho</b>\n\n"
-            f"<b>O'quvchi:</b> {student}\n"
-            f"<b>Guruh:</b> {group.name}\n"
-            f"<b>Sana:</b> {grade_date.strftime('%d.%m.%Y')}\n"
-            f"<b>Baholash:</b> {title}\n"
-            f"<b>Baho:</b> {grade_display} ({emoji})"
-        )
-        if comment:
-            message += f"\n<b>Izoh:</b> {comment}"
-
-        for tu in telegram_users:
-            try:
-                send_telegram_message(tu.telegram_id, message)
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-
 class GradeInputError(ValueError):
     pass
 
@@ -120,6 +75,7 @@ def get_grade_snapshot(user, group_id, grade_date, title='Dars bahosi'):
             'full_name': str(membership.student),
             'percentage': serialize_percentage(record.percentage) if record else None,
             'comment': record.comment if record else '',
+            'is_locked': record is not None,
         })
 
     return {
@@ -189,19 +145,16 @@ def save_grades(user, group_id, grade_date, title, records):
     session.save()
 
     for student_id, data in normalized.items():
-        record, _ = GradeRecord.objects.get_or_create(
+        from students.models import Student
+        student = Student.objects.filter(pk=student_id).first()
+        record, created = GradeRecord.objects.get_or_create(
             session=session,
             student_id=student_id,
             defaults=data,
         )
-        record.percentage = data['percentage']
-        record.comment = data['comment']
+        if not created:
+            raise GradeInputError(f"{student} uchun baho allaqachon qo'yilgan. O'zgartirib bo'lmaydi.")
         record.full_clean()
         record.save()
-
-        from students.models import Student
-        student = Student.objects.filter(pk=student_id).first()
-        if student:
-            notify_parent_of_grades(student, group, grade_date, title, data['percentage'], data['comment'])
 
     return get_grade_snapshot(user, group.id, grade_date, title)

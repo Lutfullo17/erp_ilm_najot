@@ -2,15 +2,14 @@ import json
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, get_object_or_404
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import redirect
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, TemplateView
 from django.utils import timezone
 
 from groups_app.models import Group
-from students.models import Student
 from users1.views import TeacherRequiredMixin
 from .models import GradeSession
 from .services import GradeInputError, get_grade_snapshot, get_teacher_groups, save_grades

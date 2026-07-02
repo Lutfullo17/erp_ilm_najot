@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import messages
-from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -49,9 +50,9 @@ class StudentListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
         ).prefetch_related('groupstudent_set__group__teacher').order_by('-created_at')
         if query:
             return qs.filter(
-                models.Q(first_name__icontains=query) |
-                models.Q(last_name__icontains=query) |
-                models.Q(phone__icontains=query)
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(phone__icontains=query)
             )
         return qs
 
@@ -126,6 +127,9 @@ from users1.views import create_audit_log
 
 @require_http_methods(['POST'])
 def delete_student(request, pk):
+    if not request.user.is_authenticated or not request.user.is_director:
+        messages.error(request, "Faqat Director o'quvchilarni o'chira oladi.")
+        return redirect('students:student_list')
     student = get_object_or_404(Student, pk=pk)
 
     # Validation

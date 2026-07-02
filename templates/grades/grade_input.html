@@ -68,7 +68,7 @@
         <!-- Student Grades -->
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             {% for student in students %}
-            <div class="glass-panel" style="padding: 1rem 1.25rem;">
+            <div class="glass-panel" style="padding: 1rem 1.25rem; {% if student.is_locked %}border: 1px solid rgba(16,185,129,0.3);{% endif %}">
                 <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 180px;">
                         <div class="avatar" style="width: 35px; height: 35px; font-size: 0.75rem;">
@@ -77,6 +77,11 @@
                         <div>
                             <div style="font-weight: 600; font-size: 0.9rem;">{{ student.full_name }}</div>
                         </div>
+                        {% if student.is_locked %}
+                        <span style="padding: 0.2rem 0.6rem; border-radius: 6px; background: rgba(16,185,129,0.15); color: #10b981; font-size: 0.7rem; font-weight: 600; white-space: nowrap;">
+                            <i class="fas fa-lock"></i> Qulflangan
+                        </span>
+                        {% endif %}
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 200px;">
                         <div style="flex: 1;">
@@ -84,14 +89,15 @@
                                 <input type="number" name="percentage_{{ student.id }}" value="{{ student.percentage|default:'' }}"
                                        min="0" max="100" step="0.01" placeholder="0-100"
                                        class="grade-input"
-                                       style="width: 100%; padding: 0.6rem 0.8rem; padding-right: 2rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                                       {% if student.is_locked %}readonly style="width: 100%; padding: 0.6rem 0.8rem; padding-right: 2rem; border-radius: 10px; border: 1px solid rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); color: var(--text); font-size: 0.9rem; cursor: not-allowed;"
+                                       {% else %}style="width: 100%; padding: 0.6rem 0.8rem; padding-right: 2rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;"{% endif %}>
                                 <span style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.8rem;">%</span>
                             </div>
                         </div>
                         <div style="flex: 2;">
                             <input type="text" name="comment_{{ student.id }}" value="{{ student.comment }}"
-                                   placeholder="Izoh (ixtiyoriy)"
-                                   style="width: 100%; padding: 0.6rem 0.8rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.85rem;">
+                                   placeholder="Izoh (ixtiyoriy)" {% if student.is_locked %}readonly{% endif %}
+                                   style="width: 100%; padding: 0.6rem 0.8rem; border-radius: 10px; border: 1px solid {% if student.is_locked %}rgba(16,185,129,0.3){% else %}var(--border){% endif %}; background: {% if student.is_locked %}rgba(16,185,129,0.05){% else %}rgba(0,0,0,0.2){% endif %}; color: var(--text); font-size: 0.85rem; {% if student.is_locked %}cursor: not-allowed;{% endif %}">
                         </div>
                     </div>
                 </div>

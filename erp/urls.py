@@ -19,6 +19,7 @@ from django.shortcuts import redirect
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -30,6 +31,7 @@ urlpatterns = [
     path('students/', include('students.urls')),
     path('users/', include('users1.urls')),
     path('reports/', include('reports.urls')),
+    path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'images/logo.png')),
     path('', lambda r: redirect('users1:index'), name='root_redirect'),
 ]
 
