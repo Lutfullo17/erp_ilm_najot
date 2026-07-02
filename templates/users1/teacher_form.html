@@ -52,8 +52,11 @@
             <div class="grid-layout">
                 <div class="form-group">
                     <label for="id_password1"><i class="fas fa-lock"></i> Parol</label>
-                    <input type="password" id="id_password1" name="password1" required
-                           placeholder="Kamida 8 ta belgi">
+                    <div class="password-wrapper">
+                        <input type="password" id="id_password1" name="password1" required
+                               placeholder="Kamida 8 ta belgi">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_password1', this)"></i>
+                    </div>
                     {% if form.password1.errors %}
                         <div class="error-msg">{{ form.password1.errors.0 }}</div>
                     {% endif %}
@@ -61,8 +64,11 @@
 
                 <div class="form-group">
                     <label for="id_password2"><i class="fas fa-shield-alt"></i> Parolni tasdiqlash</label>
-                    <input type="password" id="id_password2" name="password2" required
-                           placeholder="Qaytadan kiriting">
+                    <div class="password-wrapper">
+                        <input type="password" id="id_password2" name="password2" required
+                               placeholder="Qaytadan kiriting">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_password2', this)"></i>
+                    </div>
                     {% if form.password2.errors %}
                         <div class="error-msg">{{ form.password2.errors.0 }}</div>
                     {% endif %}
@@ -74,14 +80,20 @@
             <div class="grid-layout">
                 <div class="form-group">
                     <label for="id_new_password"><i class="fas fa-key"></i> Yangi Parol (ixtiyoriy)</label>
-                    <input type="password" id="id_new_password" name="new_password"
-                           placeholder="Yangi parol (kamida 6 belgi)" autocomplete="new-password">
+                    <div class="password-wrapper">
+                        <input type="password" id="id_new_password" name="new_password"
+                               placeholder="Yangi parol (kamida 6 belgi)" autocomplete="new-password">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_new_password', this)"></i>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="id_new_password2"><i class="fas fa-shield-alt"></i> Parolni tasdiqlash</label>
-                    <input type="password" id="id_new_password2" name="new_password2"
-                           placeholder="Qaytadan kiriting" autocomplete="new-password">
+                    <div class="password-wrapper">
+                        <input type="password" id="id_new_password2" name="new_password2"
+                               placeholder="Qaytadan kiriting" autocomplete="new-password">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_new_password2', this)"></i>
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -147,11 +159,53 @@
         border-top: 1px solid var(--border);
     }
 
+    .password-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .password-wrapper input {
+        padding-right: 45px !important;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 15px;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s;
+        z-index: 10;
+    }
+
+    .toggle-password:hover {
+        color: var(--primary);
+        transform: scale(1.1);
+    }
+
     @media (max-width: 480px) {
         .grid-layout {
             grid-template-columns: 1fr;
         }
     }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePass(id, icon) {
+        const input = document.getElementById(id);
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove("fa-eye");
+            icon.classList.add("fa-eye-slash");
+        } else {
+            input.type = "password";
+            icon.classList.remove("fa-eye-slash");
+            icon.classList.add("fa-eye");
+        }
+    }
+</script>
 {% endblock %}
 

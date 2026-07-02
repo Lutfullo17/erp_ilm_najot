@@ -14,6 +14,7 @@ urlpatterns = [
     path('admin/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
     path('admin/profile/', views.DirectorProfileView.as_view(), name='director_profile'),
     path('admin/profile/change-login/', views.director_change_login, name='director_change_login'),
+    path('admin/profile/update-info/', views.director_update_info, name='director_update_info'),
     path('admin/profile/change-password/', views.director_change_password, name='director_change_password'),
     path('admin/profile/change-photo/', views.director_change_photo, name='director_change_photo'),
     path('admin/audit-log/', views.AuditLogView.as_view(), name='audit_log'),

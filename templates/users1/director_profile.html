@@ -168,6 +168,11 @@
     <i class="fas fa-shield-alt"></i> Xavfsizlik Sozlamalari
 </div>
 <div class="action-cards">
+    <div class="action-card" onclick="openModal('infoModal')">
+        <div class="icon-wrap icon-primary"><i class="fas fa-user-edit"></i></div>
+        <h4>Ma'lumotlarni tahrirlash</h4>
+        <p>Ism, Familiya va Telefonni yangilash</p>
+    </div>
     <div class="action-card" onclick="openModal('loginModal')">
         <div class="icon-wrap icon-primary"><i class="fas fa-at"></i></div>
         <h4>Loginni o'zgartirish</h4>
@@ -342,6 +347,32 @@
     </div>
 </div>
 
+<!-- Info Update Modal -->
+<div class="modal-overlay" id="infoModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-user-edit" style="color:var(--primary);margin-right:0.5rem"></i> Ma'lumotlarni Tahrirlash</h3>
+            <button class="modal-close" onclick="closeModal('infoModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="form-group">
+            <label>Ism</label>
+            <input type="text" id="firstName" value="{{ user.first_name }}" placeholder="Ism">
+        </div>
+        <div class="form-group">
+            <label>Familiya</label>
+            <input type="text" id="lastName" value="{{ user.last_name }}" placeholder="Familiya">
+        </div>
+        <div class="form-group">
+            <label>Telefon</label>
+            <input type="text" id="phone" value="{{ user.phone }}" placeholder="+998 90 123 45 67">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('infoModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="updateInfo()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
 <!-- Login Change Modal -->
 <div class="modal-overlay" id="loginModal">
     <div class="modal">
@@ -427,6 +458,28 @@ async function changeLogin() {
     const data = await res.json();
     if (data.ok) {
         closeModal('loginModal');
+        showToast(data.message);
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        showToast(data.error || 'Xatolik yuz berdi', true);
+    }
+}
+
+async function updateInfo() {
+    const first_name = document.getElementById('firstName').value.trim();
+    const last_name = document.getElementById('lastName').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    
+    if (!first_name) return showToast('Ism kiritilishi shart', true);
+    
+    const res = await fetch("{% url 'users1:director_update_info' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({ first_name, last_name, phone })
+    });
+    const data = await res.json();
+    if (data.ok) {
+        closeModal('infoModal');
         showToast(data.message);
         setTimeout(() => location.reload(), 1500);
     } else {

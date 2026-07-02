@@ -28,6 +28,7 @@ MENU_SCHEDULE = '📅 Jadval'
 MENU_HOMEWORK = '📚 Uyga vazifa'
 MENU_TOPIC = '📖 Dars mavzusi'
 MENU_APPEAL = '✉️ Murojaat'
+MENU_CONTACT = '📞 Aloqa'
 
 
 def normalize_phone(value):
@@ -97,14 +98,18 @@ def contact_keyboard():
     }
 
 
-def main_menu_keyboard():
+def main_menu_keyboard(telegram_user=None):
+    keyboard = [
+        [MENU_ATTENDANCE, MENU_GRADES],
+        [MENU_PAYMENTS, MENU_SCHEDULE],
+        [MENU_HOMEWORK, MENU_TOPIC],
+    ]
+    # Tugmalar o'quvchi sifatida ulangan har qanday foydalanuvchiga ko'rinadi
+    if telegram_user and telegram_user.student:
+        keyboard.append([MENU_APPEAL, MENU_CONTACT])
+        
     return {
-        'keyboard': [
-            [MENU_ATTENDANCE, MENU_GRADES],
-            [MENU_PAYMENTS, MENU_SCHEDULE],
-            [MENU_HOMEWORK, MENU_TOPIC],
-            [MENU_APPEAL],
-        ],
+        'keyboard': keyboard,
         'resize_keyboard': True,
     }
 
@@ -167,7 +172,7 @@ def handle_contact(chat_id, message, telegram_user):
     telegram_user.state = ''
     link_user_by_phone(telegram_user, phone)
     telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
-    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard())
+    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
 
 
 def handle_phone_text(chat_id, text, telegram_user):
@@ -193,7 +198,7 @@ def handle_phone_text(chat_id, text, telegram_user):
     telegram_user.state = ''
     link_user_by_phone(telegram_user, phone)
     telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
-    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard())
+    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
 
 
 def require_verified(chat_id, telegram_user):
@@ -395,18 +400,31 @@ def handle_menu(chat_id, text, telegram_user):
     student = telegram_user.student
 
     if text == MENU_ATTENDANCE:
-        send_telegram_message(chat_id, attendance_text(student), main_menu_keyboard())
+        send_telegram_message(chat_id, attendance_text(student), main_menu_keyboard(telegram_user))
     elif text == MENU_GRADES:
-        send_telegram_message(chat_id, grades_text(student), main_menu_keyboard())
+        send_telegram_message(chat_id, grades_text(student), main_menu_keyboard(telegram_user))
     elif text == MENU_PAYMENTS:
-        send_telegram_message(chat_id, payments_text(student), main_menu_keyboard())
+        send_telegram_message(chat_id, payments_text(student), main_menu_keyboard(telegram_user))
     elif text == MENU_SCHEDULE:
-        send_telegram_message(chat_id, schedule_text(student), main_menu_keyboard())
+        send_telegram_message(chat_id, schedule_text(student), main_menu_keyboard(telegram_user))
     elif text == MENU_HOMEWORK:
-        send_telegram_message(chat_id, homework_text(student), main_menu_keyboard())
+        send_telegram_message(chat_id, homework_text(student), main_menu_keyboard(telegram_user))
     elif text == MENU_TOPIC:
-        send_telegram_message(chat_id, topic_text(student), main_menu_keyboard())
+        send_telegram_message(chat_id, topic_text(student), main_menu_keyboard(telegram_user))
+    elif text == MENU_CONTACT:
+        contact_info = (
+            "<b>📞 ALOQA MA'LUMOTLARI</b>\n"
+            "──────────────────\n"
+            "📍 <b>Manzil:</b> Namangan viloyati, ...\n"
+            "📞 <b>Telefon:</b> +998 90 123 45 67\n"
+            "🌐 <b>Telegram:</b> @adminga_yozing\n\n"
+            "Ish vaqtimiz: 08:30 - 18:30"
+        )
+        send_telegram_message(chat_id, contact_info, main_menu_keyboard(telegram_user))
     elif text == MENU_APPEAL:
+        if not telegram_user.student:
+            send_telegram_message(chat_id, "Faqat o'quvchilar murojaat yubora oladi.", main_menu_keyboard(telegram_user))
+            return
         telegram_user.state = STATE_CHOOSING_RECIPIENT
         telegram_user.save(update_fields=['state', 'updated_at'])
         choose_recipient_keyboard = {
@@ -419,7 +437,7 @@ def handle_menu(chat_id, text, telegram_user):
         }
         send_telegram_message(chat_id, "Murojaatni kimga yubormoqchisiz?", choose_recipient_keyboard)
     else:
-        send_telegram_message(chat_id, 'Menyudan birini tanlang.', main_menu_keyboard())
+        send_telegram_message(chat_id, 'Menyudan birini tanlang.', main_menu_keyboard(telegram_user))
 
 
 def handle_appeal(chat_id, text, telegram_user):
@@ -440,44 +458,18 @@ def handle_appeal(chat_id, text, telegram_user):
         sender_type=sender_type,
         recipient_type=recipient_type,
     )
-    send_telegram_message(chat_id, 'Murojaatingiz qabul qilindi.', main_menu_keyboard())
+    send_telegram_message(chat_id, 'Murojaatingiz qabul qilindi. Adminlar uni o\'rganib chiqishadi.', main_menu_keyboard(telegram_user))
 
-    student_name = str(telegram_user.student) if telegram_user.student else telegram_user.first_name or str(telegram_user.telegram_id)
+    # Adminga sodda ko'rinishda xabar yuborish
+    staff_users = TelegramUser.objects.filter(
+        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER],
+        is_verified=True,
+    ).exclude(telegram_id=chat_id) # O'ziga o'zi bormasligi uchun
 
-    if recipient_type == 'ADMIN':
-        staff_users = TelegramUser.objects.filter(
-            user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR],
-            is_verified=True,
-        ).exclude(user=None)
-        recipient_label = 'Admin'
-    elif recipient_type == 'TEACHER':
-        staff_users = TelegramUser.objects.filter(
-            user__role=User.Role.TEACHER,
-            is_verified=True,
-        ).exclude(user=None)
-        recipient_label = "O'qituvchi"
-    else:
-        send_telegram_message(chat_id, "Xatolik: notanish qabul qiluvchi.", main_menu_keyboard())
-        return
-
-    appeal_text = (
-        f"<b>✉️ YANGI MUROJAAT</b>\n"
-        f"──────────────────\n"
-        f"👤 <b>O'quvchi:</b> {student_name}\n"
-        f"💬 <b>Xabar:</b>\n<i>{message}</i>"
-    )
-
-    inline_markup = {
-        'inline_keyboard': [
-            [
-                {'text': '💬 Javob berish', 'callback_data': f'reply:{telegram_user.telegram_id}'},
-                {'text': '✅ Hal qilindi', 'callback_data': f'resolve:{telegram_user.telegram_id}'},
-            ],
-        ],
-    }
-
+    notification_text = f"🔔 <b>Yangi murojaat:</b>\n{message}"
+    
     for staff in staff_users:
-        send_telegram_message(staff.telegram_id, appeal_text, inline_markup)
+        send_telegram_message(staff.telegram_id, notification_text)
 
 
 def get_sender_type(telegram_user):
@@ -504,14 +496,19 @@ def handle_reply_to_appeal(chat_id, text, telegram_user):
     target_id = target['target_id']
     staff_name = target.get('staff_name', 'Admin')
 
+    if telegram_user.user and telegram_user.user.role == User.Role.TEACHER:
+        sender_label = "O'qituvchi"
+    else:
+        sender_label = "Admin"
+
     appeal_msg = (
         f"<b>💬 JAVOB KELDI!</b>\n"
         f"──────────────────\n"
-        f"👤 <b>Yuboruvchi:</b> {staff_name}\n"
-        f"📝 <b>Javob:</b>\n{text}"
+        f"👤 <b>Yuboruvchi:</b> {sender_label}\n\n"
+        f"{text}"
     )
-    send_telegram_message(target_id, appeal_msg, main_menu_keyboard())
-    send_telegram_message(chat_id, 'Javob yuborildi.', main_menu_keyboard())
+    send_telegram_message(target_id, appeal_msg, main_menu_keyboard()) # O'quvchida menu o'zgarmaydi (default)
+    send_telegram_message(chat_id, 'Javob yuborildi.', main_menu_keyboard(telegram_user))
     STATE_REPLY_TARGET.pop(chat_id, None)
     telegram_user.state = ''
     telegram_user.save(update_fields=['state', 'updated_at'])

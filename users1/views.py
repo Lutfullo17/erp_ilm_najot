@@ -206,6 +206,33 @@ def director_change_login(request):
 
 
 @require_http_methods(['POST'])
+def director_update_info(request):
+    """Director o'zining Ism, Familiya va Telefon raqamini o'zgartiradi"""
+    if not request.user.is_authenticated or not request.user.is_director:
+        return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
+
+    try:
+        data = json_module.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
+
+    first_name = data.get('first_name', '').strip()
+    last_name = data.get('last_name', '').strip()
+    phone = data.get('phone', '').strip()
+
+    if not first_name:
+        return JsonResponse({'error': 'Ism kiritilishi shart'}, status=400)
+
+    request.user.first_name = first_name
+    request.user.last_name = last_name
+    request.user.phone = phone
+    request.user.save()
+
+    create_audit_log(request, "Profil ma'lumotlari yangilandi", target_user=request.user)
+    return JsonResponse({'ok': True, 'message': 'Ma\'lumotlar muvaffaqiyatli yangilandi'})
+
+
+@require_http_methods(['POST'])
 def director_change_password(request):
     """Director o'z parolini o'zgartiradi"""
     if not request.user.is_authenticated or not request.user.is_director:
@@ -1323,7 +1350,18 @@ def reply_appeal(request, appeal_id):
 
     try:
         from bot.services import send_telegram_message
-        send_telegram_message(appeal.telegram_user.telegram_id, reply_text)
+        if request.user.role == User.Role.TEACHER:
+            sender_label = "O'qituvchi"
+        else:
+            sender_label = "Admin"
+
+        formatted_reply = (
+            f"<b>💬 JAVOB KELDI!</b>\n"
+            f"──────────────────\n"
+            f"👤 <b>Yuboruvchi:</b> {sender_label}\n\n"
+            f"Javob: {reply_text}"
+        )
+        send_telegram_message(appeal.telegram_user.telegram_id, formatted_reply)
     except Exception:
         pass
 
