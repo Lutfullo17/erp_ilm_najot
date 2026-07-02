@@ -96,9 +96,6 @@ def notify_missed_attendance_to_staff(alert):
     """
     Davomat olinmagan guruh haqida Director va Administrator'larga
     Telegram xabar yuboradi.
-    
-    NOTE: Bu funksiya ishlashi uchun Director/Admin Telegram bot'ga ulangan bo'lishi kerak.
-    Hozircha xabar tizim logiga yoziladi. Kelajakda StaffTelegramProfile modeli kerak.
     """
     teacher = alert.teacher
     group = alert.group
@@ -121,26 +118,37 @@ def notify_missed_attendance_to_staff(alert):
         f"ERP tizimida <b>Jarima tizimi</b> bo'limiga kiring va holat belgilang."
     )
 
-    # Telegram xabar uchun Director/Admin ID larini topish
-    # Bu yerda StaffTelegramProfile modeli mavjud bo'lsa ishlatiladi
-    # Hozircha faqat log yozamiz
-    try:
-        from django.conf import settings
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(
-            f"Missed attendance alert: {teacher_name} - {group.name} - {lesson_date}"
-        )
-    except Exception:
-        pass
+    from users1.models import User
 
-    # Agar STAFF_TELEGRAM_IDS setting mavjud bo'lsa xabar yuborish
-    try:
-        staff_ids = getattr(settings, 'STAFF_TELEGRAM_IDS', [])
-        for telegram_id in staff_ids:
+    # Director va Administrator larni topish
+    staff_users = User.objects.filter(
+        role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR],
+        is_blocked=False,
+    )
+
+    sent = False
+    for staff in staff_users:
+        # TelegramUser modelidan staff user ga bog'langan telegram accountni topish
+        tg_user = TelegramUser.objects.filter(user=staff, is_verified=True).first()
+        if tg_user:
             try:
-                send_telegram_message(telegram_id, message)
+                send_telegram_message(tg_user.telegram_id, message)
+                sent = True
             except Exception:
                 pass
-    except Exception:
-        pass
+
+    # Agar TelegramUser orqali topilmasa, STAFF_TELEGRAM_IDS settingdan qidirish
+    if not sent:
+        try:
+            from django.conf import settings
+            staff_ids = getattr(settings, 'STAFF_TELEGRAM_IDS', [])
+            for telegram_id in staff_ids:
+                try:
+                    send_telegram_message(telegram_id, message)
+                    sent = True
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    return sent

@@ -66,6 +66,44 @@
 </div>
 {% endif %}
 
+<!-- Davomat ogohlantirishlari (O'qituvchi keldi/kelmadi) -->
+{% if pending_alerts %}
+<div class="glass-panel animate-fade-in" style="border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div style="width: 40px; height: 40px; background: rgba(245, 158, 11, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+            <i class="fas fa-bell" style="color: var(--warning);"></i>
+        </div>
+        <div>
+            <h2 style="font-size: 1.1rem; margin: 0;">Davomat ogohlantirishlari</h2>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">O'qituvchi davomat olmagan holatlarni hal qiling</div>
+        </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for alert in pending_alerts %}
+        <div class="alert-item-{{ alert.pk }}" style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--border);">
+            <div>
+                <div style="font-weight: 600; font-size: 0.95rem;">{{ alert.teacher.get_full_name|default:alert.teacher.username }}</div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    {{ alert.group.name }} guruhi · {{ alert.lesson_date|date:"d.m.Y" }}
+                </div>
+                <div style="font-size: 0.8rem; color: var(--warning); margin-top: 0.25rem;">
+                    O'qituvchi darsga keldimi?
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                <button onclick="resolveAdminAlert({{ alert.pk }}, 'came')" class="btn btn-sm" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    ✅ Ha (-5 ball)
+                </button>
+                <button onclick="resolveAdminAlert({{ alert.pk }}, 'not_came')" class="btn btn-sm" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    ❌ Yo'q (-10 ball)
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <div class="grid-2" style="margin-bottom: 1.5rem; grid-template-columns: 1.5fr 1fr;">
     <!-- Mening oxirgi to'lovlarim -->
     <div class="glass-panel">
@@ -149,6 +187,38 @@
 </div>
 
 <script>
+async function resolveAdminAlert(alertPk, decision) {
+    const decisionText = decision === 'came' ? 'keldi (-5 ball)' : 'kelmadi (-10 ball)';
+    if (!confirm(`O'qituvchi darsga ${decisionText} deb belgilansinmi?`)) return;
+
+    try {
+        const resp = await fetch(`/users/admin/penalties/alert/${alertPk}/resolve/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({ decision }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            const item = document.querySelector(`.alert-item-${alertPk}`);
+            if (item) {
+                item.style.transition = 'all 0.3s ease';
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(20px)';
+                setTimeout(() => item.remove(), 300);
+            }
+            alert(data.message || 'Hal qilindi!');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            alert(data.error || 'Xatolik yuz berdi');
+        }
+    } catch (e) {
+        alert('Tarmoq xatoligi');
+    }
+}
+
 function sendBroadcast() {
     const groupId = document.getElementById('groupSelect').value;
     const message = document.getElementById('broadcastMessage').value.trim();

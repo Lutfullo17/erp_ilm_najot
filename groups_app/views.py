@@ -106,7 +106,7 @@ class GroupCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView):
                     form.add_error(None, msgs)
             return self.form_invalid(form)
         obj.save()
-        from reports.models import AuditLog
+        from users1.models import AuditLog
         new_data = {'teacher': obj.teacher_id, 'room': obj.room, 'lesson_time': str(obj.lesson_time) if obj.lesson_time else None, 'duration': str(obj.duration) if obj.duration else None}
         AuditLog.objects.create(
             user=self.request.user, role=self.request.user.role,
@@ -142,7 +142,7 @@ class GroupUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView):
         old_obj = Group.objects.get(pk=obj.pk) if obj.pk else None
         old_data = {'teacher': old_obj.teacher_id, 'room': old_obj.room, 'lesson_time': str(old_obj.lesson_time) if old_obj.lesson_time else None, 'duration': str(old_obj.duration) if old_obj.duration else None} if old_obj else None
         obj.save()
-        from reports.models import AuditLog
+        from users1.models import AuditLog
         new_data = {'teacher': obj.teacher_id, 'room': obj.room, 'lesson_time': str(obj.lesson_time) if obj.lesson_time else None, 'duration': str(obj.duration) if obj.duration else None}
         AuditLog.objects.create(
             user=self.request.user, role=self.request.user.role,

@@ -59,7 +59,16 @@
                             <a href="{% url 'users1:teacher_edit' teacher.id %}" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" title="Tahrirlash">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{% url 'users1:teacher_delete' teacher.id %}" method="post" style="display: inline;" onsubmit="return confirm('Haqiqatan ham o\'chirmoqchimisiz?');">
+                            <button class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" onclick="openTeacherLoginModal({{ teacher.pk }}, '{{ teacher.username }}')" title="Login o'zgartirish">
+                                <i class="fas fa-at"></i>
+                            </button>
+                            <button class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" onclick="openTeacherPasswordModal({{ teacher.pk }}, '{{ teacher.username }}')" title="Parol tiklash">
+                                <i class="fas fa-key"></i>
+                            </button>
+                            <button class="btn btn-outline {% if teacher.is_blocked %}btn-danger{% endif %}" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" onclick="toggleTeacherBlock({{ teacher.pk }}, '{{ teacher.username }}', {{ teacher.is_blocked|yesno:'true,false' }})" title="{% if teacher.is_blocked %}Faollashtirish{% else %}Bloklash{% endif %}">
+                                <i class="fas {% if teacher.is_blocked %}fa-unlock{% else %}fa-ban{% endif %}"></i>
+                            </button>
+                            <form action="{% url 'users1:teacher_delete' teacher.id %}" method="post" style="display: inline;" onsubmit="return confirm('Haqiqatan ham {{ teacher.last_name }} {{ teacher.first_name }} o\'qituvchisini o\'chirmoqchimisiz?');">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem; color: var(--danger);" title="O'chirish">
                                     <i class="fas fa-trash"></i>
@@ -80,4 +89,131 @@
         </table>
     </div>
 </div>
+
+<!-- Modals -->
+<style>
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; }
+    .modal-overlay.active { display:flex; }
+    .modal { background:#1e293b; border:1px solid var(--border); border-radius:24px; padding:2rem; width:100%; max-width:480px; margin:1rem; }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+    .modal-header h3 { font-size:1.2rem; font-weight:700; }
+    .modal-close { background:none; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer; }
+</style>
+
+<!-- Teacher Login Change Modal -->
+<div class="modal-overlay" id="teacherLoginModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-at" style="color:var(--primary);margin-right:0.5rem"></i> Loginni O'zgartirish</h3>
+            <button class="modal-close" onclick="closeModal('teacherLoginModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); margin-bottom:1.25rem;" id="teacherLoginModalDesc"></p>
+        <div class="form-group">
+            <label>Yangi Login</label>
+            <input type="text" id="newTeacherUsername" placeholder="Yangi loginni kiriting" autocomplete="off">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('teacherLoginModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="changeTeacherLogin()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
+<!-- Teacher Password Reset Modal -->
+<div class="modal-overlay" id="teacherPasswordModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-key" style="color:var(--danger);margin-right:0.5rem"></i> Parolni Tiklash</h3>
+            <button class="modal-close" onclick="closeModal('teacherPasswordModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); margin-bottom:1.25rem;" id="teacherPasswordModalDesc"></p>
+        <div class="form-group">
+            <label>Yangi Parol</label>
+            <input type="password" id="newTeacherPassword" placeholder="Yangi parol (kamida 6 belgi)">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('teacherPasswordModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="resetTeacherPassword()">Tiklash</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:2rem;right:2rem;background:#1e293b;border:1px solid var(--border);border-radius:16px;padding:1rem 1.5rem;display:none;align-items:center;gap:0.75rem;z-index:99999;min-width:280px;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+    <i id="toastIcon" class="fas fa-check-circle" style="color:var(--success);font-size:1.25rem;"></i>
+    <span id="toastMsg"></span>
+</div>
+
+<script>
+    let currentTeacherPk = null;
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }));
+
+    function showToast(msg, isError=false) {
+        const t=document.getElementById('toast'),i=document.getElementById('toastIcon');
+        document.getElementById('toastMsg').textContent=msg;
+        i.className=isError?'fas fa-exclamation-circle':'fas fa-check-circle';
+        i.style.color=isError?'var(--danger)':'var(--success)';
+        t.style.display='flex';
+        setTimeout(()=>t.style.display='none',3500);
+    }
+
+    function openTeacherLoginModal(pk, username) {
+        currentTeacherPk = pk;
+        document.getElementById('teacherLoginModalDesc').textContent = `O'qituvchi: ${username}`;
+        document.getElementById('newTeacherUsername').value = '';
+        openModal('teacherLoginModal');
+    }
+    function openTeacherPasswordModal(pk, username) {
+        currentTeacherPk = pk;
+        document.getElementById('teacherPasswordModalDesc').textContent = `O'qituvchi: ${username}`;
+        document.getElementById('newTeacherPassword').value = '';
+        openModal('teacherPasswordModal');
+    }
+
+    async function changeTeacherLogin() {
+        const username = document.getElementById('newTeacherUsername').value.trim();
+        if (!username) return showToast('Login kiritilmagan', true);
+        const url = `/users/teachers/${currentTeacherPk}/change-login/`;
+        const res = await fetch(url, {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+            body: JSON.stringify({username})
+        });
+        const data = await res.json();
+        if(data.ok) { closeModal('teacherLoginModal'); showToast(data.message); setTimeout(()=>location.reload(),1500); }
+        else showToast(data.error||'Xatolik', true);
+    }
+
+    async function resetTeacherPassword() {
+        const new_password = document.getElementById('newTeacherPassword').value;
+        if(new_password.length < 6) return showToast('Parol kamida 6 belgili bo\'lsin', true);
+        const url = `/users/teachers/${currentTeacherPk}/reset-password/`;
+        const res = await fetch(url, {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+            body: JSON.stringify({new_password})
+        });
+        const data = await res.json();
+        if(data.ok) { closeModal('teacherPasswordModal'); showToast(data.message); }
+        else showToast(data.error||'Xatolik', true);
+    }
+    
+    // Note: 'toggleTeacherBlock' needs to be implemented or linked to an existing view if it exists. 
+    // Looking at urls.py, I don't see a `toggle-block` for teachers.
+    // I will check the views if a general toggle exists or if I need to implement it.
+    async function toggleTeacherBlock(pk, username, isBlocked) {
+        const action = isBlocked ? 'faollashtirish' : 'bloklash';
+        if (!confirm(`${username} ni ${action}?`)) return;
+        const url = `/users/teachers/${pk}/toggle-block/`;
+        const res = await fetch(url, {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if(data.ok) { showToast(data.message); setTimeout(()=>location.reload(),1000); }
+        else showToast(data.error||'Xatolik', true);
+    }
+</script>
 {% endblock %}

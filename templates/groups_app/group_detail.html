@@ -100,31 +100,45 @@
 
     <!-- O'quvchilar ro'yxati -->
     <div class="glass-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
             <h2><i class="fas fa-users"></i> O'quvchilar ({{ group_students.count }})</h2>
-            <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="padding: 0.6rem 1rem; border-radius: 12px; font-size: 0.85rem;">
-                <i class="fas fa-check-double"></i> Davomat olish
-            </a>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <input type="text" id="studentSearch" placeholder="O'quvchi izlash..." style="padding: 0.5rem; width: 200px;">
+                <select id="paymentFilter" style="padding: 0.5rem; width: 150px;">
+                    <option value="all">Hammasi</option>
+                    <option value="paid">To'lov qilganlar</option>
+                    <option value="debtor">Qarzdorlar</option>
+                </select>
+                <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="padding: 0.6rem 1rem; border-radius: 12px; font-size: 0.85rem;">
+                    <i class="fas fa-check-double"></i> Davomat olish
+                </a>
+            </div>
         </div>
 
         <div class="table-container">
-            <table>
+            <table id="studentsTable">
                 <thead>
                     <tr>
                         <th>O'quvchi</th>
                         <th>Telefon</th>
-                        <th>Qo'shilgan</th>
+                        <th>Holati</th>
                         <th style="text-align: right;">Amal</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for gs in group_students %}
-                    <tr>
+                    <tr class="student-row" data-status="{% if gs.student.has_debt %}debtor{% else %}paid{% endif %}">
                         <td>
                             <div style="font-weight: 600;">{{ gs.student.last_name }} {{ gs.student.first_name }}</div>
                         </td>
                         <td>{{ gs.student.phone }}</td>
-                        <td>{{ gs.joined_at|date:"Y-m-d" }}</td>
+                        <td>
+                            {% if gs.student.has_debt %}
+                            <span class="badge badge-danger">Qarzdor</span>
+                            {% else %}
+                            <span class="badge badge-success">To'lov qilgan</span>
+                            {% endif %}
+                        </td>
                         <td style="text-align: right;">
                             <a href="{% url 'students:student_detail' gs.student.id %}" class="btn btn-outline" style="padding: 0.4rem; border-radius: 8px;">
                                 <i class="fas fa-eye"></i>
@@ -141,4 +155,28 @@
         </div>
     </div>
 </div>
+
+<script>
+    const searchInput = document.getElementById('studentSearch');
+    const filterSelect = document.getElementById('paymentFilter');
+    const tableRows = document.querySelectorAll('.student-row');
+
+    function filterStudents() {
+        const query = searchInput.value.toLowerCase();
+        const filter = filterSelect.value;
+        
+        tableRows.forEach(row => {
+            const name = row.querySelector('td').textContent.toLowerCase();
+            const status = row.getAttribute('data-status');
+            
+            const matchesSearch = name.includes(query);
+            const matchesFilter = (filter === 'all' || status === filter);
+            
+            row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+        });
+    }
+
+    searchInput.addEventListener('input', filterStudents);
+    filterSelect.addEventListener('change', filterStudents);
+</script>
 {% endblock %}

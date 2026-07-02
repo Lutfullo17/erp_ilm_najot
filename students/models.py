@@ -21,6 +21,16 @@ class Student(models.Model):
     address = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, verbose_name="Holati")
     is_active = models.BooleanField(default=True)
+    is_deleted = models.BooleanField(default=False, verbose_name="O'chirilgan")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="O'chirilgan vaqt")
+    deleted_by = models.ForeignKey(
+        'users1.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_students',
+        verbose_name="Kim o'chirdi"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

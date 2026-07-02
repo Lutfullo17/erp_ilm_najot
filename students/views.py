@@ -117,3 +117,30 @@ class StudentUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView
         
         messages.success(self.request, "O'quvchi ma'lumotlari yangilandi!")
         return redirect(self.success_url)
+
+
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from users1.services import validate_student_deletion
+from users1.views import create_audit_log
+
+@require_http_methods(['POST'])
+def delete_student(request, pk):
+    student = get_object_or_404(Student, pk=pk)
+
+    # Validation
+    is_valid, error_msg = validate_student_deletion(student)
+    if not is_valid:
+        messages.error(request, error_msg)
+        return redirect('students:student_list')
+
+    # Soft Delete
+    student.is_deleted = True
+    student.deleted_at = timezone.now()
+    student.deleted_by = request.user
+    student.is_active = False
+    student.save()
+
+    create_audit_log(request, f"O'quvchi o'chirildi: {student.first_name} {student.last_name}")
+    messages.success(request, f"{student.first_name} {student.last_name} o'chirildi.")
+    return redirect('students:student_list')

@@ -73,6 +73,12 @@
                             <a href="{% url 'students:student_edit' student.id %}" class="btn btn-outline" style="padding: 0.5rem; border-radius: 10px;">
                                 <i class="fas fa-edit"></i>
                             </a>
+                            <form action="{% url 'students:student_delete' student.id %}" method="post" style="display: inline;" onsubmit="return confirm('Haqiqatan ham {{ student.last_name }} {{ student.first_name }} o\'quvchisini o\'chirmoqchimisiz?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline" style="padding: 0.5rem; border-radius: 10px; color: var(--danger);" title="O'chirish">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>

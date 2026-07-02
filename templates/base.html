@@ -30,13 +30,13 @@
 
         body {
             background: var(--bg);
-            background-image: 
+            background-image:
                 radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
                 radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%);
             color: var(--text);
             min-height: 100vh;
             display: flex;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         /* Sidebar Responsive */
@@ -52,6 +52,7 @@
             height: 100vh;
             z-index: 1000;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow-y: auto;
         }
 
         .logo {
@@ -112,6 +113,8 @@
             padding: 2.5rem;
             width: calc(100% - 280px);
             transition: all 0.4s;
+            height: 100vh;
+            overflow-y: auto;
         }
 
         header {
@@ -446,12 +449,6 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'users1:administrator_list' %}" class="nav-link {% if 'administrators' in request.path %}active{% endif %}">
-                    <i class="fas fa-user-shield"></i>
-                    <span>Administratorlar</span>
-                </a>
-            </li>
-            <li class="nav-item">
                 <a href="{% url 'users1:penalty_list' %}" class="nav-link {% if 'penalties' in request.path %}active{% endif %}">
                     <i class="fas fa-exclamation-triangle"></i>
                     <span>Jarima Tizimi</span>
@@ -461,12 +458,6 @@
                 <a href="{% url 'users1:director_profile' %}" class="nav-link {% if 'admin/profile' in request.path %}active{% endif %}">
                     <i class="fas fa-user-circle"></i>
                     <span>Profilim</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{% url 'users1:audit_log' %}" class="nav-link {% if 'audit-log' in request.path %}active{% endif %}">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>Audit Log</span>
                 </a>
             </li>
             {% endif %}
@@ -523,18 +514,6 @@
                 <a href="{% url 'users1:teacher_groups' %}" class="nav-link {% if 'teacher/groups' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Guruhlarim</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{% url 'users1:teacher_students' %}" class="nav-link {% if 'teacher/students' in request.path %}active{% endif %}">
-                    <i class="fas fa-user-graduate"></i>
-                    <span>O'quvchilarim</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{% url 'grades:grade_input' %}" class="nav-link {% if 'grades' in request.path %}active{% endif %}">
-                    <i class="fas fa-star"></i>
-                    <span>Baholar</span>
                 </a>
             </li>
             <li class="nav-item">
@@ -610,18 +589,6 @@
                 <a href="{% url 'users1:teacher_groups' %}" class="bottom-nav-item {% if 'teacher/groups' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Guruhlar</span>
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'users1:teacher_students' %}" class="bottom-nav-item {% if 'teacher/students' in request.path %}active{% endif %}">
-                    <i class="fas fa-user-graduate"></i>
-                    <span>O'quvchilar</span>
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'grades:grade_input' %}" class="bottom-nav-item {% if 'grades' in request.path %}active{% endif %}">
-                    <i class="fas fa-star"></i>
-                    <span>Baholar</span>
                 </a>
             </li>
             <li>

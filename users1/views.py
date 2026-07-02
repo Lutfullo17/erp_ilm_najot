@@ -175,6 +175,7 @@ class DirectorProfileView(LoginRequiredMixin, DirectorRequiredMixin, TemplateVie
         context['audit_logs'] = AuditLog.objects.filter(
             user=self.request.user
         ).order_by('-created_at')[:20]
+        context['administrators'] = User.objects.filter(role=User.Role.ADMINISTRATOR).order_by('last_name', 'first_name')
         return context
 
 
@@ -440,14 +441,27 @@ class TeacherUpdateView(LoginRequiredMixin, DirectorRequiredMixin, UpdateView):
         return redirect('users1:teacher_list')
 
 
+from users1.services import validate_teacher_deletion
+
 @require_http_methods(['POST'])
 def delete_teacher(request, pk):
     teacher = get_object_or_404(User, pk=pk, role='TEACHER')
-    name = teacher.get_full_name()
-    username = teacher.username
-    teacher.delete()
-    create_audit_log(request, f"O'qituvchi o'chirildi: {username}")
-    messages.success(request, f"{name} o'chirildi.")
+
+    # Validation
+    is_valid, error_msg = validate_teacher_deletion(teacher)
+    if not is_valid:
+        messages.error(request, error_msg)
+        return redirect('users1:teacher_list')
+
+    # Soft Delete
+    teacher.is_deleted = True
+    teacher.deleted_at = timezone.now()
+    teacher.deleted_by = request.user
+    teacher.is_active = False # Assuming we want to also deactivate the user
+    teacher.save()
+
+    create_audit_log(request, f"O'qituvchi o'chirildi: {teacher.username}", target_user=teacher)
+    messages.success(request, f"{teacher.get_full_name()} o'chirildi.")
     return redirect('users1:teacher_list')
 
 
@@ -642,8 +656,8 @@ def director_add_penalty(request, teacher_pk):
 
 @require_http_methods(['POST'])
 def resolve_missed_alert(request, alert_pk):
-    """Director missed attendance alertni hal qiladi"""
-    if not request.user.is_authenticated or not request.user.is_director:
+    """Director yoki Administrator missed attendance alertni hal qiladi"""
+    if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
 
     alert = get_object_or_404(MissedAttendanceAlert, pk=alert_pk, status=MissedAttendanceAlert.Status.PENDING)
@@ -655,62 +669,13 @@ def resolve_missed_alert(request, alert_pk):
 
     decision = data.get('decision')  # 'came' yoki 'not_came'
 
-    if decision == 'came':
-        # Teacher keldi lekin davomat olmadi → -5 ball
-        alert.status = MissedAttendanceAlert.Status.CAME
-        penalty_points = -5
-        reason = f"{alert.group.name} guruhida davomat olinmadi (keldi)"
-        penalty_type = TeacherPenalty.PenaltyType.ATTENDANCE_MISSED
-    elif decision == 'not_came':
-        # Teacher kelmadi → -10 ball
-        alert.status = MissedAttendanceAlert.Status.NOT_CAME
-        penalty_points = -10
-        reason = f"{alert.group.name} guruhiga kelmadi"
-        penalty_type = TeacherPenalty.PenaltyType.CLASS_SKIPPED
-    else:
+    if decision not in ('came', 'not_came'):
         return JsonResponse({'error': 'Qaror noto\'g\'ri'}, status=400)
 
-    alert.resolved_at = timezone.now()
-    alert.resolved_by = request.user
-    alert.penalty_applied = True
-    alert.save()
+    from .penalty_service import apply_penalty_for_alert
+    apply_penalty_for_alert(alert, decision, request.user)
 
-    # Check consecutive misses for extra penalty
-    recent_missed = MissedAttendanceAlert.objects.filter(
-        teacher=alert.teacher,
-        status__in=[MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME],
-    ).order_by('-lesson_date')[:3]
-
-    consecutive_count = 0
-    for prev_alert in recent_missed:
-        if not prev_alert.penalty_applied:
-            break
-        consecutive_count += 1
-
-    TeacherPenalty.objects.create(
-        teacher=alert.teacher,
-        group=alert.group,
-        date=alert.lesson_date,
-        reason=reason,
-        points=penalty_points,
-        penalty_type=penalty_type,
-        is_manual=False,
-        given_by=request.user,
-    )
     create_audit_log(request, f"Davomat ogohlantirishni hal qilindi: {alert.teacher.username}, {alert.group.name} → {decision}", target_user=alert.teacher)
-
-    # Ketma-ket 2 ta darsda davomat olinmasa +qo'shimcha -10 ball
-    if consecutive_count >= 2:
-        TeacherPenalty.objects.create(
-            teacher=alert.teacher,
-            group=alert.group,
-            date=alert.lesson_date,
-            reason=f"Ketma-ket {consecutive_count + 1} ta darsda davomat yoki darsga kelmadi",
-            points=-10,
-            penalty_type=TeacherPenalty.PenaltyType.CONSECUTIVE_MISSED,
-            is_manual=False,
-            given_by=request.user,
-        )
 
     return JsonResponse({'ok': True, 'message': 'Xabarnoma hal qilindi va jarima berildi'})
 

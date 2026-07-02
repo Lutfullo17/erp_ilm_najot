@@ -7,9 +7,9 @@
 <div class="glass-panel">
     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
         {% for item in groups_with_status %}
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 12px; {% if item.is_today %}background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2);{% else %}background: rgba(255,255,255,0.03); opacity: 0.6;{% endif %}">
+        <a href="{% url 'users1:teacher_group_detail' item.group.id %}" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-radius: 12px; {% if item.is_today %}background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2);{% else %}background: rgba(255,255,255,0.03);{% endif %} text-decoration: none; color: inherit; transition: all 0.2s;">
             <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
-                <div class="avatar" style="width: 40px; height: 40px; font-size: 0.85rem;">{{ item.group.name.0 }}</div>
+                <div class="avatar" style="width: 40px; height: 40px; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 10px;">{{ item.group.name.0 }}</div>
                 <div>
                     <div style="font-weight: 600; font-size: 1rem;">{{ item.group.name }}</div>
                     <div style="color: var(--text-muted); font-size: 0.8rem;">{{ item.group.students.count }} o'quvchi &middot; {{ item.group.lesson_days }}</div>
@@ -18,16 +18,10 @@
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">{{ item.group.lesson_time|time:"H:i" }}</div>
                 {% if item.is_today %}
-                <a href="{% url 'attendance:attendance_mark' item.group.id %}" style="padding: 0.5rem 1rem; border-radius: 10px; background: var(--primary); color: white; text-decoration: none; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">
-                    <i class="fas fa-check-double"></i> Davomat
-                </a>
-                {% else %}
-                <span style="padding: 0.5rem 1rem; border-radius: 10px; background: rgba(255,255,255,0.05); color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
-                    <i class="fas fa-calendar-times"></i> Kun emas
-                </span>
+                <span style="padding: 0.4rem 0.8rem; border-radius: 8px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.7rem; font-weight: 600;">Bugun</span>
                 {% endif %}
             </div>
-        </div>
+        </a>
         {% empty %}
         <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
             <i class="fas fa-users" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>

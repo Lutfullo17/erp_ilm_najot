@@ -16,6 +16,16 @@ class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True, verbose_name="Telefon")
     photo = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name="Profil rasmi")
     is_blocked = models.BooleanField(default=False, verbose_name="Bloklangan")
+    is_deleted = models.BooleanField(default=False, verbose_name="O'chirilgan")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="O'chirilgan vaqt")
+    deleted_by = models.ForeignKey(
+        'users1.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='deleted_users',
+        verbose_name="Kim o'chirdi"
+    )
 
     @property
     def is_director(self):
@@ -59,7 +69,7 @@ class Teacher(User):
 
 
 class AuditLog(models.Model):
-    """Barcha muhim amallarni qayd qilish uchun"""
+    """Barcha muhim amallarni qayd qilish uchun (yagona AuditLog)"""
     user = models.ForeignKey(
         'users1.User',
         on_delete=models.SET_NULL,
@@ -71,10 +81,14 @@ class AuditLog(models.Model):
         'users1.User',
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
         related_name='audit_logs_target',
         verbose_name="Kim haqida"
     )
+    role = models.CharField(max_length=50, blank=True, default='', verbose_name="Rol")
     action = models.CharField(max_length=255, verbose_name="Amal")
+    old_data = models.JSONField(null=True, blank=True, verbose_name="Eski ma'lumot")
+    new_data = models.JSONField(null=True, blank=True, verbose_name="Yangi ma'lumot")
     ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP manzil")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Sana va vaqt")
 

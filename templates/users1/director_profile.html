@@ -216,7 +216,132 @@
     {% endif %}
 </div>
 
+<!-- Administrators Management -->
+<div class="glass-panel" style="margin-top:2rem;">
+    <div class="section-title">
+        <i class="fas fa-user-shield"></i> Administratorlar
+        <button class="btn btn-primary" style="padding: 0.5rem 1rem; margin-left: auto;" onclick="openModal('createAdminModal')">
+            <i class="fas fa-plus"></i> Yangi
+        </button>
+    </div>
+    {% if administrators %}
+    <div class="table-container">
+        <table class="mobile-card-table">
+            <thead>
+                <tr>
+                    <th>Ism</th>
+                    <th>Login</th>
+                    <th>Status</th>
+                    <th>Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for admin in administrators %}
+                <tr>
+                    <td data-label="Ism">{{ admin.get_full_name|default:admin.username }}</td>
+                    <td data-label="Login">{{ admin.username }}</td>
+                    <td data-label="Status">
+                        {% if admin.is_blocked %}
+                        <span class="badge badge-danger">Bloklangan</span>
+                        {% else %}
+                        <span class="badge badge-success">Faol</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Amallar">
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="openAdminLoginModal({{ admin.pk }}, '{{ admin.username }}')">Login</button>
+                            <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="openAdminPasswordModal({{ admin.pk }}, '{{ admin.username }}')">Parol</button>
+                            <button class="btn {% if admin.is_blocked %}btn-primary{% else %}btn-danger{% endif %}" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="toggleAdminBlock({{ admin.pk }}, '{{ admin.username }}', {{ admin.is_blocked|yesno:'true,false' }})">
+                                {% if admin.is_blocked %}Unblock{% else %}Block{% endif %}
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); text-align:center; padding:2rem;">Hech qanday administrator topilmadi</p>
+    {% endif %}
+</div>
+
 <!-- ── Modals ─────────────────────────────── -->
+<!-- Create Administrator Modal -->
+<div class="modal-overlay" id="createAdminModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-user-plus" style="color:var(--primary);margin-right:0.5rem"></i> Yangi Administrator</h3>
+            <button class="modal-close" onclick="closeModal('createAdminModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="post" action="{% url 'users1:administrator_create' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Ism</label>
+                <input type="text" name="first_name" placeholder="Ism" required>
+            </div>
+            <div class="form-group">
+                <label>Familiya</label>
+                <input type="text" name="last_name" placeholder="Familiya">
+            </div>
+            <div class="form-group">
+                <label>Telefon</label>
+                <input type="text" name="phone" placeholder="+998 90 123 45 67">
+            </div>
+            <div class="form-group">
+                <label>Login</label>
+                <input type="text" name="username" placeholder="Login" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Parol</label>
+                <input type="password" name="password" placeholder="Parol (kamida 6 belgi)" required autocomplete="new-password">
+            </div>
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" style="flex:1;" onclick="closeModal('createAdminModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">Yaratish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Admin Login Change Modal -->
+<div class="modal-overlay" id="adminLoginModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-at" style="color:var(--primary);margin-right:0.5rem"></i> Loginni O'zgartirish</h3>
+            <button class="modal-close" onclick="closeModal('adminLoginModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); margin-bottom:1.25rem;" id="adminLoginModalDesc"></p>
+        <div class="form-group">
+            <label>Yangi Login</label>
+            <input type="text" id="newAdminUsername" placeholder="Yangi loginni kiriting" autocomplete="off">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('adminLoginModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="changeAdminLogin()">Saqlash</button>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Password Reset Modal -->
+<div class="modal-overlay" id="adminPasswordModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-key" style="color:var(--danger);margin-right:0.5rem"></i> Parolni Tiklash</h3>
+            <button class="modal-close" onclick="closeModal('adminPasswordModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color:var(--text-muted); margin-bottom:1.25rem;" id="adminPasswordModalDesc"></p>
+        <div class="form-group">
+            <label>Yangi Parol</label>
+            <input type="password" id="newAdminPassword" placeholder="Yangi parol (kamida 6 belgi)">
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeModal('adminPasswordModal')">Bekor qilish</button>
+            <button class="btn btn-primary" style="flex:1;" onclick="resetAdminPassword()">Tiklash</button>
+        </div>
+    </div>
+</div>
+
 <!-- Login Change Modal -->
 <div class="modal-overlay" id="loginModal">
     <div class="modal">
@@ -353,6 +478,60 @@ async function uploadPhoto(event) {
     } else {
         showToast(data.error || 'Xatolik yuz berdi', true);
     }
+}
+
+// ── Admin Management ───────────────────────────────
+let currentAdminPk = null;
+function openAdminLoginModal(pk, username) {
+    currentAdminPk = pk;
+    document.getElementById('adminLoginModalDesc').textContent = `Administrator: ${username}`;
+    document.getElementById('newAdminUsername').value = '';
+    openModal('adminLoginModal');
+}
+function openAdminPasswordModal(pk, username) {
+    currentAdminPk = pk;
+    document.getElementById('adminPasswordModalDesc').textContent = `Administrator: ${username}`;
+    document.getElementById('newAdminPassword').value = '';
+    openModal('adminPasswordModal');
+}
+async function changeAdminLogin() {
+    const username = document.getElementById('newAdminUsername').value.trim();
+    if (!username) return showToast('Login kiritilmagan', true);
+    const url = `/users/administrators/${currentAdminPk}/change-login/`;
+    const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({username})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('adminLoginModal'); showToast(data.message); setTimeout(()=>location.reload(),1500); }
+    else showToast(data.error||'Xatolik', true);
+}
+async function resetAdminPassword() {
+    const new_password = document.getElementById('newAdminPassword').value;
+    if(new_password.length < 6) return showToast('Parol kamida 6 belgili bo\'lsin', true);
+    const url = `/users/administrators/${currentAdminPk}/reset-password/`;
+    const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({new_password})
+    });
+    const data = await res.json();
+    if(data.ok) { closeModal('adminPasswordModal'); showToast(data.message); }
+    else showToast(data.error||'Xatolik', true);
+}
+async function toggleAdminBlock(pk, username, isBlocked) {
+    const action = isBlocked ? 'faollashtirish' : 'bloklash';
+    if (!confirm(`${username} ni ${action}?`)) return;
+    const url = `/users/administrators/${pk}/toggle-block/`;
+    const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},
+        body: JSON.stringify({})
+    });
+    const data = await res.json();
+    if(data.ok) { showToast(data.message); setTimeout(()=>location.reload(),1000); }
+    else showToast(data.error||'Xatolik', true);
 }
 </script>
 {% endblock %}

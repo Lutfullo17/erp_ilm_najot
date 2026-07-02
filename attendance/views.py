@@ -113,7 +113,7 @@ class AttendanceMarkView(LoginRequiredMixin, View):
                 return redirect('users1:teacher_groups')
 
         if request.user.is_admin_access:
-            from reports.models import AuditLog
+            from users1.models import AuditLog
             AuditLog.objects.create(
                 user=request.user, role=request.user.role,
                 action="Administrator tomonidan davomat qo'lda kiritildi",
@@ -174,7 +174,7 @@ def admin_override_attendance(request, group_id):
         defaults={'teacher': group.teacher}
     )
 
-    from reports.models import AuditLog
+    from users1.models import AuditLog
     AuditLog.objects.create(
         user=user,
         role=user.role,

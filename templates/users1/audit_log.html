@@ -132,7 +132,7 @@
                         {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
                     </td>
                     <td data-label="Amal">
-                        <span class="action-badge {% if 'Login' in log.action or 'login' in log.action %}action-login{% elif 'parol' in log.action|lower or 'Parol' in log.action %}action-password{% elif 'bloklandi' in log.action or 'bloklash' in log.action %}action-block{% elif 'yaratildi' in log.action or 'qo\\'shildi' in log.action %}action-create{% else %}action-default{% endif %}">
+                        <span class="action-badge {% if 'Login' in log.action or 'login' in log.action %}action-login{% elif 'parol' in log.action|lower %}action-password{% elif 'bloklandi' in log.action or 'bloklash' in log.action %}action-block{% elif 'yaratildi' in log.action or 'qoshildi' in log.action|lower %}action-create{% else %}action-default{% endif %}">
                             {{ log.action }}
                         </span>
                     </td>
