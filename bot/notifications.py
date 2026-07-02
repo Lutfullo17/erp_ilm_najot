@@ -1,6 +1,5 @@
 import logging
 
-from django.conf import settings
 from .services import send_telegram_message, money
 from .models import TelegramUser
 
@@ -107,61 +106,3 @@ def notify_payment_deleted(payment_transaction):
     for tg_user in telegram_users:
         send_telegram_message(tg_user.telegram_id, message)
 
-
-def notify_missed_attendance_to_staff(alert):
-    """
-    Davomat olinmagan guruh haqida Director va Administrator'larga
-    Telegram xabar yuboradi.
-    """
-    teacher = alert.teacher
-    group = alert.group
-    lesson_date = alert.lesson_date
-
-    teacher_name = teacher.get_full_name() or teacher.username
-    time_str = ''
-    if group.lesson_time:
-        time_str = f"{group.lesson_time.strftime('%H:%M')}"
-    if group.end_time:
-        time_str += f" - {group.end_time.strftime('%H:%M')}"
-
-    message = (
-        f"<b>🚨 DIQQAT: DAVOMAT OLINMADI</b>\n"
-        f"──────────────────\n"
-        f"📚 Guruh: <b>{group.name}</b>\n"
-        f"👨‍🏫 O'qituvchi: <b>{teacher_name}</b>\n"
-        f"🕐 Vaqt: <code>{time_str}</code>\n"
-        f"📅 Sana: <b>{lesson_date.strftime('%d.%m.%Y')}</b>\n\n"
-        f"❓ O'qituvchi darsga keldimi?\n"
-        f"ERP tizimida <b>Jarima tizimi</b> bo'limiga kiring."
-    )
-
-    from users1.models import User
-
-    # Director va Administrator larni topish
-    staff_users = User.objects.filter(
-        role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR],
-        is_blocked=False,
-    )
-
-    sent = False
-    for staff in staff_users:
-        tg_user = TelegramUser.objects.filter(user=staff, is_verified=True).first()
-        if tg_user:
-            try:
-                send_telegram_message(tg_user.telegram_id, message)
-                sent = True
-            except Exception:
-                logger.exception('Failed to send missed attendance message to staff user %s', staff.pk)
-
-    if not sent:
-        staff_ids = getattr(settings, 'STAFF_TELEGRAM_IDS', [])
-        if not staff_ids:
-            logger.warning('No staff TelegramUser entries or STAFF_TELEGRAM_IDS configured for missed attendance notification')
-        for telegram_id in staff_ids:
-            try:
-                send_telegram_message(telegram_id, message)
-                sent = True
-            except Exception:
-                logger.exception('Failed to send missed attendance message to fallback telegram_id %s', telegram_id)
-
-    return sent

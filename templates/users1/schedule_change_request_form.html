@@ -29,14 +29,8 @@
             <div class="form-group">
                 <label for="id_new_start_time" style="font-weight: 600;">Yangi boshlanish vaqti</label>
                 {{ form.new_start_time }}
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">{{ form.new_start_time.help_text }}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">{{ form.new_start_time.help_text }}. Tugash vaqti avtomatik ravishda davomiylik bo‘yicha hisoblanadi.</div>
                 {{ form.new_start_time.errors }}
-            </div>
-            <div class="form-group">
-                <label for="id_new_end_time" style="font-weight: 600;">Yangi tugash vaqti</label>
-                {{ form.new_end_time }}
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">{{ form.new_end_time.help_text }}</div>
-                {{ form.new_end_time.errors }}
             </div>
             <div class="form-group">
                 <label for="id_reason" style="font-weight: 600;">O'zgartirish sababi</label>
@@ -62,13 +56,11 @@ function formatTimeInput(input) {
 
 document.addEventListener('DOMContentLoaded', function () {
     const startInput = document.getElementById('id_new_start_time');
-    const endInput = document.getElementById('id_new_end_time');
-    [startInput, endInput].forEach(function (input) {
-        if (!input) return;
-        input.addEventListener('input', function () {
-            formatTimeInput(input);
+    if (startInput) {
+        startInput.addEventListener('input', function () {
+            formatTimeInput(startInput);
         });
-    });
+    }
 });
 </script>
 {% endblock %}

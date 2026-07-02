@@ -59,14 +59,18 @@ def _times_overlap(start_a, end_a, start_b, end_b):
     return start_a < end_b and end_a > start_b
 
 
+def _calculate_end_time_from_start(start_time, duration):
+    import datetime
+    hours = int(duration)
+    minutes = int((duration - hours) * 60)
+    return (datetime.datetime.combine(datetime.date.today(), start_time) + datetime.timedelta(hours=hours, minutes=minutes)).time()
+
+
 def _compute_end_time(group):
     if group.end_time:
         return group.end_time
     if group.lesson_time and group.duration is not None:
-        import datetime
-        hours = int(group.duration)
-        minutes = int((group.duration - hours) * 60)
-        return (datetime.datetime.combine(datetime.date.today(), group.lesson_time) + datetime.timedelta(hours=hours, minutes=minutes)).time()
+        return _calculate_end_time_from_start(group.lesson_time, group.duration)
     return None
 
 
@@ -76,6 +80,16 @@ def _duration_to_decimal_hours(start_time, end_time):
     end_dt = datetime.datetime.combine(datetime.date.today(), end_time)
     diff = end_dt - start_dt
     return diff.seconds / 3600
+
+
+def _compute_lesson_end_time(group, start_time):
+    if group.duration is not None and group.duration > 0:
+        return _calculate_end_time_from_start(start_time, group.duration)
+    if group.lesson_time is not None and group.end_time is not None:
+        old_duration = _duration_to_decimal_hours(group.lesson_time, group.end_time)
+        if old_duration > 0:
+            return _calculate_end_time_from_start(start_time, old_duration)
+    return None
 
 
 def _start_of_week(value):
@@ -141,23 +155,11 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         input_formats=['%H:%M'],
         help_text='Format: HH:MM'
     )
-    new_end_time = forms.TimeField(
-        widget=forms.TextInput(attrs={
-            'type': 'text',
-            'placeholder': 'HH:MM',
-            'pattern': '([01]\\d|2[0-3]):[0-5]\\d',
-            'inputmode': 'numeric',
-            'maxlength': '5',
-        }),
-        label='Yangi tugash vaqti',
-        input_formats=['%H:%M'],
-        help_text='Format: HH:MM'
-    )
     reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), label='Sabab')
 
     class Meta:
         model = ScheduleChangeRequest
-        fields = ['new_day', 'new_start_time', 'new_end_time', 'reason']
+        fields = ['new_day', 'new_start_time', 'reason']
 
     def __init__(self, *args, group=None, teacher=None, old_day=None, old_start_time=None, old_end_time=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -170,16 +172,46 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         if group is not None:
             self.fields['new_day'].initial = old_day
             self.fields['new_start_time'].initial = old_start_time.strftime('%H:%M') if old_start_time else ''
-            self.fields['new_end_time'].initial = old_end_time.strftime('%H:%M') if old_end_time else ''
 
     def clean(self):
         cleaned_data = super().clean()
         new_day = cleaned_data.get('new_day')
         new_start = cleaned_data.get('new_start_time')
-        new_end = cleaned_data.get('new_end_time')
+        new_end = None
+
+        day_order = {
+            'Dushanba': 0,
+            'Seshanba': 1,
+            'Chorshanba': 2,
+            'Payshanba': 3,
+            'Juma': 4,
+            'Shanba': 5,
+            'Yakshanba': 6,
+        }
+        if new_day and self.old_day:
+            old_index = day_order.get(self.old_day)
+            new_index = day_order.get(new_day)
+            if old_index is not None and new_index is not None and new_index < old_index:
+                raise ValidationError('Darsni avvalgi kungacha ko‘chirish mumkin emas.')
+
+        if self.group is not None and new_start is not None:
+            if self.group.duration is not None:
+                new_end = _calculate_end_time_from_start(new_start, self.group.duration)
+            elif self.old_start_time and self.old_end_time:
+                old_duration = _duration_to_decimal_hours(self.old_start_time, self.old_end_time)
+                new_end = _calculate_end_time_from_start(new_start, old_duration)
+            elif self.group.end_time is not None:
+                new_end = self.group.end_time
+            else:
+                raise ValidationError('Guruh davomiyligi aniqlanmagan. Tugash vaqti hisoblanmadi.')
+
+            cleaned_data['new_end_time'] = new_end
+
+        if not new_start or new_end is None:
+            return cleaned_data
 
         if new_start and new_end and new_start >= new_end:
-            raise ValidationError('Yangi boshlanish vaqti tugash vaqtidan kichik bo‘lishi kerak.')
+            raise ValidationError('Yangi boshlanish vaqti hisoblangan tugash vaqtidan oldin bo‘lishi kerak. Guruh davomiyligini tekshiring.')
 
         if self.group is None or self.teacher is None:
             return cleaned_data
@@ -222,6 +254,7 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         instance.old_day = self.old_day
         instance.old_start_time = self.old_start_time
         instance.old_end_time = self.old_end_time
+        instance.new_end_time = self.cleaned_data.get('new_end_time')
         instance.status = ScheduleChangeRequest.Status.PENDING
         if commit:
             instance.save()
@@ -1321,6 +1354,8 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
                         lessons.append({
                             'group': group,
                             'time': override.new_start_time,
+                            'end_time': _compute_lesson_end_time(group, override.new_start_time),
+                            'day_date': check_date,
                             'room': group.room,
                         })
                     elif day_name == override.old_day:
@@ -1332,6 +1367,8 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
                         lessons.append({
                             'group': group,
                             'time': group.lesson_time,
+                            'end_time': _compute_end_time(group),
+                            'day_date': check_date,
                             'room': group.room,
                         })
                 else:
@@ -1342,6 +1379,8 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
                     lessons.append({
                         'group': group,
                         'time': group.lesson_time,
+                        'end_time': _compute_end_time(group),
+                        'day_date': check_date,
                         'room': group.room,
                     })
 

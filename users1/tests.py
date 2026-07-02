@@ -82,7 +82,6 @@ class ScheduleChangeRequestFormTestCase(TestCase):
             data={
                 'new_day': 'Dushanba',
                 'new_start_time': '14:30',
-                'new_end_time': '15:30',
                 'reason': 'Test sabab',
             },
             group=None,
@@ -94,14 +93,12 @@ class ScheduleChangeRequestFormTestCase(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['new_start_time'], datetime.time(14, 30))
-        self.assertEqual(form.cleaned_data['new_end_time'], datetime.time(15, 30))
 
     def test_schedule_change_form_rejects_ampm_format(self):
         form = ScheduleChangeRequestForm(
             data={
                 'new_day': 'Dushanba',
                 'new_start_time': '2:30 PM',
-                'new_end_time': '3:30 PM',
                 'reason': 'Test sabab',
             },
             group=None,
@@ -113,6 +110,43 @@ class ScheduleChangeRequestFormTestCase(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn('new_start_time', form.errors)
+
+    def test_schedule_change_form_computes_end_time_from_duration(self):
+        self.group.duration = 1.5
+        self.group.save(update_fields=['duration'])
+
+        form = ScheduleChangeRequestForm(
+            data={
+                'new_day': 'Dushanba',
+                'new_start_time': '14:30',
+                'reason': 'Test sabab',
+            },
+            group=self.group,
+            teacher=self.teacher,
+            old_day='Dushanba',
+            old_start_time=datetime.time(10, 0),
+            old_end_time=datetime.time(11, 0),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['new_end_time'], datetime.time(16, 0))
+
+    def test_schedule_change_form_rejects_moving_to_earlier_day(self):
+        form = ScheduleChangeRequestForm(
+            data={
+                'new_day': 'Dushanba',
+                'new_start_time': '14:30',
+                'reason': 'Test sabab',
+            },
+            group=self.group,
+            teacher=self.teacher,
+            old_day='Seshanba',
+            old_start_time=datetime.time(10, 0),
+            old_end_time=datetime.time(11, 0),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('Darsni avvalgi kungacha', str(form.errors))
 
 
 class MissedAttendanceWorkflowTestCase(TestCase):
