@@ -32,15 +32,12 @@ def validate_teacher_deletion(teacher):
 def validate_student_deletion(student):
     """
     Student o'chirishdan oldin tekshirish:
-    * To'lanmagan qarzdorligi mavjudmi?
-    * Tugallanmagan to'lovlari mavjudmi?
+    Faqat jiddiy bloklaydigan holatlarni tekshiradi.
+    Guruhga biriktirilgan yoki qarzdor bo'lsa ham o'chirishga ruxsat beriladi —
+    guruh a'zoliklari avtomatik deaktivatsiya qilinadi.
     """
-    # 1. To'lanmagan qarzdorlik
-    if StudentMonthBalance.objects.filter(student=student, paid_amount__lt=models.F('required_amount')).exists():
-        return False, "Ushbu o'quvchining to'lanmagan qarzdorliklari mavjud."
-
-    # 2. Guruhda hali ham bormi?
-    if student.groups.filter(is_active=True).exists():
-        return False, "Ushbu o'quvchi faol guruhda."
+    # Soft delete har doim mumkin — faqat allaqachon o'chirilganini tekshiramiz
+    if student.is_deleted:
+        return False, "Ushbu o'quvchi allaqachon o'chirilgan."
 
     return True, None

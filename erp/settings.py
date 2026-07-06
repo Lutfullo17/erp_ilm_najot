@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_apscheduler',
     'attendance',
     'bot',
     'grades',
@@ -178,6 +179,11 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'attendance_monitor.log',
+            'formatter': 'verbose',
+        },
     },
     'root': {
         'handlers': ['console'],
@@ -189,5 +195,14 @@ LOGGING = {
             'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
+        'users1.penalty_service': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
+
+# APScheduler Configuration — har 5 daqiqada davomat nazorati
+APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'
+APSCHEDULER_RUN_NOW_TIMEOUT = 60  # Seconds

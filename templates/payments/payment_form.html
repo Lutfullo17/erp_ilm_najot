@@ -284,7 +284,9 @@ let searchTimeout   = null;
 /* ─── Pul formatlash ─── */
 function formatUZS(value) {
     if (!value) return '';
-    return value.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    let str = value.toString();
+    if (str.includes('.')) str = str.split('.')[0];
+    return str.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 function parseUZS(formatted) {
     return formatted.replace(/\D/g, '') || '0';

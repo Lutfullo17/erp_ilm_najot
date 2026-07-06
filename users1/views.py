@@ -14,7 +14,7 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils import timezone
 
 from students.models import Student
@@ -1795,6 +1795,7 @@ def resolve_appeal(request, appeal_id):
 
 @require_http_methods(['POST'])
 def broadcast_to_group(request):
+    """Guruhga xabar yuborish — barcha ota-onalarga Telegram orqali."""
     if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     try:
@@ -1829,24 +1830,57 @@ def broadcast_to_group(request):
         sender_label = "O'qituvchi"
     formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
 
-    sent_count = 0
-    for student in students:
-        telegram_users = TelegramUser.objects.filter(student=student, is_verified=True).exclude(
-            user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER]
-        )
-        for tu in telegram_users:
-            try:
-                from bot.services import send_telegram_message
-                send_telegram_message(tu.telegram_id, formatted_msg)
-                sent_count += 1
-            except Exception:
-                pass
+    # Find all parents connected to the bot for these students
+    parent_phones = students.values_list('parent_phone', flat=True).distinct()
+    normalized_phones = []
+    for p in parent_phones:
+        if p:
+            digits = ''.join(c for c in str(p) if c.isdigit())
+            if len(digits) >= 9:
+                normalized_phones.append(digits[-9:])
+    
+    q_phone = Q()
+    for np in normalized_phones:
+        q_phone |= Q(phone__endswith=np)
 
-    return JsonResponse({'ok': True, 'sent_count': sent_count, 'group_name': group.name})
+    telegram_users = TelegramUser.objects.filter(is_verified=True).filter(
+        Q(student__in=students) | q_phone
+    ).distinct()
+
+    # Exclude only if they are pure staff (not a parent)
+    telegram_users = telegram_users.exclude(student__isnull=True, user__isnull=False)
+
+    sent_count = 0
+    failed_count = 0
+    total_users = telegram_users.count()
+    
+    from bot.services import send_telegram_message
+    for tu in telegram_users:
+        try:
+            result = send_telegram_message(tu.telegram_id, formatted_msg)
+            if result:
+                sent_count += 1
+            else:
+                failed_count += 1
+        except Exception as e:
+            failed_count += 1
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Guruh xabar yuborishda xatolik: chat_id={tu.telegram_id}, error={e}")
+
+    return JsonResponse({
+        'ok': True,
+        'sent_count': sent_count,
+        'failed_count': failed_count,
+        'total_count': total_users,
+        'group_name': group.name,
+        'message': f"{sent_count} ta ota-onaga muvaffaqiyatli yuborildi, {failed_count} ta xatolik.",
+    })
 
 
 @require_http_methods(['POST'])
 def broadcast_all(request):
+    """Hammaga xabar yuborish — barcha ota-onalarga."""
     if not request.user.is_authenticated or not request.user.is_director:
         return JsonResponse({'detail': "Faqat Director uchun ruxsat bor."}, status=403)
     try:
@@ -1868,19 +1902,32 @@ def broadcast_all(request):
     formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
 
     telegram_users = TelegramUser.objects.filter(is_verified=True).exclude(
-        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER]
+        student__isnull=True, user__isnull=False
     )
 
     sent_count = 0
+    failed_count = 0
+    from bot.services import send_telegram_message
     for tu in telegram_users:
         try:
-            from bot.services import send_telegram_message
-            send_telegram_message(tu.telegram_id, formatted_msg)
-            sent_count += 1
-        except Exception:
-            pass
+            result = send_telegram_message(tu.telegram_id, formatted_msg)
+            if result:
+                sent_count += 1
+            else:
+                failed_count += 1
+        except Exception as e:
+            failed_count += 1
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Hammaga xabar yuborishda xatolik: chat_id={tu.telegram_id}, error={e}")
 
-    return JsonResponse({'ok': True, 'sent_count': sent_count})
+    return JsonResponse({
+        'ok': True,
+        'sent_count': sent_count,
+        'failed_count': failed_count,
+        'total_count': sent_count + failed_count,
+        'message': f"{sent_count} ta ota-onaga muvaffaqiyatli yuborildi, {failed_count} ta xatolik.",
+    })
 
 
 # ---------------------------------------------------------------------------

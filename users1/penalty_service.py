@@ -1,13 +1,18 @@
 """
-Avtomatik davomat ogohlantirish va jarima tizimi.
-Bu modul attendance app signals bilan birgalikda ishlaydi.
+Avtomatik davomat nazorat tizimi.
 
-Management command yoki scheduler orqali chaqirilishi kerak:
+Dars jadvali asosida avtomatik nazorat qiladi:
+1. Dars tugagandan 15 daqiqada — o'qituvchiga eslatma
+2. Dars tugagandan 30 daqiqada — jarima + admin/director ga xabar
+
+Ishga tushirish:
     python manage.py check_missed_attendance
+    (har 5 daqiqada APScheduler orqali avtomatik)
 """
 import datetime
 import logging
 
+from django.db import transaction
 from django.utils import timezone
 
 from groups_app.models import Group
@@ -16,30 +21,175 @@ from users1.models import MissedAttendanceAlert, TeacherPenalty, User
 
 logger = logging.getLogger(__name__)
 
-
-def _normalize_day_names(lesson_days):
-    if not lesson_days:
-        return []
-    return [day.strip().lower() for day in lesson_days.split(',') if day.strip()]
+REMINDER_MINUTES = 15
+PENALTY_MINUTES = 30
 
 
 def _get_group_end_time(group):
+    """Guruhning dars tugash vaqtini qaytaradi."""
     if group.end_time:
         return group.end_time
-
     if group.lesson_time and group.duration:
         hours = int(group.duration)
         minutes = int((group.duration - hours) * 60)
         td = datetime.timedelta(hours=hours, minutes=minutes)
         return (datetime.datetime.combine(datetime.date.today(), group.lesson_time) + td).time()
-
     return None
 
 
+def _send_telegram_message(chat_id, text):
+    """Telegram xabar yuborish — xatolik logga yoziladi."""
+    try:
+        from bot.services import send_telegram_message
+        return send_telegram_message(chat_id, text)
+    except Exception as e:
+        logger.error(f"Telegram xatolik: chat_id={chat_id}, error={e}")
+        return None
+
+
+def _is_today_lesson_day(group, today_name):
+    """Guruhning dars kuni bugun ekanligini tekshiradi. To'g'ri match."""
+    if not group.lesson_days:
+        return False
+    days = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+    return today_name in days
+
+
+def _get_admin_telegram_users():
+    """Admin/Director Telegram foydalanuvchilarini qaytaradi."""
+    from bot.models import TelegramUser
+    return TelegramUser.objects.filter(
+        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR],
+        user__isnull=False,
+        is_verified=True,
+    )
+
+
+def _get_director_telegram_users():
+    """Faqat Director Telegram foydalanuvchilarini qaytaradi."""
+    from bot.models import TelegramUser
+    return TelegramUser.objects.filter(
+        user__role=User.Role.DIRECTOR,
+        user__isnull=False,
+        is_verified=True,
+    )
+
+
+def _get_teacher_telegram_user(teacher):
+    """O'qituvchining Telegram foydalanuvchisini qaytaradi."""
+    from bot.models import TelegramUser
+    return TelegramUser.objects.filter(user=teacher, is_verified=True).first()
+
+
+def _format_lesson_time(group):
+    """Dars vaqtini formatlangan ko'rinishda qaytaradi."""
+    start = group.lesson_time.strftime('%H:%M') if group.lesson_time else '-'
+    end = group.end_time.strftime('%H:%M') if group.end_time else '-'
+    return f"{start}–{end}"
+
+
+# ---------------------------------------------------------------------------
+# Eslatma yuborish
+# ---------------------------------------------------------------------------
+def send_reminder_to_teacher(alert):
+    """O'qituvchiga davomat eslatmasini yuboradi."""
+    tg_user = _get_teacher_telegram_user(alert.teacher)
+    if not tg_user:
+        logger.warning(f"O'qituvchi Telegram'da yo'q: {alert.teacher}")
+        return False
+
+    text = (
+        f"⏰ <b>Eslatma</b>\n\n"
+        f"Siz hali bugungi dars uchun davomatni kiritmadingiz.\n\n"
+        f"📚 Guruh: <b>{alert.group.name}</b>\n"
+        f"📅 Sana: <b>{alert.lesson_date.strftime('%d.%m.%Y')}</b>\n"
+        f"⏰ Vaqt: <b>{_format_lesson_time(alert.group)}</b>\n\n"
+        f"Iltimos, davomatni tizimga kiriting."
+    )
+    result = _send_telegram_message(tg_user.telegram_id, text)
+    if result:
+        logger.info(f"Eslatma yuborildi: {alert.teacher}, {alert.group.name}")
+    return bool(result)
+
+
+# ---------------------------------------------------------------------------
+# Jarima xabarlari
+# ---------------------------------------------------------------------------
+def _build_penalty_message(alert, penalty):
+    """Jarima haqida umumiy xabar matnini yaratadi."""
+    return (
+        f"⚠️ <b>Davomat olinmadi</b>\n\n"
+        f"O'qituvchi: <b>{alert.teacher.get_full_name() or alert.teacher.username}</b>\n"
+        f"Guruh: <b>{alert.group.name}</b>\n"
+        f"Dars vaqti: <b>{_format_lesson_time(alert.group)}</b>\n"
+        f"Sanasi: <b>{alert.lesson_date.strftime('%d.%m.%Y')}</b>\n\n"
+        f"Holat: O'qituvchi davomatni o'z vaqtida kiritmadi.\n"
+        f"Jarima: <b>{abs(penalty.points)} ball</b>"
+    )
+
+
+def notify_admins(alert, penalty):
+    """Barcha admin/director ga jarima xabarini yuboradi."""
+    msg = _build_penalty_message(alert, penalty)
+    recipients = _get_admin_telegram_users()
+    sent = 0
+    for tu in recipients:
+        try:
+            if _send_telegram_message(tu.telegram_id, msg):
+                sent += 1
+        except Exception as e:
+            logger.error(f"Admin xabar xatolik: {e}")
+    logger.info(f"Admin xabar: {sent}/{recipients.count()} yuborildi")
+
+
+# ---------------------------------------------------------------------------
+# Avtomatik jarima berish
+# ---------------------------------------------------------------------------
+def apply_auto_penalty(alert):
+    """
+    Avtomatik jarima — bir dars uchun faqat bitta.
+    Transaction ichida ishlaydi, takrorlanishni bloklaydi.
+    """
+    if alert.penalty_applied:
+        return None
+
+    with transaction.atomic():
+        # SELECT FOR UPDATE — boshqa jarayon kuta olmaydi
+        locked_alert = MissedAttendanceAlert.objects.select_for_update().get(pk=alert.pk)
+
+        if locked_alert.penalty_applied:
+            return None
+
+        penalty = TeacherPenalty.objects.create(
+            teacher=alert.teacher,
+            group=alert.group,
+            date=alert.lesson_date,
+            reason="Dars davomatini o'z vaqtida kiritmadi.",
+            points=-10,
+            penalty_type=TeacherPenalty.PenaltyType.CONSECUTIVE_MISSED,
+            is_manual=False,
+        )
+
+        locked_alert.penalty_applied = True
+        locked_alert.status = MissedAttendanceAlert.Status.NOT_CAME
+        locked_alert.resolved_at = timezone.now()
+        locked_alert.save(update_fields=['penalty_applied', 'status', 'resolved_at'])
+
+    logger.info(f"Auto jarima: {alert.teacher}, {alert.group.name}, -10")
+    return penalty
+
+
+# ---------------------------------------------------------------------------
+# Asosiy nazorat sikli
+# ---------------------------------------------------------------------------
 def check_and_create_missed_alerts():
     """
-    Dars vaqti o'tgan, lekin davomat olinmagan guruhlar uchun
-    MissedAttendanceAlert yaratadi.
+    Har bir faol guruhni tekshiradi:
+    - Dars tugaganmi?
+    - Davomat olinganmi?
+    - Agar olinmagan bo'lsa:
+      15 daqiqada → eslatma
+      30 daqiqada → jarima + xabar
     """
     today = timezone.localdate()
     now_time = timezone.localtime().time()
@@ -50,49 +200,86 @@ def check_and_create_missed_alerts():
     }
     today_name = days_map[today.weekday()]
 
-    # Bugun dars bo'lgan va vaqti o'tgan, lekin davomat olinmagan guruhlar
-    groups_with_missed = Group.objects.filter(
+    groups = Group.objects.filter(
         is_active=True,
-        lesson_days__contains=today_name,
-        end_time__lt=now_time,
         teacher__isnull=False,
     ).select_related('teacher')
 
-    created_count = 0
-    for group in groups_with_missed:
+    alerts_created = 0
+    reminders_sent = 0
+    penalties_applied = 0
+
+    for group in groups:
+        # Bugun dars kuni ekanligini tekshirish
+        if not _is_today_lesson_day(group, today_name):
+            continue
+
+        end_time = _get_group_end_time(group)
+        if not end_time:
+            continue
+
+        # Dars hali tugaganmi?
+        if now_time < end_time:
+            continue
+
         # Davomat olinganmi?
-        has_session = AttendanceSession.objects.filter(
+        if AttendanceSession.objects.filter(group=group, date=today).exists():
+            continue
+
+        # Alert yaratish (bir marta)
+        alert, created = MissedAttendanceAlert.objects.get_or_create(
+            teacher=group.teacher,
             group=group,
-            date=today,
-        ).exists()
+            lesson_date=today,
+            defaults={'status': MissedAttendanceAlert.Status.PENDING}
+        )
+        if created:
+            alerts_created += 1
 
-        if not has_session:
-            # MissedAttendanceAlert yaratish (agar mavjud bo'lmasa)
-            alert, created = MissedAttendanceAlert.objects.get_or_create(
-                teacher=group.teacher,
-                group=group,
-                lesson_date=today,
-                defaults={'status': MissedAttendanceAlert.Status.PENDING}
-            )
-            if created:
-                created_count += 1
+        # Grace period
+        now_dt = datetime.datetime.combine(today, now_time)
+        end_dt = datetime.datetime.combine(today, end_time)
+        minutes_elapsed = (now_dt - end_dt).total_seconds() / 60
 
-    return created_count
+        if minutes_elapsed < REMINDER_MINUTES:
+            continue
+
+        # 15–30 daqiqa: eslatma (faqat bir marta)
+        if minutes_elapsed < PENALTY_MINUTES:
+            if not alert.penalty_applied and not alert.resolved_at:
+                if send_reminder_to_teacher(alert):
+                    reminders_sent += 1
+                    alert.resolved_at = timezone.now()
+                    alert.save(update_fields=['resolved_at'])
+            continue
+
+        # 30+ daqiqa: avtomatik jarima
+        if not alert.penalty_applied:
+            penalty = apply_auto_penalty(alert)
+            if penalty:
+                penalties_applied += 1
+                notify_admins(alert, penalty)
+
+    return {
+        'alerts_created': alerts_created,
+        'reminders_sent': reminders_sent,
+        'penalties_applied': penalties_applied,
+    }
 
 
+# ---------------------------------------------------------------------------
+# Qo'lda hal qilish (Director/Dashboard)
+# ---------------------------------------------------------------------------
 def get_teacher_consecutive_missed_count(teacher):
-    """Teacher ketma-ket necha marta davomat olmagan sanaydi"""
+    """Ketma-ket necha marta javob bermaganini sanaydi."""
     recent = MissedAttendanceAlert.objects.filter(
         teacher=teacher,
         penalty_applied=True,
     ).order_by('-lesson_date')[:5]
 
     count = 0
-    for alert in recent:
-        if alert.status in [
-            MissedAttendanceAlert.Status.CAME,
-            MissedAttendanceAlert.Status.NOT_CAME,
-        ]:
+    for a in recent:
+        if a.status in (MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME):
             count += 1
         else:
             break
@@ -101,12 +288,12 @@ def get_teacher_consecutive_missed_count(teacher):
 
 def apply_penalty_for_alert(alert, decision, resolved_by):
     """
-    Alert hal qilinganda jarima beradi.
-    decision: 'came' (keldi, davomat olmadi → -5)
-              'not_came' (kelmadi → -10)
-    
-    Returns: TeacherPenalty instance
+    Director tomonidan qo'lda hal qilish.
+    Agar avtomatik jarima allaqachon berilgan bo'lsa — qayta jarima olmaydi.
     """
+    if alert.penalty_applied:
+        return None
+
     if decision == 'came':
         alert.status = MissedAttendanceAlert.Status.CAME
         penalty_points = -5
@@ -120,31 +307,36 @@ def apply_penalty_for_alert(alert, decision, resolved_by):
     else:
         raise ValueError(f"Noto'g'ri qaror: {decision}")
 
-    alert.resolved_at = timezone.now()
-    alert.resolved_by = resolved_by
-    alert.penalty_applied = True
-    alert.save()
+    with transaction.atomic():
+        locked = MissedAttendanceAlert.objects.select_for_update().get(pk=alert.pk)
+        if locked.penalty_applied:
+            return None
 
-    # Asosiy jarima
-    penalty = TeacherPenalty.objects.create(
-        teacher=alert.teacher,
-        group=alert.group,
-        date=alert.lesson_date,
-        reason=reason,
-        points=penalty_points,
-        penalty_type=penalty_type,
-        is_manual=False,
-        given_by=resolved_by,
-    )
+        locked.status = alert.status
+        locked.resolved_at = timezone.now()
+        locked.resolved_by = resolved_by
+        locked.penalty_applied = True
+        locked.save()
 
-    # Ketma-ket jarima tekshiruvi
+        penalty = TeacherPenalty.objects.create(
+            teacher=alert.teacher,
+            group=alert.group,
+            date=alert.lesson_date,
+            reason=reason,
+            points=penalty_points,
+            penalty_type=penalty_type,
+            is_manual=False,
+            given_by=resolved_by,
+        )
+
+    # Ketma-ket tekshiruvi
     consecutive = get_teacher_consecutive_missed_count(alert.teacher)
     if consecutive >= 2:
         TeacherPenalty.objects.create(
             teacher=alert.teacher,
             group=alert.group,
             date=alert.lesson_date,
-            reason=f"Ketma-ket {consecutive + 1} ta darsda davomat yoki darsga kelmadi",
+            reason=f"Ketma-ket {consecutive + 1} ta darsda davomat olinmadi",
             points=-10,
             penalty_type=TeacherPenalty.PenaltyType.CONSECUTIVE_MISSED,
             is_manual=False,

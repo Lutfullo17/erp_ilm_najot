@@ -22,7 +22,7 @@ class TelegramUser(models.Model):
         verbose_name="Admin/O'qituvchi",
     )
     is_verified = models.BooleanField(default=False)
-    state = models.CharField(max_length=50, blank=True)
+    state = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

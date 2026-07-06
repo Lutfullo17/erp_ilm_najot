@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import defaultdict
 from datetime import date
 import decimal
@@ -9,14 +10,16 @@ from django.conf import settings
 
 from attendance.models import AttendanceRecord, AttendanceSession
 from grades.models import GradeRecord
-from payments.models import StudentMonthBalance
-from students.models import Student
+from payments.models import StudentMonthBalance, PaymentTransaction
+from students.models import Student, Parent
 from users1.models import User
 
 from .models import TelegramAppeal, TelegramUser
 
+logger = logging.getLogger(__name__)
 
 STATE_WAITING_PHONE = 'WAITING_PHONE'
+STATE_CHOOSING_CHILD = 'CHOOSING_CHILD'
 STATE_CHOOSING_RECIPIENT = 'CHOOSING_RECIPIENT'
 STATE_WAITING_APPEAL = 'WAITING_APPEAL'
 STATE_REPLY_TO_APPEAL = 'REPLY_TO_APPEAL'
@@ -52,6 +55,7 @@ def money(value):
 
 def send_telegram_message(chat_id, text, reply_markup=None):
     if not settings.TELEGRAM_BOT_TOKEN:
+        logger.warning("TELEGRAM_BOT_TOKEN topilmadi, xabar yuborilmadi.")
         return None
 
     payload = {
@@ -69,8 +73,15 @@ def send_telegram_message(chat_id, text, reply_markup=None):
         headers={'Content-Type': 'application/json'},
         method='POST',
     )
-    with urlrequest.urlopen(req, timeout=10) as response:
-        return json.loads(response.read().decode('utf-8'))
+    try:
+        with urlrequest.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except urlrequest.HTTPError as e:
+        logger.error(f"Telegram xabar yuborishda HTTP xatolik: {e.code} — chat_id={chat_id}")
+        return None
+    except Exception as e:
+        logger.error(f"Telegram xabar yuborishda xatolik: {e} — chat_id={chat_id}")
+        return None
 
 
 def answer_callback_query(callback_query_id, text=None):
@@ -86,8 +97,11 @@ def answer_callback_query(callback_query_id, text=None):
         headers={'Content-Type': 'application/json'},
         method='POST',
     )
-    with urlrequest.urlopen(req, timeout=10) as response:
-        return json.loads(response.read().decode('utf-8'))
+    try:
+        with urlrequest.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        logger.error(f"answerCallbackQuery xatoligi: {e}")
 
 
 def contact_keyboard():
@@ -104,10 +118,9 @@ def main_menu_keyboard(telegram_user=None):
         [MENU_PAYMENTS, MENU_SCHEDULE],
         [MENU_HOMEWORK, MENU_TOPIC],
     ]
-    # Tugmalar o'quvchi sifatida ulangan har qanday foydalanuvchiga ko'rinadi
     if telegram_user and telegram_user.student:
         keyboard.append([MENU_APPEAL, MENU_CONTACT])
-        
+
     return {
         'keyboard': keyboard,
         'resize_keyboard': True,
@@ -129,6 +142,20 @@ def get_or_create_telegram_user(message):
     return telegram_user
 
 
+def find_students_by_phone(phone):
+    """Telefon raqami bo'yicha barcha faol o'quvchilarni topadi."""
+    if not phone:
+        return Student.objects.none()
+    digits = ''.join(ch for ch in str(phone) if ch.isdigit())
+    if len(digits) < 9:
+        return Student.objects.none()
+    search_digits = digits[-9:]
+    return Student.objects.filter(
+        parent_phone__contains=search_digits,
+        is_active=True,
+    ).order_by('first_name', 'last_name')
+
+
 def handle_start(chat_id, telegram_user=None):
     if telegram_user:
         telegram_user.state = STATE_WAITING_PHONE
@@ -147,6 +174,77 @@ def link_user_by_phone(telegram_user, phone):
         telegram_user.save(update_fields=['user', 'updated_at'])
 
 
+def handle_child_selection(chat_id, text, telegram_user):
+    """Ota-ona farzandlaridan birini tanlaydi."""
+    students = find_students_by_phone(telegram_user.phone)
+
+    # Raqam orqali tanlash
+    try:
+        index = int(text) - 1
+        if 0 <= index < students.count():
+            student = students[index]
+            telegram_user.student = student
+            telegram_user.is_verified = True
+            telegram_user.state = ''
+            telegram_user.save(update_fields=['student', 'is_verified', 'state', 'updated_at'])
+            send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+            return
+        else:
+            send_telegram_message(chat_id, "Noto'g'ri raqam. Qaytadan tanlang.", _child_selection_keyboard(students))
+            return
+    except (ValueError, TypeError):
+        pass
+
+    # Emoji raqamlar orqali tanlash (1️⃣, 2️⃣, ...)
+    emoji_map = {'1️⃣': 0, '2️⃣': 1, '3️⃣': 2, '4️⃣': 3, '5️⃣': 4}
+    if text in emoji_map:
+        index = emoji_map[text]
+        if index < students.count():
+            student = students[index]
+            telegram_user.student = student
+            telegram_user.is_verified = True
+            telegram_user.state = ''
+            telegram_user.save(update_fields=['student', 'is_verified', 'state', 'updated_at'])
+            send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+            return
+
+    send_telegram_message(chat_id, "Noto'g'ri tanlov. Raqam kiriting yoki tugmani bosing.", _child_selection_keyboard(students))
+
+
+def _child_selection_keyboard(students):
+    """Farzandlar ro'yxati uchun inline keyboard yaratadi."""
+    buttons = []
+    for i, student in enumerate(students, 1):
+        buttons.append([{'text': f'{i}. {student}', 'callback_data': f'select_child:{student.pk}'}])
+
+    return {
+        'inline_keyboard': buttons,
+    }
+
+
+def handle_child_selection_callback(chat_id, data, telegram_user):
+    """Inline tugma orqali farzand tanlash."""
+    try:
+        student_pk = int(data.split(':')[1])
+    except (ValueError, IndexError):
+        return
+
+    student = Student.objects.filter(pk=student_pk, is_active=True).first()
+    if not student:
+        return
+
+    # Tekshirish: bu o'quvchi haqiqatan ham shu ota-onaning farzandimi?
+    students = find_students_by_phone(telegram_user.phone)
+    if not students.filter(pk=student.pk).exists():
+        return
+
+    telegram_user.student = student
+    telegram_user.is_verified = True
+    telegram_user.state = ''
+    telegram_user.save(update_fields=['student', 'is_verified', 'state', 'updated_at'])
+    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+
+
 def handle_contact(chat_id, message, telegram_user):
     contact = message.get('contact') or {}
     sender_id = (message.get('from') or {}).get('id')
@@ -156,23 +254,41 @@ def handle_contact(chat_id, message, telegram_user):
         return
 
     phone = normalize_phone(contact.get('phone_number'))
-    student = Student.objects.filter(phone__contains=phone[-9:], is_active=True).first()
-    if not student:
-        telegram_user.phone = phone
+    students = find_students_by_phone(phone)
+
+    telegram_user.phone = phone
+    link_user_by_phone(telegram_user, phone)
+
+    if not students.exists():
         telegram_user.is_verified = False
         telegram_user.student = None
-        link_user_by_phone(telegram_user, phone)
-        telegram_user.save(update_fields=['phone', 'is_verified', 'student', 'updated_at'])
+        telegram_user.state = ''
+        telegram_user.save(update_fields=['phone', 'is_verified', 'student', 'state', 'updated_at'])
         send_telegram_message(chat_id, "Bu telefon raqam bilan o'quvchi topilmadi. Admin bilan bog'laning.", contact_keyboard())
         return
 
-    telegram_user.phone = phone
-    telegram_user.student = student
-    telegram_user.is_verified = True
-    telegram_user.state = ''
-    link_user_by_phone(telegram_user, phone)
-    telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
-    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+    if students.count() == 1:
+        # Bitta farzand — avtomatik tanlash
+        student = students.first()
+        telegram_user.student = student
+        telegram_user.is_verified = True
+        telegram_user.state = ''
+        telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
+        send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+    else:
+        # Bir nechta farzand — tanlov menyusini ko'rsatish
+        telegram_user.student = None
+        telegram_user.is_verified = True
+        telegram_user.state = STATE_CHOOSING_CHILD
+        telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
+        child_list = '\n'.join([f"{i}. {s}" for i, s in enumerate(students, 1)])
+        text = (
+            f"<b>👤 Sizning farzandlaringiz:</b>\n"
+            f"──────────────────\n"
+            f"{child_list}\n\n"
+            f"Farzandni tanlang — raqamini kiriting yoki quyidagi tugmalardan birini bosing:"
+        )
+        send_telegram_message(chat_id, text, _child_selection_keyboard(students))
 
 
 def handle_phone_text(chat_id, text, telegram_user):
@@ -181,24 +297,39 @@ def handle_phone_text(chat_id, text, telegram_user):
         send_telegram_message(chat_id, "Noto'g'ri telefon raqam. Namuna: 901234567 yoki +998901234567", contact_keyboard())
         return
 
-    student = Student.objects.filter(phone__contains=phone[-9:], is_active=True).first()
-    if not student:
-        telegram_user.phone = phone
+    students = find_students_by_phone(phone)
+
+    telegram_user.phone = phone
+    link_user_by_phone(telegram_user, phone)
+
+    if not students.exists():
         telegram_user.is_verified = False
         telegram_user.student = None
         telegram_user.state = ''
-        link_user_by_phone(telegram_user, phone)
         telegram_user.save(update_fields=['phone', 'is_verified', 'student', 'state', 'updated_at'])
         send_telegram_message(chat_id, "Bu telefon raqam bilan o'quvchi topilmadi. Admin bilan bog'laning.", contact_keyboard())
         return
 
-    telegram_user.phone = phone
-    telegram_user.student = student
-    telegram_user.is_verified = True
-    telegram_user.state = ''
-    link_user_by_phone(telegram_user, phone)
-    telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
-    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+    if students.count() == 1:
+        student = students.first()
+        telegram_user.student = student
+        telegram_user.is_verified = True
+        telegram_user.state = ''
+        telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
+        send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+    else:
+        telegram_user.student = None
+        telegram_user.is_verified = True
+        telegram_user.state = STATE_CHOOSING_CHILD
+        telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
+        child_list = '\n'.join([f"{i}. {s}" for i, s in enumerate(students, 1)])
+        text_msg = (
+            f"<b>👤 Sizning farzandlaringiz:</b>\n"
+            f"──────────────────\n"
+            f"{child_list}\n\n"
+            f"Farzandni tanlang — raqamini kiriting yoki quyidagi tugmalardan birini bosing:"
+        )
+        send_telegram_message(chat_id, text_msg, _child_selection_keyboard(students))
 
 
 def require_verified(chat_id, telegram_user):
@@ -233,8 +364,8 @@ def attendance_text(student):
     for record in records:
         grouped[record.session.date].append(record)
 
-    for date, day_records in grouped.items():
-        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+    for day_date, day_records in grouped.items():
+        lines.append(f"📅 <b>{day_date:%d.%m.%Y}</b>")
         for record in day_records:
             status_text = status_map.get(record.status, record.get_status_display())
             lines.append(f"  • <code>{record.session.group.name:<12}</code> — {status_text}")
@@ -261,8 +392,8 @@ def grades_text(student):
     for record in records:
         grouped[record.session.date].append(record)
 
-    for date, day_records in grouped.items():
-        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+    for day_date, day_records in grouped.items():
+        lines.append(f"📅 <b>{day_date:%d.%m.%Y}</b>")
         for record in day_records:
             pct = float(record.percentage)
             emoji = "✅" if pct >= 60 else "❌"
@@ -277,38 +408,41 @@ def grades_text(student):
 
 
 def payments_text(student):
-    balances = StudentMonthBalance.objects.filter(student=student).select_related('group').order_by('-month', 'group__name')[:10]
-    if not balances:
-        return "To'lov ma'lumotlari hali yo'q."
+    # To'lov tranzaksiyalarini olish
+    payments = PaymentTransaction.objects.filter(
+        student=student
+    ).select_related('group').order_by('-payment_date')[:15]
 
-    total_debt = sum(float(b.debt_amount) for b in balances)
-    total_paid = sum(float(b.paid_amount) for b in balances)
+    # Barcha qarzli balanslarni olish (admindagidek jami qarz)
+    debt_balances = StudentMonthBalance.objects.filter(
+        student=student,
+    ).select_related('group').order_by('-month')
+    debt_balances = [b for b in debt_balances if b.debt_amount > 0]
+
+    total_debt = sum(float(b.debt_amount) for b in debt_balances)
 
     lines = [
-        "<b>💰 TO'LOV BALANSLARI</b>",
-        "──────────────────",
-        f"💵 Jami to'langan: <code>{money(total_paid)}</code> so'm",
-        f"❗ Jami qarz: <b>{money(total_debt)}</b> so'm\n",
+        "<b>💰 TO'LOV TARIXI</b>",
+        "──────────────────\n",
     ]
 
-    for balance in balances:
-        if balance.status == 'CLOSED':
-            status_emoji = '✅'
-            status_text = 'Yopildi'
-        elif balance.status == 'PARTIAL':
-            status_emoji = '⚠️'
-            status_text = 'Qisman'
-        else:
-            status_emoji = '❌'
-            status_text = "To'lanmagan"
+    # To'langanlar ro'yxati
+    if payments:
+        lines.append("<b>✅ TO'LANGANLAR:</b>")
+        for p in payments:
+            date_str = p.payment_date.strftime('%d.%m.%Y') if p.payment_date else '---'
+            lines.append(f"  💵 <code>{money(p.amount)}</code> so'm")
+            lines.append(f"     📅 <i>{date_str}</i> — <code>{p.group.name}</code>")
+        lines.append("")
 
-        month_str = balance.month.strftime('%Y-yil, %m-oy') if balance.month else '---'
-
-        lines.append(f"{status_emoji} <b>{month_str}</b> — <code>{balance.group.name}</code>")
-        lines.append(
-            f"  ├  💵 To'langan: <code>{money(balance.paid_amount)}</code>\n"
-            f"  └  ❗ Qarz: <b>{money(balance.debt_amount)}</b> so'm"
-        )
+    # Qarzlar ro'yxati
+    if debt_balances:
+        lines.append("<b>❗ JAMI QARZ: <code>{}</code> so'm</b>".format(money(total_debt)))
+        lines.append("")
+        for b in debt_balances:
+            month_str = b.month.strftime('%Y-yil, %m-oy') if b.month else '---'
+            lines.append(f"  ❌ <code>{money(b.debt_amount)}</code> so'm")
+            lines.append(f"     📅 <i>{month_str}</i> — <code>{b.group.name}</code>")
         lines.append("")
 
     return '\n'.join(lines).strip()
@@ -327,9 +461,9 @@ def schedule_text(student):
 
     for group in groups:
         days = group.lesson_days or '---'
-        time = group.lesson_time.strftime('%H:%M') if group.lesson_time else '---'
+        time_str = group.lesson_time.strftime('%H:%M') if group.lesson_time else '---'
         end_time = group.end_time.strftime('%H:%M') if group.end_time else ''
-        time_display = f"{time}" + (f" - {end_time}" if end_time else "")
+        time_display = f"{time_str}" + (f" - {end_time}" if end_time else "")
 
         lines.append(f"📖 <b>{group.name}</b>")
         lines.append(f"  ├  🗓 Kunlari: <code>{days}</code>")
@@ -358,8 +492,8 @@ def homework_text(student):
     for session in sessions:
         grouped[session.date].append(session)
 
-    for date, day_sessions in grouped.items():
-        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+    for day_date, day_sessions in grouped.items():
+        lines.append(f"📅 <b>{day_date:%d.%m.%Y}</b>")
         for session in day_sessions:
             lines.append(f"  • <code>{session.group.name}</code>")
             lines.append(f"    <i>{session.homework}</i>")
@@ -386,8 +520,8 @@ def topic_text(student):
     for session in sessions:
         grouped[session.date].append(session)
 
-    for date, day_sessions in grouped.items():
-        lines.append(f"📅 <b>{date:%d.%m.%Y}</b>")
+    for day_date, day_sessions in grouped.items():
+        lines.append(f"📅 <b>{day_date:%d.%m.%Y}</b>")
         for session in day_sessions:
             lines.append(f"  • <code>{session.group.name}</code>")
             lines.append(f"    <i>{session.lesson_topic}</i>")
@@ -419,7 +553,6 @@ def handle_menu(chat_id, text, telegram_user):
             "📞 <b>Telefon:</b> +998 93 331 44 74\n"
             "🌐 <b>Telegram:</b> @Quvonchbek474\n\n"
             "🌐 <b>Telegram Kanal:</b> @ilm_najotedu\n\n"
-
             "Ish vaqtimiz: 08:00 - 19:00"
         )
         send_telegram_message(chat_id, contact_info, main_menu_keyboard(telegram_user))
@@ -438,8 +571,25 @@ def handle_menu(chat_id, text, telegram_user):
             ],
         }
         send_telegram_message(chat_id, "Murojaatni kimga yubormoqchisiz?", choose_recipient_keyboard)
+    elif text == '🔄 Boshqa farzandni tanlash':
+        # Farzandni o'zgartirish
+        students = find_students_by_phone(telegram_user.phone)
+        if students.count() <= 1:
+            send_telegram_message(chat_id, "Sizda bitta farzand bor.", main_menu_keyboard(telegram_user))
+            return
+        telegram_user.student = None
+        telegram_user.state = STATE_CHOOSING_CHILD
+        telegram_user.save(update_fields=['student', 'state', 'updated_at'])
+        child_list = '\n'.join([f"{i}. {s}" for i, s in enumerate(students, 1)])
+        text_msg = (
+            f"<b>👤 Sizning farzandlaringiz:</b>\n"
+            f"──────────────────\n"
+            f"{child_list}\n\n"
+            f"Farzandni tanlang:"
+        )
+        send_telegram_message(chat_id, text_msg, _child_selection_keyboard(students))
     else:
-        send_telegram_message(chat_id, 'Menyudan birini tanlang.', main_menu_keyboard(telegram_user))
+        send_telegram_message(chat_id, "Menyudan birini tanlang.", main_menu_keyboard(telegram_user))
 
 
 def handle_appeal(chat_id, text, telegram_user):
@@ -466,10 +616,22 @@ def handle_appeal(chat_id, text, telegram_user):
     staff_users = TelegramUser.objects.filter(
         user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER],
         is_verified=True,
-    ).exclude(telegram_id=chat_id) # O'ziga o'zi bormasligi uchun
-    
+    ).exclude(telegram_id=chat_id)
+
+    student_name = str(telegram_user.student) if telegram_user.student else "Noma'lum"
+
     for staff in staff_users:
-        send_telegram_message(staff.telegram_id)
+        try:
+            appeal_notification = (
+                f"<b>✉️ YANGI MUROJAAT</b>\n"
+                f"──────────────────\n"
+                f"👤 <b>O'quvchi:</b> {student_name}\n"
+                f"📝 <b>Xabar:</b>\n{message}\n\n"
+                f"Javob berish uchun tizimga kiring."
+            )
+            send_telegram_message(staff.telegram_id, appeal_notification)
+        except Exception as e:
+            logger.error(f"Staff xabar yuborishda xatolik: {e}")
 
 
 def get_sender_type(telegram_user):
@@ -507,7 +669,7 @@ def handle_reply_to_appeal(chat_id, text, telegram_user):
         f"👤 <b>Yuboruvchi:</b> {sender_label}\n\n"
         f"{text}"
     )
-    send_telegram_message(target_id, appeal_msg, main_menu_keyboard()) # O'quvchida menu o'zgarmaydi (default)
+    send_telegram_message(target_id, appeal_msg, main_menu_keyboard())
     send_telegram_message(chat_id, 'Javob yuborildi.', main_menu_keyboard(telegram_user))
     STATE_REPLY_TARGET.pop(chat_id, None)
     telegram_user.state = ''
@@ -529,6 +691,12 @@ def handle_callback_query(callback_query):
 
     if not telegram_user:
         answer_callback_query(query_id, "Foydalanuvchi topilmadi.")
+        return
+
+    # Farzand tanlash (inline tugma)
+    if data.startswith('select_child:'):
+        handle_child_selection_callback(from_chat, data, telegram_user)
+        answer_callback_query(query_id, "Tanlandi.")
         return
 
     # O'quvchi "Adminga" yoki "O'qituvchiga" tugmasini bosganda
@@ -585,6 +753,11 @@ def handle_update(update):
         return
 
     if not require_verified(chat_id, telegram_user):
+        return
+
+    # Farzand tanlash holati
+    if telegram_user.state == STATE_CHOOSING_CHILD:
+        handle_child_selection(chat_id, text, telegram_user)
         return
 
     if telegram_user.state == STATE_REPLY_TO_APPEAL:

@@ -77,6 +77,7 @@
         .nav-links {
             list-style: none;
             flex-grow: 1;
+            padding-bottom: 4rem;
         }
 
         .nav-item {
@@ -270,14 +271,62 @@
             transform: translateY(-2px);
         }
 
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Sidebar Close Button */
+        .sidebar-close-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 10px;
+            transition: all 0.3s;
+            line-height: 1;
+        }
+        .sidebar-close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--danger);
+        }
+
+        /* Sidebar header for mobile */
+        .sidebar-header-mobile {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+
         /* Mobile Responsive adjustments */
         @media (max-width: 1024px) {
             .mobile-toggle {
                 display: block;
             }
+            .sidebar-close-btn {
+                display: block;
+            }
             .sidebar {
                 transform: translateX(-100%);
-                width: 260px;
+                width: 280px;
             }
             .sidebar.active {
                 transform: translateX(0);
@@ -287,10 +336,6 @@
                 width: 100%;
                 padding: 1rem;
                 padding-bottom: 80px;
-            }
-            .main-content.sidebar-active {
-                filter: blur(4px);
-                pointer-events: none;
             }
             .glass-panel {
                 padding: 1rem;
@@ -306,7 +351,7 @@
 
         @media (max-width: 480px) {
             .sidebar {
-                width: 100%;
+                width: 85%;
             }
             .main-content {
                 padding: 0.75rem;
@@ -430,10 +475,18 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="sidebar" id="sidebar">
-        <div class="logo">
-            <img src="{% static 'images/logo.png' %}" alt="Logo" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid white; box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);">
-            <span style="font-size: 1.5rem;">Ilm Najot</span>
+        <div class="sidebar-header-mobile">
+            <div class="logo">
+                <img src="{% static 'images/logo.png' %}" alt="Logo" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid white; box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);">
+                <span style="font-size: 1.5rem;">Ilm Najot</span>
+            </div>
+            <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Menyuni yopish">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <ul class="nav-links">
             {% if user.is_director %}
@@ -544,7 +597,7 @@
             {% endif %}
         </ul>
         
-        <div class="nav-item" style="margin-top: auto;">
+        <div class="nav-item" style="position: sticky; bottom: 0; background: var(--card-bg); padding-top: 1rem; margin-top: auto;">
             <form action="{% url 'users1:logout' %}" method="post" onsubmit="return confirm('Tizimdan chiqmoqchimisiz?');">
                 {% csrf_token %}
                 <button type="submit" class="nav-link" style="background: none; border: none; width: 100%; cursor: pointer; text-align: left;">
@@ -672,48 +725,85 @@
         const sidebar = document.getElementById('sidebar');
         const mobileToggle = document.getElementById('mobileToggle');
         const mainContent = document.getElementById('mainContent');
-
-        mobileToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('active');
-            mainContent.classList.toggle('sidebar-active');
-        });
-
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 1024) {
-                if (!sidebar.contains(e.target) && !mobileToggle.contains(e.target) && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    mainContent.classList.remove('sidebar-active');
-                }
-            }
-        });
-
-        // Swipe to open/close sidebar on mobile
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
         let touchStartX = 0;
-        let touchEndX = 0;
+        let touchStartY = 0;
 
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, false);
-
-        document.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        }, false);
-
-        function handleSwipe() {
-            if (window.innerWidth <= 1024) {
-                const swipeThreshold = 50;
-                if (touchStartX - touchEndX > swipeThreshold && !sidebar.classList.contains('active')) {
-                    sidebar.classList.add('active');
-                    mainContent.classList.add('sidebar-active');
-                }
-                if (touchEndX - touchStartX > swipeThreshold && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    mainContent.classList.remove('sidebar-active');
-                }
-            }
+        function openSidebar() {
+            sidebar.classList.add('active');
+            sidebarOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            mainContent.style.overflow = 'hidden';
         }
+
+        function closeSidebar() {
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            mainContent.style.overflow = '';
+        }
+
+        function isMobile() {
+            return window.innerWidth <= 1024;
+        }
+
+        // Hamburger button opens sidebar
+        mobileToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (sidebar.classList.contains('active')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        });
+
+        // X button closes sidebar
+        sidebarCloseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeSidebar();
+        });
+
+        // Overlay click closes sidebar
+        sidebarOverlay.addEventListener('click', () => {
+            closeSidebar();
+        });
+
+        // Close sidebar on window resize to desktop
+        window.addEventListener('resize', () => {
+            if (!isMobile() && sidebar.classList.contains('active')) {
+                closeSidebar();
+            }
+        });
+
+        // Prevent sidebar from opening during horizontal scroll
+        // Track touch direction — only allow vertical scrolling, block horizontal gestures
+        if (isMobile()) {
+            mainContent.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            mainContent.addEventListener('touchmove', (e) => {
+                if (!e.touches.length) return;
+                const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+                const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+                // Agar gorizontal harakat ustunlik qilsa — sidebar ochilmasin
+                if (deltaX > deltaY && deltaX > 10) {
+                    // Gorizontal scroll — hech narsa qilmaymiz, faqat sidebar ochilmaydi
+                    e.stopPropagation();
+                }
+            }, { passive: true });
+        }
+
+        // Sidebar ochiq bo'lganda Escape tugmasi bilan yopish
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+                closeSidebar();
+            }
+        });
+
+        // Swipe gesture bilan sidebar ochilmasin — faqat tugma orqali
     </script>
     {% block extra_js %}{% endblock %}
 </body>

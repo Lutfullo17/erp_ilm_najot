@@ -112,11 +112,12 @@ def get_or_create_advance_balance(student, group, month, lock=False):
 
 def ensure_due_balances(student, group, as_of_date=None):
     due_months = get_due_months(group, as_of_date)
+    effective_fee = student.get_effective_fee(group.monthly_fee)
     balances = []
     for month in due_months:
         balance = get_or_create_month_balance(student, group, month)
         if balance.required_amount == 0:
-            balance.required_amount = group.monthly_fee
+            balance.required_amount = effective_fee
             balance.full_clean()
             balance.save()
         balances.append(balance)
@@ -165,19 +166,24 @@ def get_or_create_month_balance(student, group, month, lock=False):
     if group.monthly_fee < 0:
         raise PaymentInputError("Guruh oylik to'lovi 0 dan past bo'lishi mumkin emas.")
 
+    # Chegirma hisobga olingan to'lov
+    effective_fee = student.get_effective_fee(group.monthly_fee)
+
     qs = StudentMonthBalance.objects.all()
     if lock:
         qs = qs.select_for_update()
 
-    balance, _ = qs.get_or_create(
+    balance, created = qs.get_or_create(
         student=student,
         group=group,
         month=month,
-        defaults={'required_amount': group.monthly_fee},
+        defaults={'required_amount': effective_fee},
     )
 
-    if balance.required_amount != group.monthly_fee and balance.paid_amount == 0:
-        balance.required_amount = group.monthly_fee
+    # Yangi yaratilgan balanslar uchun chegirma qo'llanadi
+    # Eski to'langan balanslarni o'zgartirmaymiz
+    if not created and balance.required_amount != effective_fee and balance.paid_amount == 0:
+        balance.required_amount = effective_fee
         balance.full_clean()
         balance.save()
 
@@ -382,7 +388,7 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
 
     try:
         notify_payment_received(payment)
-    except:
+    except Exception:
         pass
 
     return {

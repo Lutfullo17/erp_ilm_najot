@@ -270,7 +270,10 @@
 
 function formatMoney(value) {
     if (!value) return '';
-    let num = value.toString().replace(/\D/g, '');
+    let str = value.toString();
+    // Django DecimalField "500000.00" formatida keladi — nuqta va undan keyingini tashlab yuboramiz
+    if (str.includes('.')) str = str.split('.')[0];
+    let num = str.replace(/\D/g, '');
     if (!num) return '';
     return num.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
@@ -365,7 +368,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('groupForm');
 
     // Initial formatting if value exists
-    if (feeDisplay.value) feeDisplay.value = formatMoney(feeDisplay.value);
+    if (feeDisplay.value) {
+        feeDisplay.value = formatMoney(feeDisplay.value);
+        feeHidden.value = parseMoney(feeDisplay.value);
+    }
 
     feeDisplay.addEventListener('input', function(e) {
         let pos = this.selectionStart;
