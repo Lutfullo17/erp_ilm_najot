@@ -93,6 +93,11 @@ class Student(models.Model):
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
 
+    def get_full_name(self):
+        if self.last_name:
+            return f"{self.first_name} {self.last_name[0]}."
+        return self.first_name
+
     def get_effective_fee(self, group_monthly_fee):
         """Chegirma hisobga olingan oylik to'lovni hisoblaydi."""
         if not self.has_discount or not self.discount_value:
