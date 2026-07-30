@@ -1,226 +1,172 @@
 {% extends 'base.html' %}
 
 {% block title %}Dashboard | Ilm Najot ERP{% endblock %}
-{% block header_title %}Xush kelibsiz, {{ user.first_name }} {{ user.last_name }}{% endblock %}
+{% block header_title %}O'qituvchi Dashboard{% endblock %}
 
 {% block content %}
-<div class="teacher-hero glass-panel">
-    <div>
-        <div class="teacher-hero-kicker"><i class="fas fa-bolt"></i> TEZKOR AMALLAR</div>
-        {% if current_lesson %}
-        <h2>{{ current_lesson.name }} darsi hozir davom etmoqda</h2>
-        <p>{{ current_lesson.lesson_time|time:"H:i" }} – {{ current_lesson.end_time|time:"H:i" }} &middot; {{ current_lesson.students.count }} o'quvchi</p>
-        {% else %}
-        <h2>Hozir faol dars yo'q</h2>
-        <p>Davomat va baholash tugmalari faqat dars davom etayotgan vaqtda ochiladi.</p>
-        {% endif %}
-    </div>
-    <div class="teacher-hero-actions">
-        <a class="btn btn-primary" href="{% url 'users1:teacher_current_lesson_action' 'attendance' %}"><i class="fas fa-check-double"></i> Davomat</a>
-        <a class="btn btn-outline" href="{% url 'users1:teacher_current_lesson_action' 'grades' %}"><i class="fas fa-star"></i> Baholash</a>
-    </div>
-</div>
-<!-- Asosiy statistika -->
-<div class="grid-4" style="margin-bottom: 2rem;">
-    <div class="glass-panel" style="padding: 1.25rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div style="width: 45px; height: 45px; border-radius: 12px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-users" style="color: var(--primary); font-size: 1.1rem;"></i>
-            </div>
-            <div>
-                <div style="font-size: 1.5rem; font-weight: 700;">{{ total_students }}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">Jami o'quvchilar</div>
-            </div>
+<div style="padding: 1rem;">
+    <!-- Hozirgi dars -->
+    {% if current_lesson %}
+    <div class="glass-panel" style="margin-bottom: 1rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(30, 41, 59, 0.7)); border: 1px solid rgba(99, 102, 241, 0.3);">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <span style="width: 10px; height: 10px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span>
+            <span style="color: var(--success); font-size: 0.9rem; font-weight: 600;">HOZIR DARS BOR</span>
+        </div>
+        <h2 style="font-size: 1.3rem; margin-bottom: 0.5rem;">{{ current_lesson.name }}</h2>
+        <div style="display: flex; gap: 1rem; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+            <span><i class="fas fa-clock"></i> {{ current_lesson.lesson_time|time:"H:i" }} – {{ current_lesson.end_time|time:"H:i" }}</span>
+            <span><i class="fas fa-users"></i> {{ current_lesson.students.count }} o'quvchi</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="{% url 'users1:teacher_current_lesson_action' 'attendance' %}" class="btn btn-primary" style="flex: 1; text-align: center;">
+                <i class="fas fa-check-double"></i> Davomat
+            </a>
+            <a href="{% url 'users1:teacher_current_lesson_action' 'grades' %}" class="btn btn-outline" style="flex: 1; text-align: center;">
+                <i class="fas fa-star"></i> Baholash
+            </a>
         </div>
     </div>
-    <div class="glass-panel" style="padding: 1.25rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div style="width: 45px; height: 45px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-check-double" style="color: var(--success); font-size: 1.1rem;"></i>
-            </div>
-            <div>
-                <div style="font-size: 1.5rem; font-weight: 700;">{{ today_attendance }}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">Bugun davomat</div>
-            </div>
-        </div>
-    </div>
-    <div class="glass-panel" style="padding: 1.25rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div style="width: 45px; height: 45px; border-radius: 12px; background: rgba(139, 92, 246, 0.15); display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-chalkboard" style="color: #8b5cf6; font-size: 1.1rem;"></i>
-            </div>
-            <div>
-                <div style="font-size: 1.5rem; font-weight: 700;">{{ groups.count }}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">Faol guruhlar</div>
-            </div>
-        </div>
-    </div>
-</div>
+    {% endif %}
 
-<!-- Eslatmalar / Notifications -->
-{% if overdue_groups or groups_without_attendance %}
-<div style="margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-        <i class="fas fa-bell" style="color: var(--warning);"></i> Eslatmalar
-    </h2>
-    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+    <!-- Statistika -->
+    <div style="display: flex; gap: 0.75rem; overflow-x: auto; margin-bottom: 1rem; padding-bottom: 0.5rem;">
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ total_students }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">O'quvchilar</div>
+        </div>
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ today_attendance }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Bugun davomat</div>
+        </div>
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ groups.count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Guruhlar</div>
+        </div>
+    </div>
 
+    <!-- Eslatmalar -->
+    {% if overdue_groups or groups_without_attendance %}
+    <div class="glass-panel" style="margin-bottom: 1rem; border-left: 3px solid var(--warning);">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-bell" style="color: var(--warning);"></i> Eslatmalar
+        </h3>
         {% if overdue_groups %}
-        <div style="padding: 1rem 1.25rem; border-radius: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                <i class="fas fa-exclamation-triangle" style="color: var(--danger); font-size: 1rem;"></i>
+        <div style="padding: 0.75rem; border-radius: 6px; background: rgba(239, 68, 68, 0.1); margin-bottom: 0.5rem;">
+            <div style="font-weight: 600; color: var(--danger); font-size: 0.85rem;">
+                <i class="fas fa-exclamation-triangle"></i> Davomati o'tkazib yuborilgan
             </div>
-            <div style="flex: 1;">
-                <div style="font-weight: 600; font-size: 0.9rem; color: var(--danger);">Davomati o'tkazib yuborilgan darslar</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
-                    {% for g in overdue_groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                </div>
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                {% for g in overdue_groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
             </div>
         </div>
         {% endif %}
-
         {% if groups_without_attendance %}
-        <div style="padding: 1rem 1.25rem; border-radius: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(245, 158, 11, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                <i class="fas fa-clock" style="color: var(--warning); font-size: 1rem;"></i>
+        <div style="padding: 0.75rem; border-radius: 6px; background: rgba(245, 158, 11, 0.1);">
+            <div style="font-weight: 600; color: var(--warning); font-size: 0.85rem;">
+                <i class="fas fa-clock"></i> Davomat olinmagan
             </div>
-            <div style="flex: 1;">
-                <div style="font-weight: 600; font-size: 0.9rem; color: var(--warning);">Hali davomati olinmagan guruhlar</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
-                    {% for g in groups_without_attendance %}
-                    <a href="{% url 'attendance:attendance_mark' g.id %}" style="color: var(--warning); text-decoration: underline;">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                </div>
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                {% for g in groups_without_attendance %}
+                <a href="{% url 'attendance:attendance_mark' g.id %}" style="color: var(--warning); text-decoration: underline;">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
             </div>
         </div>
         {% endif %}
-
     </div>
-</div>
-{% endif %}
+    {% endif %}
 
-{% if recent_schedule_reviews %}
-<div class="glass-panel" style="margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;"><i class="fas fa-clipboard-check" style="color: var(--primary);"></i> Jadval o'zgartirish natijalari</h2>
-    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        {% for request in recent_schedule_reviews %}
-        <div style="padding: 1rem; border-radius: 14px; background: {% if request.status == request.Status.APPROVED %}rgba(16, 185, 129, 0.05){% else %}rgba(239, 68, 68, 0.05){% endif %}; border: 1px solid {% if request.status == request.Status.APPROVED %}rgba(16, 185, 129, 0.2){% else %}rgba(239, 68, 68, 0.2){% endif %}; display: flex; justify-content: space-between; gap: 1rem; align-items: center;">
-            <div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-                    <span style="padding: 0.25rem 0.6rem; border-radius: 6px; background: {% if request.change_type == 'ADMIN_DIRECT' %}rgba(99, 102, 241, 0.15){% else %}rgba(245, 158, 11, 0.15){% endif %}; color: {% if request.change_type == 'ADMIN_DIRECT' %}var(--primary){% else %}var(--warning){% endif %}; font-size: 0.7rem; font-weight: 600;">
-                        {% if request.change_type == 'ADMIN_DIRECT' %}Admin{% else %}Ariza{% endif %}
-                    </span>
-                    <span style="font-weight: 700;">{{ request.group.name }}</span>
-                </div>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    <i class="fas fa-calendar-day" style="font-size: 0.75rem;"></i>
-                    {% if request.change_date %}{{ request.change_date|date:"d.m.Y" }}{% endif %}
-                    &nbsp;
-                    <i class="fas fa-arrow-right" style="font-size: 0.7rem;"></i>
-                    {{ request.old_day }} {{ request.old_start_time|time:"H:i" }} → {{ request.new_day }} {{ request.new_start_time|time:"H:i" }}
-                </div>
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Ko'rildi: {{ request.reviewed_at|date:"d.m.Y H:i" }}</div>
-            </div>
-            <div style="text-align: right;">
-                <span style="padding: 0.35rem 0.8rem; border-radius: 999px; background: {% if request.status == request.Status.APPROVED %}rgba(16, 185, 129, 0.12){% else %}rgba(239, 68, 68, 0.12){% endif %}; color: {% if request.status == request.Status.APPROVED %}#10b981{% else %}#ef4444{% endif %}; font-weight: 600; font-size: 0.85rem;">
-                    {{ request.get_status_display }}
-                </span>
-                <div style="margin-top: 0.5rem;"><a href="{% url 'users1:schedule_change_request_detail' request.pk %}" class="text-link" style="font-size: 0.8rem;">Batafsil</a></div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-<!-- Bugungi darslar -->
-<div class="glass-panel" style="margin-bottom: 1.5rem;">
-    <h2 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-        <i class="fas fa-calendar-day" style="color: var(--primary);"></i> Bugungi darslar
-        <span class="badge badge-success" style="margin-left: auto; font-size: 0.75rem;">{{ today_lesson_count }}</span>
-    </h2>
-    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        {% for lesson in today_lessons %}
-        {% if lesson.lesson_status == 'active' %}
-        <a href="{% url 'attendance:attendance_mark' lesson.group.id %}" style="padding: 0.75rem 1rem; border-radius: 10px; background: rgba(99, 102, 241, 0.08); display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit; transition: background 0.2s;" onmouseenter="this.style.background='rgba(99, 102, 241, 0.18)'" onmouseleave="this.style.background='rgba(99, 102, 241, 0.08)'">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="width: 35px; height: 35px; border-radius: 8px; background: var(--primary); display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-book" style="color: white; font-size: 0.8rem;"></i>
-                </div>
-                <div>
-                    <div style="font-weight: 600; font-size: 0.9rem;">{{ lesson.group.name }}</div>
-                    <div style="color: var(--text-muted); font-size: 0.75rem;">{{ lesson.group.students.count }} o'quvchi &middot; {{ lesson.time_remaining }} qoldi</div>
-                </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">{{ lesson.time|time:"H:i" }}</div>
-                <span style="padding: 0.35rem 0.75rem; border-radius: 8px; background: var(--primary); color: white; font-size: 0.75rem; font-weight: 600;">
-                    <i class="fas fa-check-double"></i> Davomat
-                </span>
-            </div>
-        </a>
-        {% else %}
-        <div style="padding: 0.75rem 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center; opacity: 0.6;">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="width: 35px; height: 35px; border-radius: 8px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center;">
-                    <i class="fas fa-book" style="color: var(--text-muted); font-size: 0.8rem;"></i>
-                </div>
-                <div>
-                    <div style="font-weight: 600; font-size: 0.9rem;">{{ lesson.group.name }}</div>
-                    <div style="color: var(--text-muted); font-size: 0.75rem;">
-                        {% if lesson.lesson_status == 'upcoming' %}Dars boshlanishiga {{ lesson.time_remaining }} qoldi{% else %}Dars tugadi{% endif %}
+    <!-- Bugungi darslar -->
+    <div class="glass-panel" style="margin-bottom: 1rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-calendar-day" style="color: var(--primary);"></i> Bugungi darslar
+            <span style="margin-left: auto; padding: 0.2rem 0.6rem; background: rgba(99, 102, 241, 0.15); color: var(--primary); border-radius: 12px; font-size: 0.75rem; font-weight: 600;">{{ today_lesson_count }}</span>
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            {% for lesson in today_lessons %}
+            {% if lesson.lesson_status == 'active' %}
+            <a href="{% url 'attendance:attendance_mark' lesson.group.id %}" style="padding: 0.875rem; border-radius: 10px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-book" style="color: white; font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.95rem;">{{ lesson.group.name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem;">{{ lesson.group.students.count }} o'quvchi · {{ lesson.time_remaining }} qoldi</div>
                     </div>
                 </div>
+                <div style="text-align: right; flex-shrink: 0;">
+                    <div style="color: var(--primary); font-weight: 600; font-size: 0.95rem;">{{ lesson.time|time:"H:i" }}</div>
+                    <span style="display: inline-block; margin-top: 0.2rem; padding: 0.2rem 0.6rem; background: var(--primary); color: white; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">
+                        Davomat
+                    </span>
+                </div>
+            </a>
+            {% else %}
+            <div style="padding: 0.875rem; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; opacity: 0.6;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-book" style="color: var(--text-muted); font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.95rem;">{{ lesson.group.name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem;">
+                            {% if lesson.lesson_status == 'upcoming' %}Boshlanishiga {{ lesson.time_remaining }} qoldi{% else %}Tugadi{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: right; flex-shrink: 0;">
+                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.95rem;">{{ lesson.time|time:"H:i" }}</div>
+                </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="color: var(--text-muted); font-weight: 600; font-size: 0.9rem;">{{ lesson.time|time:"H:i" }}</div>
-                <span style="padding: 0.35rem 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.08); color: var(--text-muted); font-size: 0.75rem; font-weight: 600; pointer-events: none;">
-                    <i class="fas fa-check-double"></i> Davomat
-                </span>
+            {% endif %}
+            {% empty %}
+            <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                <i class="fas fa-calendar-check" style="font-size: 1.5rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>
+                <div style="font-size: 0.9rem;">Bugun dars yo'q</div>
             </div>
+            {% endfor %}
         </div>
-        {% endif %}
-        {% empty %}
-        <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
-            <i class="fas fa-calendar-check" style="font-size: 1.5rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>
-            Bugun dars yo'q
-        </div>
-        {% endfor %}
     </div>
-</div>
 
-<!-- Kelgusi darslar -->
-<div class="glass-panel">
-    <h2 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-        <i class="fas fa-clock" style="color: var(--warning);"></i> Kelgusi darslar
-    </h2>
-    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        {% for lesson in upcoming_lessons %}
-        <div style="padding: 0.75rem 1rem; border-radius: 10px; background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div style="font-weight: 600; font-size: 0.9rem;">{{ lesson.group.name }}</div>
-                <div style="color: var(--text-muted); font-size: 0.75rem;">{{ lesson.days }}</div>
+    <!-- Kelgusi darslar -->
+    <div class="glass-panel">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-calendar-alt" style="color: var(--warning);"></i> Kelgusi darslar
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            {% for lesson in upcoming_lessons %}
+            <div style="padding: 0.875rem; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.95rem;">{{ lesson.group.name }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem;">{{ lesson.days }}</div>
+                </div>
+                <div style="color: var(--primary); font-weight: 600; font-size: 0.95rem;">{{ lesson.time|time:"H:i" }}</div>
             </div>
-            <div style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">{{ lesson.time|time:"H:i" }}</div>
+            {% empty %}
+            <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                <i class="fas fa-calendar" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
+                <div style="font-size: 0.9rem;">Jadval bo'sh</div>
+            </div>
+            {% endfor %}
         </div>
-        {% empty %}
-        <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
-            <i class="fas fa-calendar" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
-            Jadval bo'sh
-        </div>
-        {% endfor %}
     </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .teacher-hero { margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; background: linear-gradient(135deg, rgba(99, 102, 241, .2), rgba(30, 41, 59, .45)); }
-    .teacher-hero-kicker { color: var(--primary); font-weight: 700; font-size: .72rem; letter-spacing: .08em; margin-bottom: .5rem; }
-    .teacher-hero h2 { font-size: 1.35rem; margin-bottom: .4rem; }
-    .teacher-hero p { color: var(--text-muted); }
-    .teacher-hero-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
-    html[data-theme="light"] .teacher-hero { background: linear-gradient(135deg, rgba(99, 102, 241, .12), rgba(255, 255, 255, .9)); }
-    @media (max-width: 650px) { .teacher-hero { align-items: flex-start; flex-direction: column; } .teacher-hero-actions { width: 100%; } .teacher-hero-actions .btn { flex: 1; justify-content: center; padding: .8rem; } }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    html[data-theme="light"] .glass-panel {
+        background: rgba(255, 255, 255, 0.95);
+    }
+    
+    @media (min-width: 768px) {
+        .glass-panel {
+            padding: 1.5rem;
+        }
+    }
 </style>
 {% endblock %}

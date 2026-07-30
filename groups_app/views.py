@@ -206,6 +206,39 @@ def add_student_to_group(request, pk):
     return redirect('groups_app:group_detail', pk=pk)
 
 
+@login_required
+@require_http_methods(['GET', 'POST'])
+def add_student_to_group_modal(request, student_pk):
+    if not request.user.is_admin_access:
+        messages.error(request, "Ruxsat yo'q.")
+        return redirect('users1:login')
+    
+    student = get_object_or_404(Student, pk=student_pk)
+    
+    if request.method == 'POST':
+        group_id = request.POST.get('group_id')
+        if group_id:
+            group = get_object_or_404(Group, pk=group_id)
+            gs, created = GroupStudent.objects.get_or_create(group=group, student=student)
+            if not gs.is_active:
+                gs.is_active = True
+                gs.save()
+            if created:
+                messages.success(request, f"{student.get_full_name()} {group.name} guruhiga qo'shildi.")
+            else:
+                messages.info(request, f"{student.get_full_name()} allaqachon {group.name} guruhida.")
+            return redirect('students:student_detail', pk=student_pk)
+    
+    # Get groups that the student is NOT already a member of
+    existing_group_ids = student.groups.filter(groupstudent__is_active=True).values_list('id', flat=True)
+    available_groups = Group.objects.exclude(id__in=existing_group_ids).filter(is_active=True)
+    
+    return render(request, 'groups_app/add_student_to_group_modal.html', {
+        'student': student,
+        'available_groups': available_groups,
+    })
+
+
 @require_http_methods(['POST'])
 def delete_group(request, pk):
     if not request.user.is_authenticated or not request.user.is_director:

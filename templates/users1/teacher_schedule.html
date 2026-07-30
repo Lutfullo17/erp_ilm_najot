@@ -11,8 +11,11 @@
             <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">{{ week_start|date:"d M" }} - {{ week_end|date:"d M Y" }} oralig‘idagi darslaringiz.</div>
         </div>
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ prev_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">← Oldingi hafta</a>
-            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ next_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">Keyingi hafta →</a>
+            <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-primary" style="padding: 0.45rem 0.85rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+                <i class="fas fa-history"></i> Arizalar tarixi
+            </a>
+            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ prev_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">← Oldingi</a>
+            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ next_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">Keyingi →</a>
         </div>
     </div>
 

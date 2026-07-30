@@ -62,6 +62,7 @@ urlpatterns = [
     path('teacher/groups/<int:group_pk>/schedule-change-request/', views.ScheduleChangeRequestCreateView.as_view(), name='schedule_change_request_create'),
     path('teacher/schedule-change-requests/', views.TeacherScheduleRequestHistoryView.as_view(), name='teacher_schedule_request_history'),
 
+    path('admin/schedule-change-requests/', views.AdminScheduleRequestHistoryView.as_view(), name='admin_schedule_request_history'),
     path('schedule-change-requests/<int:request_pk>/', views.ScheduleChangeRequestDetailView.as_view(), name='schedule_change_request_detail'),
     path('schedule-change-requests/<int:request_pk>/review/', views.review_schedule_change_request, name='schedule_change_request_review'),
 

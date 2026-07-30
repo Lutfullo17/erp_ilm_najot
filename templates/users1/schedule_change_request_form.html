@@ -4,64 +4,218 @@
 {% block header_title %}Jadval o'zgartirish so'rovi{% endblock %}
 
 {% block content %}
-<div class="glass-panel" style="padding: 1.5rem; max-width: 760px; margin: 0 auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-        <div>
-            <h2 style="margin: 0;">{{ group.name }} uchun ariza</h2>
-            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem;">Hozirgi dars: {{ old_day }} {{ old_start_time|time:"H:i" }} - {{ old_end_time|time:"H:i" }}</div>
+<div style="max-width: 520px; margin: 0 auto;">
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <!-- Sarlavha -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.1rem; color: var(--primary);">
+                    <i class="fas fa-edit"></i> Darsni o'zgartirish
+                </h3>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">{{ group.name }}</div>
+            </div>
+            <a href="{% url 'users1:teacher_schedule' %}" style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">
+                <i class="fas fa-arrow-left"></i> Orqaga
+            </a>
         </div>
-        <a href="{% url 'users1:teacher_schedule' %}" class="btn btn-outline" style="padding: 0.65rem 1rem;">Jadvalga qaytish</a>
-    </div>
 
-    <form method="post" action="?day={{ old_day }}">
-        {% csrf_token %}
-        {% if form.non_field_errors %}
-        <div style="padding: 1rem; border-radius: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #b91c1c;">
-            {{ form.non_field_errors }}
+        <!-- Hozirgi ma'lumot -->
+        <div style="margin-bottom: 1.25rem; padding: 0.85rem; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">{{ group.name }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                {{ old_day }} | {{ old_start_time|time:"H:i" }} - {{ old_end_time|time:"H:i" }}
+            </div>
         </div>
+
+        <!-- Xabarlar -->
+        {% if messages %}
+        {% for message in messages %}
+        <div style="padding: 0.75rem; border-radius: 10px; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+            {% if 'success' in message.tags %}background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success);{% elif 'error' in message.tags %}background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger);{% endif %}">
+            <i class="fas {% if 'success' in message.tags %}fa-check-circle{% else %}fa-exclamation-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
         {% endif %}
-        <div style="display: grid; gap: 1rem;">
+
+        <div id="editError" style="display: none; padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; color: var(--danger); font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
+        <!-- Form -->
+        <form method="post" action="?day={{ old_day }}">
+            {% csrf_token %}
+            <input type="hidden" id="newDay" name="new_day">
+
+            <!-- Kun tanlash — haftalik kalendr -->
             <div class="form-group">
-                <label for="id_new_day" style="font-weight: 600;">Yangi kun</label>
-                {{ form.new_day }}
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">Dars qaysi kunga o'tkaziladi.</div>
-                {{ form.new_day.errors }}
+                <label style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.75rem; display: block;">Kun o'zgartirish</label>
+
+                <!-- Hafta navigatsiya -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                    <button type="button" id="prevWeek" onclick="changeWeek(-1)" style="padding: 0.4rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="weekTitle" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);"></span>
+                    <button type="button" id="nextWeek" onclick="changeWeek(1)" style="padding: 0.4rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <!-- Hafta kunlari jadvali -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem;" id="weekGrid"></div>
+                {% if form.new_day.errors %}
+                <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;">{{ form.new_day.errors }}</div>
+                {% endif %}
             </div>
+
+            <!-- Xona -->
             <div class="form-group">
-                <label for="id_new_start_time" style="font-weight: 600;">Yangi boshlanish vaqti</label>
-                {{ form.new_start_time }}
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">24 soatlik format: HH:MM (masalan: 14:00)</div>
-                {{ form.new_start_time.errors }}
+                <label for="room" style="font-weight: 600; font-size: 0.85rem;">Xona</label>
+                <select id="room" name="room" style="width: 100%; padding: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 0.9rem;">
+                    <option value="">— O'zgartirmaslik —</option>
+                    {% for r_val, r_label in rooms %}
+                    <option value="{{ r_val }}">{{ r_label }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.room.errors %}
+                <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;">{{ form.room.errors }}</div>
+                {% endif %}
             </div>
+
+            <!-- Vaqt -->
             <div class="form-group">
-                <label for="id_reason" style="font-weight: 600;">O'zgartirish sababi</label>
-                {{ form.reason }}
-                {{ form.reason.errors }}
+                <label for="startTime" style="font-weight: 600; font-size: 0.85rem;">Boshlanish vaqti</label>
+                <input type="text" id="startTime" name="new_start_time" placeholder="HH:MM" maxlength="5"
+                    value="{{ old_start_time|time:'H:i' }}"
+                    pattern="([01]\d|2[0-3]):[0-5]\d"
+                    style="width: 100%; padding: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 1rem; font-family: monospace;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">24 soatlik: HH:MM (masalan: 14:00)</div>
+                {% if form.new_start_time.errors %}
+                <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;">{{ form.new_start_time.errors }}</div>
+                {% endif %}
             </div>
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-                <button type="submit" class="btn btn-primary" style="padding: 0.85rem 1.25rem;">Arizani yuborish</button>
-                <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-outline" style="padding: 0.85rem 1.25rem;">Ariza tarixiga o'tish</a>
+
+            <!-- Sabab -->
+            <div class="form-group">
+                <label for="reason" style="font-weight: 600; font-size: 0.85rem;">Sabab *</label>
+                <textarea id="reason" name="reason" rows="3" required placeholder="O'zgartirish sababini kiriting..."
+                    style="width: 100%; padding: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 0.9rem; resize: vertical;"></textarea>
+                {% if form.reason.errors %}
+                <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;">{{ form.reason.errors }}</div>
+                {% endif %}
             </div>
-        </div>
-    </form>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.85rem;">
+                    <i class="fas fa-save"></i> Yuborish
+                </button>
+                <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-outline" style="flex: 1; padding: 0.85rem; text-align: center; text-decoration: none;">
+                    Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 
-<script>
-function formatTimeInput(input) {
-    let value = input.value.replace(/\D/g, '').slice(0, 4);
-    if (value.length >= 3) {
-        value = value.slice(0, 2) + ':' + value.slice(2);
+<style>
+    .cal-day {
+        padding: 0.6rem 0.25rem; border-radius: 8px; border: 1px solid var(--border);
+        background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;
+        text-align: center; transition: all 0.15s; min-height: 50px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem;
     }
-    input.value = value;
+    .cal-day:hover { background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); }
+    .cal-day.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .cal-day.is-today { border-color: rgba(99, 102, 241, 0.6); border-width: 2px; }
+    .cal-day.is-today.active { border-color: white; }
+    .cal-day.past { opacity: 0.35; cursor: default; pointer-events: none; }
+    .cal-day-name { font-size: 0.65rem; font-weight: 600; opacity: 0.8; }
+    .cal-day-num { font-size: 0.95rem; font-weight: 700; }
+    .cal-day-month { font-size: 0.6rem; opacity: 0.6; }
+</style>
+
+<script>
+const ALL_DAYS = ['Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan', 'Yak'];
+const ALL_DAYS_FULL = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+const MONTHS = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+
+const today = new Date();
+const todayDayIdx = today.getDay() === 0 ? 6 : today.getDay() - 1;
+const todayDateStr = today.toISOString().split('T')[0];
+let selectedDay = null;
+let selectedDate = null;
+let currentWeekOffset = 0;
+
+function getWeekStart(offset) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - todayDayIdx + offset * 7);
+    return d;
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    const startInput = document.getElementById('id_new_start_time');
-    if (startInput) {
-        startInput.addEventListener('input', function () {
-            formatTimeInput(startInput);
-        });
+function formatDateStr(d) {
+    return d.toISOString().split('T')[0];
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('weekGrid');
+    const title = document.getElementById('weekTitle');
+    const weekStart = getWeekStart(currentWeekOffset);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    // Hafta nomi
+    title.textContent = `${weekStart.getDate()}.${weekStart.getMonth()+1} — ${weekEnd.getDate()}.${weekEnd.getMonth()+1}`;
+
+    // Navigatsiya tugmalari
+    document.getElementById('prevWeek').style.visibility = currentWeekOffset <= 0 ? 'hidden' : 'visible';
+    document.getElementById('nextWeek').style.visibility = currentWeekOffset >= 3 ? 'hidden' : 'visible';
+
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        const dateStr = formatDateStr(d);
+        const isPast = d < new Date(todayDateStr);
+        const isToday = dateStr === todayDateStr;
+        const isSelected = selectedDate === dateStr;
+
+        let cls = 'cal-day';
+        if (isPast) cls += ' past';
+        if (isToday) cls += ' is-today';
+        if (isSelected) cls += ' active';
+
+        html += `<div class="${cls}" ${!isPast ? `onclick="selectDay('${ALL_DAYS_FULL[i]}', '${dateStr}')"` : ''}>
+            <div class="cal-day-name">${ALL_DAYS[i]}</div>
+            <div class="cal-day-num">${d.getDate()}</div>
+            <div class="cal-day-month">${MONTHS[d.getMonth()]}</div>
+        </div>`;
     }
+    grid.innerHTML = html;
+}
+
+function selectDay(dayName, dateStr) {
+    selectedDay = dayName;
+    selectedDate = dateStr;
+    document.getElementById('newDay').value = dayName;
+    renderCalendar();
+}
+
+function changeWeek(delta) {
+    currentWeekOffset += delta;
+    if (currentWeekOffset < 0) currentWeekOffset = 0;
+    if (currentWeekOffset > 3) currentWeekOffset = 3;
+    renderCalendar();
+}
+
+function formatTimeInput(el) {
+    let v = el.value.replace(/[^0-9]/g, '').substring(0, 4);
+    if (v.length >= 3) v = v.substring(0,2) + ':' + v.substring(2);
+    el.value = v;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    renderCalendar();
+    const ti = document.getElementById('startTime');
+    if (ti) ti.addEventListener('input', function() { formatTimeInput(this); });
 });
 </script>
 {% endblock %}

@@ -14,4 +14,5 @@ urlpatterns = [
     path('rooms/', views.RoomAvailabilityView.as_view(), name='room_availability'),
     path('<int:group_pk>/edit-lesson/<str:target_day>/', views.admin_edit_lesson_page, name='admin_edit_lesson_page'),
     path('<int:group_pk>/edit-lesson/<str:target_day>/save/', views.admin_edit_lesson, name='admin_edit_lesson_save'),
+    path('student/<int:student_pk>/add-to-group/', views.add_student_to_group_modal, name='add_student_to_group_modal'),
 ]

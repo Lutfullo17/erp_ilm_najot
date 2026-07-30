@@ -11,15 +11,20 @@
             <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem;">Haftalik Ish Tartibi</h2>
             <p style="color: var(--text-muted); font-size: 0.85rem;">Xonalar bo'yicha guruhlar taqsimoti</p>
         </div>
-        <div style="display: flex; gap: 0.75rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary);"></span> Band
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);"></span> Bo'sh
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); opacity: 0.4;"></span> O'tgan
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <a href="{% url 'users1:admin_schedule_request_history' %}" class="btn btn-primary" style="padding: 0.6rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-exchange-alt"></i> Jadval o'zgartirish arizalari
+            </a>
+            <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary);"></span> Band
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);"></span> Bo'sh
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); opacity: 0.4;"></span> O'tgan
+                </div>
             </div>
         </div>
     </div>

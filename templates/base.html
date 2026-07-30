@@ -29,11 +29,11 @@
         }
 
         html[data-theme="light"] {
-            --bg: #f8fafc;
-            --card-bg: rgba(255, 255, 255, 0.94);
-            --text: #172033;
-            --text-muted: #64748b;
-            --border: rgba(15, 23, 42, 0.12);
+            --bg: #e8eaed;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text: #1a1a1a;
+            --text-muted: #5f6368;
+            --border: rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -55,10 +55,25 @@
         }
 
         html[data-theme="light"] body { background-image: none; }
-        html[data-theme="light"] .nav-link:hover { background: rgba(15, 23, 42, .06); }
+        html[data-theme="light"] .nav-link:hover { background: rgba(0, 0, 0, .05); }
         html[data-theme="light"] .btn-outline:hover,
-        html[data-theme="light"] .dropdown-item:hover { background: rgba(15, 23, 42, .06); }
-        html[data-theme="light"] tr:hover td { background: rgba(15, 23, 42, .025); }
+        html[data-theme="light"] .dropdown-item:hover { background: rgba(0, 0, 0, .05); }
+        html[data-theme="light"] tr:hover td { background: rgba(0, 0, 0, .02); }
+        html[data-theme="light"] input,
+        html[data-theme="light"] select,
+        html[data-theme="light"] textarea {
+            background: rgba(0, 0, 0, 0.03);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            color: var(--text);
+        }
+        html[data-theme="light"] select option {
+            background: #ffffff;
+            color: var(--text);
+        }
+        html[data-theme="light"] input:focus {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: var(--primary);
+        }
 
         /* Sidebar Responsive */
         .sidebar {

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Jadval O'zgartirish Arizalari | Admin{% endblock %}
+{% block header_title %}Jadval O'zgartirish Arizalari{% endblock %}
+
+{% block content %}
+<div style="padding: 1rem;">
+    <div class="glass-panel" style="padding: 1rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <div>
+                <h2 style="margin: 0; font-size: 1.1rem;">Barcha arizalar</h2>
+                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                    {% if pending_count > 0 %}
+                    <span style="color: var(--warning);">{{ pending_count }} ta kutmoqda</span>
+                    {% else %}
+                    Hammasi ko'rib chiqildi
+                    {% endif %}
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button onclick="filterRequests('all')" class="btn btn-outline" style="padding: 0.5rem 0.75rem; font-size: 0.8rem;" id="filter-all">Barchasi</button>
+                <button onclick="filterRequests('pending')" class="btn btn-outline" style="padding: 0.5rem 0.75rem; font-size: 0.8rem;" id="filter-pending">Kutmoqda</button>
+                <button onclick="filterRequests('approved')" class="btn btn-outline" style="padding: 0.5rem 0.75rem; font-size: 0.8rem;" id="filter-approved">Qabul qilingan</button>
+                <button onclick="filterRequests('rejected')" class="btn btn-outline" style="padding: 0.5rem 0.75rem; font-size: 0.8rem;" id="filter-rejected">Rad etilgan</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for request in requests %}
+        <div class="request-card request-{{ request.status }}" style="padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
+            <a href="{% url 'users1:schedule_change_request_detail' request.pk %}" style="text-decoration: none; color: inherit;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9rem;">{{ request.group.name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                            {{ request.teacher.get_full_name|default:request.teacher.username }}
+                        </div>
+                    </div>
+                    <span style="display: inline-block; padding: 0.3rem 0.6rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; background: {% if request.status == 'approved' %}rgba(16, 185, 129, 0.12){% elif request.status == 'rejected' %}rgba(239, 68, 68, 0.12){% else %}rgba(245, 158, 11, 0.12){% endif %}; color: {% if request.status == 'approved' %}#10b981{% elif request.status == 'rejected' %}#ef4444{% else %}#f59e0b{% endif %};">
+                        {{ request.get_status_display }}
+                    </span>
+                </div>
+                <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem;">
+                    {{ request.submitted_at|date:"d.m.Y H:i" }}
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 0.3rem 0.6rem; border-radius: 6px;">
+                        {{ request.old_day }} {{ request.old_start_time|time:"H:i" }}
+                    </div>
+                    <i class="fas fa-arrow-right" style="color: var(--text-muted); font-size: 0.7rem;"></i>
+                    <div style="background: rgba(99, 102, 241, 0.1); padding: 0.3rem 0.6rem; border-radius: 6px; color: var(--primary);">
+                        {{ request.new_day }} {{ request.new_start_time|time:"H:i" }}
+                    </div>
+                </div>
+                {% if request.reviewed_by %}
+                <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem;">
+                    Ko'rib chiqildi: {{ request.reviewed_by.get_full_name|default:request.reviewed_by.username }}
+                </div>
+                {% endif %}
+            </a>
+        </div>
+        {% empty %}
+        <div class="glass-panel" style="padding: 2rem; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+            Jadval o'zgartirish arizalari yo'q
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function filterRequests(status) {
+    const cards = document.querySelectorAll('.request-card');
+    cards.forEach(card => {
+        if (status === 'all') {
+            card.style.display = 'block';
+        } else {
+            if (card.classList.contains('request-' + status)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        }
+    });
+
+    // Update button styles
+    document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+        btn.style.background = 'rgba(255,255,255,0.05)';
+        btn.style.color = 'var(--text)';
+    });
+    document.getElementById('filter-' + status).style.background = 'var(--primary)';
+    document.getElementById('filter-' + status).style.color = 'white';
+}
+
+// Initialize with 'all' filter
+document.addEventListener('DOMContentLoaded', function() {
+    filterRequests('all');
+});
+</script>
+{% endblock %}

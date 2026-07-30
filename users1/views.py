@@ -161,7 +161,7 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         ('Yakshanba', 'Yakshanba'),
     ]
 
-    new_day = forms.ChoiceField(choices=DAY_CHOICES, label='Yangi dars kuni')
+    new_day = forms.ChoiceField(choices=DAY_CHOICES, label='Yangi dars kuni', required=False)
     new_start_time = forms.TimeField(
         widget=forms.TextInput(attrs={
             'type': 'text',
@@ -172,20 +172,14 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         }),
         label='Yangi boshlanish vaqti',
         input_formats=['%H:%M'],
-        help_text='Format: HH:MM'
+        required=False
     )
+    room = forms.CharField(label='Xona', required=False)
     reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), label='Sabab')
-    change_date = forms.DateField(
-        widget=forms.DateInput(attrs={
-            'type': 'date',
-        }),
-        label='Qaysi sana uchun',
-        help_text='Faqat hozirgi yoki kelajakdagi sana'
-    )
 
     class Meta:
         model = ScheduleChangeRequest
-        fields = ['new_day', 'new_start_time', 'change_date', 'reason']
+        fields = ['new_day', 'new_start_time', 'room', 'reason']
 
     def __init__(self, *args, group=None, teacher=None, old_day=None, old_start_time=None, old_end_time=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -198,16 +192,17 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         if group is not None:
             self.fields['new_day'].initial = old_day
             self.fields['new_start_time'].initial = old_start_time.strftime('%H:%M') if old_start_time else ''
+            self.fields['room'].initial = group.room if group.room else ''
 
     def clean(self):
         cleaned_data = super().clean()
         new_day = cleaned_data.get('new_day')
         new_start = cleaned_data.get('new_start_time')
-        change_date = cleaned_data.get('change_date')
-        new_end = None
+        new_room = cleaned_data.get('room')
 
-        if change_date and change_date < timezone.localdate():
-            self.add_error('change_date', "O'tgan sana uchun o'zgartirish kiritib bo'lmaydi.")
+        # Check if at least one field is changed
+        if not new_day and not new_start and not new_room:
+            raise ValidationError("Kamida bitta o'zgarish tanlang.")
 
         day_order = {
             'Dushanba': 0,
@@ -224,7 +219,15 @@ class ScheduleChangeRequestForm(forms.ModelForm):
             if old_index is not None and new_index is not None and new_index < old_index:
                 raise ValidationError("Darsni avvalgi kungacha ko'chirish mumkin emas.")
 
-        if self.group is not None and new_start is not None:
+        if self.group is None or self.teacher is None:
+            return cleaned_data
+
+        if new_day == self.old_day:
+            raise ValidationError('Yangi kun hozirgi kun bilan bir xil. Iltimos, boshqa kun tanlang.')
+
+        # Calculate new end time if start time is changed
+        new_end = None
+        if new_start:
             if self.group.duration is not None:
                 new_end = _calculate_end_time_from_start(new_start, self.group.duration)
             elif self.old_start_time and self.old_end_time:
@@ -233,73 +236,37 @@ class ScheduleChangeRequestForm(forms.ModelForm):
             elif self.group.end_time is not None:
                 new_end = self.group.end_time
             else:
-                raise ValidationError('Guruh davomiyligi aniqlanmagan. Tugash vaqti hisoblanmadi.')
-
+                new_end = self.old_end_time
             cleaned_data['new_end_time'] = new_end
-
-        if not new_start or new_end is None:
-            return cleaned_data
-
-        if new_start and new_end and new_start >= new_end:
-            raise ValidationError('Yangi boshlanish vaqti hisoblangan tugash vaqtidan oldin bo‘lishi kerak. Guruh davomiyligini tekshiring.')
-
-        if self.group is None or self.teacher is None:
-            return cleaned_data
-
-        if new_day == self.old_day and new_start == self.old_start_time and new_end == self.old_end_time:
-            raise ValidationError('Yangi vaqt hozirgi vaqt bilan bir xil. Iltimos, boshqa vaqt tanlang.')
-
-        # O'qituvchi konfliktlari
-        conflicts = Group.objects.filter(
-            teacher=self.teacher,
-            is_active=True,
-            lesson_time__isnull=False,
-            end_time__isnull=False
-        ).exclude(pk=self.group.pk)
-
-        for other in conflicts:
-            other_days = _parse_lesson_days(other.lesson_days)
-            if new_day in other_days and _times_overlap(new_start, new_end, other.lesson_time, other.end_time):
-                raise ValidationError('Siz tanlagan vaqtda boshqa guruhga dars o‘tasiz.')
-
-        # Xona konfliktlari
-        if self.group.room:
-            room_conflicts = Group.objects.filter(
-                room=self.group.room,
-                is_active=True,
-                lesson_time__isnull=False,
-                end_time__isnull=False
-            ).exclude(pk=self.group.pk)
-            for other in room_conflicts:
-                other_days = _parse_lesson_days(other.lesson_days)
-                if new_day in other_days and _times_overlap(new_start, new_end, other.lesson_time, other.end_time):
-                    raise ValidationError('Siz tanlagan xonada boshqa guruh band.')
-
-        # Qo'shimcha validatsiya: validate_schedule_change dan foydalanish
-        from users1.services import validate_schedule_change
-        extra_errors = validate_schedule_change(
-            group=self.group,
-            new_day=new_day,
-            new_start_time=new_start,
-            new_end_time=new_end,
-        )
-        if extra_errors:
-            raise ValidationError(extra_errors[0])
 
         return cleaned_data
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        instance.teacher = self.teacher
-        instance.group = self.group
-        instance.old_day = self.old_day
-        instance.old_start_time = self.old_start_time
-        instance.old_end_time = self.old_end_time
-        instance.new_end_time = self.cleaned_data.get('new_end_time')
+        if self.group:
+            instance.group = self.group
+        if self.teacher:
+            instance.teacher = self.teacher
+        if self.old_day:
+            instance.old_day = self.old_day
+        if self.old_start_time:
+            instance.old_start_time = self.old_start_time
+        if self.old_end_time:
+            instance.old_end_time = self.old_end_time
+        
+        # If no new_day provided, keep old
+        if not instance.new_day:
+            instance.new_day = self.old_day
+        # If no new_start_time provided, keep old
+        if not instance.new_start_time:
+            instance.new_start_time = self.old_start_time
+        # If no new_end_time provided, keep old
+        if not instance.new_end_time:
+            instance.new_end_time = self.old_end_time
+            
+        instance.change_date = timezone.localdate()
         instance.change_type = ScheduleChangeRequest.ChangeType.TEACHER_REQUEST
         instance.status = ScheduleChangeRequest.Status.PENDING
-
-        instance.change_date = self.cleaned_data.get('change_date')
 
         if commit:
             instance.save()
@@ -1222,6 +1189,7 @@ class ScheduleChangeRequestCreateView(LoginRequiredMixin, TeacherRequiredMixin, 
             'old_start_time': old_start_time,
             'old_end_time': old_end_time,
             'form': form,
+            'rooms': Group._meta.get_field('room').choices,
         })
 
     def post(self, request, *args, **kwargs):
@@ -1267,6 +1235,7 @@ class ScheduleChangeRequestCreateView(LoginRequiredMixin, TeacherRequiredMixin, 
             'old_start_time': old_start_time,
             'old_end_time': old_end_time,
             'form': form,
+            'rooms': Group._meta.get_field('room').choices,
         })
 
 
@@ -1279,6 +1248,20 @@ class TeacherScheduleRequestHistoryView(LoginRequiredMixin, TeacherRequiredMixin
         context['requests'] = ScheduleChangeRequest.objects.filter(
             teacher=user
         ).select_related('group', 'reviewed_by').order_by('-submitted_at')
+        return context
+
+
+class AdminScheduleRequestHistoryView(LoginRequiredMixin, AdminAccessRequiredMixin, TemplateView):
+    template_name = 'users1/admin_schedule_request_history.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['requests'] = ScheduleChangeRequest.objects.select_related(
+            'group', 'teacher', 'reviewed_by'
+        ).order_by('-submitted_at')
+        context['pending_count'] = ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.PENDING
+        ).count()
         return context
 
 
@@ -1365,11 +1348,16 @@ class TeacherGroupsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
         today_name = day_names[today.weekday()]
 
         groups_with_status = []
+        today_count = 0
+        total_students = 0
         for group in groups:
             is_today = False
             if group.lesson_days:
                 lesson_days_list = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
                 is_today = today_name in lesson_days_list
+                if is_today:
+                    today_count += 1
+            total_students += group.students.count()
             groups_with_status.append({
                 'group': group,
                 'is_today': is_today,
@@ -1377,6 +1365,9 @@ class TeacherGroupsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
 
         context['groups_with_status'] = groups_with_status
         context['today'] = today
+        context['total_groups'] = len(groups_with_status)
+        context['today_count'] = today_count
+        context['total_students'] = total_students
         return context
 
 
@@ -1916,8 +1907,8 @@ def broadcast_to_group(request):
         Q(student__in=students) | q_phone
     ).distinct()
 
-    # Exclude only if they are pure staff (not a parent)
-    telegram_users = telegram_users.exclude(student__isnull=True, user__isnull=False)
+    # Exclude pure staff (not parents) - those without a student
+    telegram_users = telegram_users.exclude(student__isnull=True)
 
     sent_count = 0
     failed_count = 0
@@ -1971,7 +1962,7 @@ def broadcast_all(request):
     formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
 
     telegram_users = TelegramUser.objects.filter(is_verified=True).exclude(
-        student__isnull=True, user__isnull=False
+        student__isnull=True
     )
 
     sent_count = 0
