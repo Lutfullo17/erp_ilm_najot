@@ -13,15 +13,8 @@ class TelegramUser(models.Model):
         null=True,
         blank=True,
     )
-    user = models.ForeignKey(
-        'users1.User',
-        on_delete=models.SET_NULL,
-        related_name='telegram_users',
-        null=True,
-        blank=True,
-        verbose_name="Admin/O'qituvchi",
-    )
     is_verified = models.BooleanField(default=False)
+    is_blocked = models.BooleanField(default=False, verbose_name="Botni blocklagan")
     state = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -74,42 +67,3 @@ class TelegramAppeal(models.Model):
 
     def __str__(self):
         return f'{self.student} - {self.created_at:%Y-%m-%d}'
-
-
-class TeacherMessage(models.Model):
-    class Status(models.TextChoices):
-        SENT = 'SENT', 'Yuborildi'
-        FAILED = 'FAILED', 'Xatolik'
-
-    teacher = models.ForeignKey(
-        'users1.User',
-        on_delete=models.PROTECT,
-        related_name='teacher_messages',
-    )
-    student = models.ForeignKey(
-        'students.Student',
-        on_delete=models.PROTECT,
-        related_name='teacher_messages',
-    )
-    parent = models.ForeignKey(
-        TelegramUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='received_teacher_messages',
-    )
-    message = models.TextField()
-    status = models.CharField(
-        max_length=10,
-        choices=Status.choices,
-        default=Status.SENT,
-    )
-    sent_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ('-sent_at',)
-        verbose_name = "O'qituvchi xabari"
-        verbose_name_plural = "O'qituvchi xabarlar"
-
-    def __str__(self):
-        return f'{self.teacher} -> {self.student}: {self.message[:50]}'

@@ -54,7 +54,7 @@
             {% endif %}
         </div>
 
-        {% if schedule_request.status == schedule_request.Status.PENDING and user.is_director %}
+        {% if schedule_request.status == schedule_request.Status.PENDING and user.is_admin_access %}
         <form method="post" action="{% url 'users1:schedule_change_request_review' schedule_request.pk %}" style="display:grid; gap:1rem;">
             {% csrf_token %}
             <div class="form-group">

@@ -56,29 +56,14 @@ def _is_today_lesson_day(group, today_name):
 
 
 def _get_admin_telegram_users():
-    """Admin/Director Telegram foydalanuvchilarini qaytaradi."""
+    """Joriy botda admin akkaunti ulanmagani uchun bo'sh ro'yxat qaytaradi."""
     from bot.models import TelegramUser
-    return TelegramUser.objects.filter(
-        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR],
-        user__isnull=False,
-        is_verified=True,
-    )
-
-
-def _get_director_telegram_users():
-    """Faqat Director Telegram foydalanuvchilarini qaytaradi."""
-    from bot.models import TelegramUser
-    return TelegramUser.objects.filter(
-        user__role=User.Role.DIRECTOR,
-        user__isnull=False,
-        is_verified=True,
-    )
+    return TelegramUser.objects.none()
 
 
 def _get_teacher_telegram_user(teacher):
-    """O'qituvchining Telegram foydalanuvchisini qaytaradi."""
-    from bot.models import TelegramUser
-    return TelegramUser.objects.filter(user=teacher, is_verified=True).first()
+    """Joriy botda o'qituvchi akkaunti ulanmaydi."""
+    return None
 
 
 def _format_lesson_time(group):
@@ -271,19 +256,14 @@ def check_and_create_missed_alerts():
 # Qo'lda hal qilish (Director/Dashboard)
 # ---------------------------------------------------------------------------
 def get_teacher_consecutive_missed_count(teacher):
-    """Ketma-ket necha marta javob bermaganini sanaydi."""
+    """Ketma-ket necha marta darsga kelmaganini sanaydi (faqat NOT_CAME)."""
     recent = MissedAttendanceAlert.objects.filter(
         teacher=teacher,
         penalty_applied=True,
+        status=MissedAttendanceAlert.Status.NOT_CAME,
     ).order_by('-lesson_date')[:5]
 
-    count = 0
-    for a in recent:
-        if a.status in (MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME):
-            count += 1
-        else:
-            break
-    return count
+    return recent.count()
 
 
 def apply_penalty_for_alert(alert, decision, resolved_by):

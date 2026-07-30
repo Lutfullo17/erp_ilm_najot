@@ -11,7 +11,7 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Sum, Q
@@ -104,6 +104,25 @@ def _get_week_override(group, week_start):
     ).order_by('-submitted_at').first()
 
 
+def _get_current_teacher_lesson(teacher):
+    """Hozir davom etayotgan o'qituvchi darsini qaytaradi."""
+    today = timezone.localdate()
+    now_time = timezone.localtime().time()
+    day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+    today_name = day_names[today.weekday()]
+
+    for group in teacher.teaching_groups.filter(is_active=True, is_paused=False).order_by('lesson_time'):
+        end_time = _compute_end_time(group)
+        if (
+            group.lesson_time
+            and end_time
+            and today_name in _parse_lesson_days(group.lesson_days)
+            and group.lesson_time <= now_time <= end_time
+        ):
+            return group
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Forms
 # ---------------------------------------------------------------------------
@@ -156,10 +175,17 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         help_text='Format: HH:MM'
     )
     reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), label='Sabab')
+    change_date = forms.DateField(
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+        }),
+        label='Qaysi sana uchun',
+        help_text='Faqat hozirgi yoki kelajakdagi sana'
+    )
 
     class Meta:
         model = ScheduleChangeRequest
-        fields = ['new_day', 'new_start_time', 'reason']
+        fields = ['new_day', 'new_start_time', 'change_date', 'reason']
 
     def __init__(self, *args, group=None, teacher=None, old_day=None, old_start_time=None, old_end_time=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -177,7 +203,11 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         cleaned_data = super().clean()
         new_day = cleaned_data.get('new_day')
         new_start = cleaned_data.get('new_start_time')
+        change_date = cleaned_data.get('change_date')
         new_end = None
+
+        if change_date and change_date < timezone.localdate():
+            self.add_error('change_date', "O'tgan sana uchun o'zgartirish kiritib bo'lmaydi.")
 
         day_order = {
             'Dushanba': 0,
@@ -192,7 +222,7 @@ class ScheduleChangeRequestForm(forms.ModelForm):
             old_index = day_order.get(self.old_day)
             new_index = day_order.get(new_day)
             if old_index is not None and new_index is not None and new_index < old_index:
-                raise ValidationError('Darsni avvalgi kungacha ko‘chirish mumkin emas.')
+                raise ValidationError("Darsni avvalgi kungacha ko'chirish mumkin emas.")
 
         if self.group is not None and new_start is not None:
             if self.group.duration is not None:
@@ -245,6 +275,17 @@ class ScheduleChangeRequestForm(forms.ModelForm):
                 if new_day in other_days and _times_overlap(new_start, new_end, other.lesson_time, other.end_time):
                     raise ValidationError('Siz tanlagan xonada boshqa guruh band.')
 
+        # Qo'shimcha validatsiya: validate_schedule_change dan foydalanish
+        from users1.services import validate_schedule_change
+        extra_errors = validate_schedule_change(
+            group=self.group,
+            new_day=new_day,
+            new_start_time=new_start,
+            new_end_time=new_end,
+        )
+        if extra_errors:
+            raise ValidationError(extra_errors[0])
+
         return cleaned_data
 
     def save(self, commit=True):
@@ -255,7 +296,11 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         instance.old_start_time = self.old_start_time
         instance.old_end_time = self.old_end_time
         instance.new_end_time = self.cleaned_data.get('new_end_time')
+        instance.change_type = ScheduleChangeRequest.ChangeType.TEACHER_REQUEST
         instance.status = ScheduleChangeRequest.Status.PENDING
+
+        instance.change_date = self.cleaned_data.get('change_date')
+
         if commit:
             instance.save()
         return instance
@@ -830,7 +875,7 @@ class PenaltyListView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
         for teacher in User.objects.filter(role=User.Role.TEACHER, is_deleted=False):
             recent_alerts = MissedAttendanceAlert.objects.filter(
                 teacher=teacher,
-                status__in=[MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME],
+                status=MissedAttendanceAlert.Status.NOT_CAME,
                 penalty_applied=True,
             ).order_by('-lesson_date')[:3]
             if len(recent_alerts) >= 3:
@@ -909,6 +954,73 @@ def resolve_missed_alert(request, alert_pk):
     return JsonResponse({'ok': True, 'message': 'Xabarnoma hal qilindi va jarima berildi'})
 
 
+@require_http_methods(['POST'])
+def edit_penalty(request, penalty_pk):
+    """Director jarimani tahrirlaydi"""
+    if not request.user.is_authenticated or not request.user.is_director:
+        return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
+
+    penalty = get_object_or_404(TeacherPenalty, pk=penalty_pk)
+
+    try:
+        data = json_module.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
+
+    points = data.get('points')
+    reason = data.get('reason', '').strip()
+
+    if points is not None:
+        try:
+            points = int(points)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Ball noto\'g\'ri'}, status=400)
+        penalty.points = points
+
+    if reason:
+        penalty.reason = reason
+
+    penalty.save(update_fields=['points', 'reason'])
+    create_audit_log(request, f"Jarima tahrirlandi: {penalty.teacher.username}, {penalty.points} ball", target_user=penalty.teacher)
+
+    return JsonResponse({'ok': True, 'message': 'Jarima tahrirlandi'})
+
+
+@require_http_methods(['POST'])
+def delete_penalty(request, penalty_pk):
+    """Director jarimani o'chiradi"""
+    if not request.user.is_authenticated or not request.user.is_director:
+        return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
+
+    penalty = get_object_or_404(TeacherPenalty, pk=penalty_pk)
+    teacher = penalty.teacher
+    penalty.delete()
+
+    create_audit_log(request, f"Jarima o'chirildi: {teacher.username}", target_user=teacher)
+
+    return JsonResponse({'ok': True, 'message': 'Jarima o\'chirildi'})
+
+
+@require_http_methods(['POST'])
+def run_attendance_check(request):
+    """Director qo'lda davomat nazoratini ishga tushiradi"""
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
+
+    from .penalty_service import check_and_create_missed_alerts
+
+    try:
+        result = check_and_create_missed_alerts()
+        create_audit_log(request, f"Davomat nazorati qo'lda ishga tushirildi: {result}")
+        return JsonResponse({
+            'ok': True,
+            'message': 'Davomat nazorati tugatildi',
+            'result': result
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 # ---------------------------------------------------------------------------
 # Audit Logs
 # ---------------------------------------------------------------------------
@@ -966,8 +1078,9 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
         weekday = today.weekday()
         now_time = timezone.localtime().time()
 
-        groups = user.teaching_groups.filter(is_active=True)
+        groups = user.teaching_groups.filter(is_active=True, is_paused=False)
         context['groups'] = groups
+        context['current_lesson'] = _get_current_teacher_lesson(user)
 
         context['total_students'] = GroupStudent.objects.filter(
             group__in=groups,
@@ -978,12 +1091,6 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
         context['today_attendance'] = AttendanceRecord.objects.filter(
             session__teacher=user,
             session__date=today
-        ).count()
-
-        from bot.models import TelegramAppeal
-        context['pending_appeals_count'] = TelegramAppeal.objects.filter(
-            student__groupstudent__group__teacher=user,
-            is_resolved=False
         ).count()
 
         day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
@@ -1058,6 +1165,26 @@ class TeacherDashboardView(LoginRequiredMixin, TeacherRequiredMixin, TemplateVie
         )['total'] or 0
 
         return context
+
+
+@login_required
+def teacher_current_lesson_action(request, action):
+    """Davomat yoki baholashni faqat ayni paytdagi dars uchun ochadi."""
+    if not request.user.is_teacher or request.user.is_blocked:
+        raise PermissionDenied("Bu bo'lim faqat faol o'qituvchilar uchun.")
+
+    if action not in {'attendance', 'grades'}:
+        raise PermissionDenied("Noma'lum amal.")
+
+    group = _get_current_teacher_lesson(request.user)
+    if group is None:
+        return render(request, 'users1/teacher_no_current_lesson.html', {'action': action})
+
+    if action == 'attendance':
+        return redirect('attendance:attendance_mark', group_id=group.pk)
+
+    today = timezone.localdate().isoformat()
+    return redirect(f"{reverse('grades:grade_input')}?group={group.pk}&date={today}")
 
 
 class ScheduleChangeRequestCreateView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
@@ -1155,7 +1282,7 @@ class TeacherScheduleRequestHistoryView(LoginRequiredMixin, TeacherRequiredMixin
         return context
 
 
-class ScheduleChangeRequestDetailView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
+class ScheduleChangeRequestDetailView(LoginRequiredMixin, AdminAccessRequiredMixin, TemplateView):
     template_name = 'users1/schedule_change_request_detail.html'
 
     def get_context_data(self, **kwargs):
@@ -1171,7 +1298,7 @@ class ScheduleChangeRequestDetailView(LoginRequiredMixin, DirectorRequiredMixin,
 @login_required
 @require_http_methods(['POST'])
 def review_schedule_change_request(request, request_pk):
-    if not request.user.is_director:
+    if not request.user.is_admin_access:
         raise PermissionDenied
     schedule_request = get_object_or_404(ScheduleChangeRequest, pk=request_pk)
     if schedule_request.status != ScheduleChangeRequest.Status.PENDING:
@@ -1192,13 +1319,20 @@ def review_schedule_change_request(request, request_pk):
     if decision == 'approve':
         schedule_request.status = ScheduleChangeRequest.Status.APPROVED
         schedule_request.effective_week_start = _start_of_week(timezone.localdate())
-        schedule_request.save(update_fields=['status', 'effective_week_start'])
+        if not schedule_request.change_date:
+            schedule_request.change_date = timezone.localdate()
+        schedule_request.save(update_fields=['status', 'effective_week_start', 'change_date'])
         create_audit_log(
             request,
             f"Jadval o'zgartirish arizasi tasdiqlandi: {schedule_request.group.name} ({schedule_request.old_day} {schedule_request.old_start_time}-{schedule_request.old_end_time} → {schedule_request.new_day} {schedule_request.new_start_time}-{schedule_request.new_end_time})",
             target_user=schedule_request.teacher,
         )
-        messages.success(request, 'Ariza tasdiqlandi. O‘zgartirish bir hafta davomida qo‘llanadi va keyingi haftadan avvalgiga qaytadi.')
+
+        # Xabarnomalar yuborish
+        from users1.services import send_schedule_change_notifications
+        send_schedule_change_notifications(schedule_request)
+
+        messages.success(request, "Ariza tasdiqlandi. O'zgartirish qo'llanildi va xabarlar yuborildi.")
     else:
         schedule_request.status = ScheduleChangeRequest.Status.REJECTED
         create_audit_log(
@@ -1314,19 +1448,6 @@ class TeacherGroupDetailView(LoginRequiredMixin, TeacherRequiredMixin, TemplateV
         return context
 
 
-class TeacherMessagesView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
-    template_name = 'users1/teacher_messages.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        from bot.models import TelegramAppeal
-        context['pending_appeals'] = TelegramAppeal.objects.filter(
-            student__groupstudent__group__teacher=self.request.user,
-            is_resolved=False
-        ).select_related('telegram_user', 'student').order_by('-created_at')
-        return context
-
-
 class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
     template_name = 'users1/teacher_schedule.html'
 
@@ -1383,6 +1504,14 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
                         'day_date': check_date,
                         'room': group.room,
                     })
+
+            # Har bir dars uchun o'zgartirilganligini tekshirish
+            for lesson in lessons:
+                lesson['is_modified'] = ScheduleChangeRequest.objects.filter(
+                    group=lesson['group'],
+                    status=ScheduleChangeRequest.Status.APPROVED,
+                    change_date=check_date,
+                ).exists()
 
             week_days.append({
                 'date': check_date,
@@ -1652,7 +1781,7 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         for teacher in User.objects.filter(role=User.Role.TEACHER, is_deleted=False):
             recent_alerts = MissedAttendanceAlert.objects.filter(
                 teacher=teacher,
-                status__in=[MissedAttendanceAlert.Status.CAME, MissedAttendanceAlert.Status.NOT_CAME],
+                status=MissedAttendanceAlert.Status.NOT_CAME,
                 penalty_applied=True,
             ).order_by('-lesson_date')[:3]
             if len(recent_alerts) >= 3:
@@ -1662,90 +1791,30 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         # Botga ulangan/ulnmagan o'quvchilar
         from bot.models import TelegramUser as BotTelegramUser
         all_students = Student.objects.filter(is_active=True)
+        blocked_students = Student.objects.filter(is_active=False)
         bot_connected_ids = BotTelegramUser.objects.filter(
             student__isnull=False,
             is_verified=True,
         ).values_list('student_id', flat=True)
+        # Telegram botni blocklagan foydalanuvchilar
+        telegram_blocked_ids = BotTelegramUser.objects.filter(
+            student__isnull=False,
+            is_verified=True,
+            is_blocked=True,
+        ).values_list('student_id', flat=True)
         context['bot_connected_count'] = all_students.filter(pk__in=bot_connected_ids).count()
         context['bot_not_connected_count'] = all_students.exclude(pk__in=bot_connected_ids).count()
-        context['blocked_students_count'] = Student.objects.filter(is_active=False).count()
+        context['blocked_students_count'] = blocked_students.count()
+        context['bot_telegram_blocked_count'] = all_students.filter(pk__in=telegram_blocked_ids).count()
 
         return context
 
 
 # ---------------------------------------------------------------------------
 # Telegram & Messaging APIs
-# ---------------------------------------------------------------------------
-@require_http_methods(['POST'])
-def send_teacher_message(request):
-    """Teacher tomonidan o'quvchining ota-onasiga Telegram xabar yuborish."""
-    try:
-        payload = json_module.loads(request.body.decode('utf-8'))
-    except Exception:
-        return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
-
-    user = request.user
-    if not user.is_authenticated or not user.is_teacher:
-        return JsonResponse({'detail': "Faqat o'qituvchi uchun ruxsat bor."}, status=403)
-
-    student_id = payload.get('student_id')
-    message_text = payload.get('message', '').strip()
-
-    if not student_id:
-        return JsonResponse({'detail': "O'quvchi tanlash kerak."}, status=400)
-    if not message_text:
-        return JsonResponse({'detail': "Xabar matnini kiriting."}, status=400)
-
-    student = Student.objects.filter(pk=student_id, is_active=True).first()
-    if not student:
-        return JsonResponse({'detail': "O'quvchi topilmadi."}, status=404)
-
-    groups = user.teaching_groups.filter(is_active=True)
-    if not GroupStudent.objects.filter(group__in=groups, student=student, is_active=True).exists():
-        return JsonResponse({'detail': "Bu o'quvchi sizning guruhlaringizda emas."}, status=403)
-
-    from bot.models import TelegramUser, TeacherMessage
-    from bot.services import send_telegram_message
-
-    telegram_users = TelegramUser.objects.filter(student=student, is_verified=True)
-
-    if not telegram_users.exists():
-        return JsonResponse({'detail': "O'quvchining Telegram'dagi ota-onasi topilmadi."}, status=404)
-
-    sent_count = 0
-    last_tu = None
-    for tu in telegram_users:
-        last_tu = tu
-        try:
-            teacher_name = user.get_full_name() or user.username
-            formatted_msg = (
-                f"<b>✉️ Xabar o'qituvchidan</b>\n\n"
-                f"<b>O'qituvchi:</b> {teacher_name}\n"
-                f"<b>O'quvchi:</b> {student}\n\n"
-                f"{message_text}"
-            )
-            send_telegram_message(tu.telegram_id, formatted_msg)
-            sent_count += 1
-        except Exception:
-            pass
-
-    status_val = TeacherMessage.Status.SENT if sent_count > 0 else TeacherMessage.Status.FAILED
-    TeacherMessage.objects.create(
-        teacher=user,
-        student=student,
-        parent=last_tu,
-        message=message_text,
-        status=status_val,
-    )
-
-    if sent_count > 0:
-        return JsonResponse({'ok': True, 'sent_count': sent_count})
-    return JsonResponse({'detail': "Xabar yuborishda xatolik yuz berdi."}, status=500)
-
-
 @require_http_methods(['POST'])
 def reply_appeal(request, appeal_id):
-    if not request.user.is_authenticated or not (request.user.is_admin_access or request.user.is_teacher):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     appeal = TelegramAppeal.objects.filter(id=appeal_id).first()
     if not appeal:
@@ -1781,7 +1850,7 @@ def reply_appeal(request, appeal_id):
 
 @require_http_methods(['POST'])
 def resolve_appeal(request, appeal_id):
-    if not request.user.is_authenticated or not (request.user.is_admin_access or request.user.is_teacher):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     appeal = TelegramAppeal.objects.filter(id=appeal_id).first()
     if not appeal:
@@ -1931,6 +2000,24 @@ def broadcast_all(request):
 
 
 # ---------------------------------------------------------------------------
+# Admin/Administrator Messages Page
+# ---------------------------------------------------------------------------
+class AdminMessagesView(LoginRequiredMixin, AdminAccessRequiredMixin, TemplateView):
+    template_name = 'users1/admin_messages.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['all_appeals'] = TelegramAppeal.objects.select_related(
+            'telegram_user', 'student'
+        ).order_by('-created_at')[:100]
+        context['pending_appeals'] = TelegramAppeal.objects.filter(
+            is_resolved=False
+        ).select_related('telegram_user', 'student').order_by('-created_at')
+        context['pending_count'] = context['pending_appeals'].count()
+        return context
+
+
+# ---------------------------------------------------------------------------
 # Bot holati sahifasi
 # ---------------------------------------------------------------------------
 class BotStatusView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -1959,6 +2046,13 @@ class BotStatusView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             is_verified=True,
         ).values_list('student_id', flat=True))
 
+        # Telegram botni blocklagan foydalanuvchilar
+        telegram_blocked_ids = list(BotTelegramUser.objects.filter(
+            student__isnull=False,
+            is_verified=True,
+            is_blocked=True,
+        ).values_list('student_id', flat=True))
+
         if status == 'connected':
             students = all_students.filter(pk__in=bot_connected_ids).order_by('last_name', 'first_name')
             title = "Botga ulangan o'quvchilar"
@@ -1968,6 +2062,9 @@ class BotStatusView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         elif status == 'blocked':
             students = blocked_students.order_by('last_name', 'first_name')
             title = "Bloklangan/o'chirilgan o'quvchilar"
+        elif status == 'telegram_blocked':
+            students = all_students.filter(pk__in=telegram_blocked_ids).order_by('last_name', 'first_name')
+            title = "Telegram botni blocklaganlar"
         else:
             students = all_students.order_by('last_name', 'first_name')
             title = "Barcha o'quvchilar"
@@ -1978,6 +2075,7 @@ class BotStatusView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context['connected_count'] = all_students.filter(pk__in=bot_connected_ids).count()
         context['not_connected_count'] = all_students.exclude(pk__in=bot_connected_ids).count()
         context['blocked_count'] = blocked_students.count()
+        context['telegram_blocked_count'] = all_students.filter(pk__in=telegram_blocked_ids).count()
 
         return context
 
@@ -2047,12 +2145,20 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
         # Botga ulangan/ulnmagan o'quvchilar
         from bot.models import TelegramUser as BotTelegramUser
         all_students = Student.objects.filter(is_active=True)
+        blocked_students = Student.objects.filter(is_active=False)
         bot_connected_ids = BotTelegramUser.objects.filter(
             student__isnull=False,
             is_verified=True,
         ).values_list('student_id', flat=True)
+        # Telegram botni blocklagan foydalanuvchilar
+        telegram_blocked_ids = BotTelegramUser.objects.filter(
+            student__isnull=False,
+            is_verified=True,
+            is_blocked=True,
+        ).values_list('student_id', flat=True)
         context['bot_connected_count'] = all_students.filter(pk__in=bot_connected_ids).count()
         context['bot_not_connected_count'] = all_students.exclude(pk__in=bot_connected_ids).count()
-        context['blocked_students_count'] = Student.objects.filter(is_active=False).count()
+        context['blocked_students_count'] = blocked_students.count()
+        context['bot_telegram_blocked_count'] = all_students.filter(pk__in=telegram_blocked_ids).count()
 
         return context

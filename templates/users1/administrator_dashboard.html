@@ -195,7 +195,7 @@
     <h2 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
         <i class="fab fa-telegram" style="color: #0088cc;"></i> Bot holati
     </h2>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
         <a href="{% url 'users1:bot_status' %}?status=connected" style="padding: 1rem; border-radius: 14px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); text-align: center; text-decoration: none; color: inherit; display: block; transition: all 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform='none'">
             <div style="font-size: 1.6rem; font-weight: 700; color: #10b981;">{{ bot_connected_count }}</div>
             <div style="font-size: 0.8rem; color: var(--text-muted);">Botga ulangan</div>
@@ -207,6 +207,10 @@
         <a href="{% url 'users1:bot_status' %}?status=blocked" style="padding: 1rem; border-radius: 14px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); text-align: center; text-decoration: none; color: inherit; display: block; transition: all 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform='none'">
             <div style="font-size: 1.6rem; font-weight: 700; color: #ef4444;">{{ blocked_students_count }}</div>
             <div style="font-size: 0.8rem; color: var(--text-muted);">Bloklangan/o'chirilgan</div>
+        </a>
+        <a href="{% url 'users1:bot_status' %}?status=telegram_blocked" style="padding: 1rem; border-radius: 14px; background: rgba(249, 115, 22, 0.08); border: 1px solid rgba(249, 115, 22, 0.2); text-align: center; text-decoration: none; color: inherit; display: block; transition: all 0.2s;" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform='none'">
+            <div style="font-size: 1.6rem; font-weight: 700; color: #f97316;">{{ bot_telegram_blocked_count }}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Botni blocklagan</div>
         </a>
     </div>
 </div>

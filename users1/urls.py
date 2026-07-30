@@ -23,6 +23,9 @@ urlpatterns = [
     path('admin/penalties/', views.PenaltyListView.as_view(), name='penalty_list'),
     path('admin/penalties/teacher/<int:teacher_pk>/add/', views.director_add_penalty, name='add_penalty'),
     path('admin/penalties/alert/<int:alert_pk>/resolve/', views.resolve_missed_alert, name='resolve_missed_alert'),
+    path('admin/penalties/<int:penalty_pk>/edit/', views.edit_penalty, name='edit_penalty'),
+    path('admin/penalties/<int:penalty_pk>/delete/', views.delete_penalty, name='delete_penalty'),
+    path('admin/penalties/run-check/', views.run_attendance_check, name='run_attendance_check'),
 
     # ── Administrator Management (Director only) ────────────────────────────
     path('administrators/', views.AdministratorListView.as_view(), name='administrator_list'),
@@ -49,9 +52,9 @@ urlpatterns = [
 
     # ── Teacher Portal ──────────────────────────────────────────────────────
     path('teacher/', views.TeacherDashboardView.as_view(), name='teacher_dashboard'),
+    path('teacher/current-lesson/<str:action>/', views.teacher_current_lesson_action, name='teacher_current_lesson_action'),
     path('teacher/groups/', views.TeacherGroupsView.as_view(), name='teacher_groups'),
     path('teacher/groups/<int:pk>/', views.TeacherGroupDetailView.as_view(), name='teacher_group_detail'),
-    path('teacher/messages/', views.TeacherMessagesView.as_view(), name='teacher_messages'),
     path('teacher/schedule/', views.TeacherScheduleView.as_view(), name='teacher_schedule'),
     path('teacher/students/', views.TeacherStudentsView.as_view(), name='teacher_students'),
     path('teacher/students/<int:pk>/', views.TeacherStudentDetailView.as_view(), name='teacher_student_detail'),
@@ -63,9 +66,11 @@ urlpatterns = [
     path('schedule-change-requests/<int:request_pk>/review/', views.review_schedule_change_request, name='schedule_change_request_review'),
 
     # ── API ─────────────────────────────────────────────────────────────────
-    path('api/send-message/', views.send_teacher_message, name='send_teacher_message'),
     path('api/reply/<int:appeal_id>/', views.reply_appeal, name='reply_appeal'),
     path('api/resolve/<int:appeal_id>/', views.resolve_appeal, name='resolve_appeal'),
     path('api/broadcast/', views.broadcast_to_group, name='broadcast_to_group'),
     path('api/broadcast-all/', views.broadcast_all, name='broadcast_all'),
+
+    # ── Admin Messages ─────────────────────────────────────────────────────
+    path('messages/', views.AdminMessagesView.as_view(), name='admin_messages'),
 ]

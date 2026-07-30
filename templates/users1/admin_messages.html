@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Xabarlar | Ilm Najot ERP{% endblock %}
+{% block header_title %}Xabarlar{% endblock %}
+
+{% block content %}
+<!-- Filtr -->
+<div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <button onclick="filterAppeals('all')" class="btn btn-outline filter-btn active-filter" data-filter="all" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+        Barchasi
+    </button>
+    <button onclick="filterAppeals('pending')" class="btn btn-outline filter-btn" data-filter="pending" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+        Hal qilinmagan {% if pending_count > 0 %}<span style="background: var(--danger); color: white; padding: 0.15rem 0.5rem; border-radius: 8px; font-size: 0.7rem; margin-left: 0.4rem;">{{ pending_count }}</span>{% endif %}
+    </button>
+    <button onclick="filterAppeals('resolved')" class="btn btn-outline filter-btn" data-filter="resolved" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+        Hal qilingan
+    </button>
+</div>
+
+<div class="glass-panel">
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        {% for appeal in all_appeals %}
+        <div class="appeal-item" data-resolved="{{ appeal.is_resolved|yesno:'true,false' }}" style="padding: 1rem; border-radius: 12px; background: {% if appeal.is_resolved %}rgba(255,255,255,0.02){% else %}rgba(99, 102, 241, 0.05){% endif %}; border: 1px solid {% if appeal.is_resolved %}var(--border){% else %}rgba(99, 102, 241, 0.2){% endif %};" id="appeal-{{ appeal.id }}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.95rem;">
+                        {{ appeal.student.last_name }} {{ appeal.student.first_name }}
+                        {% if appeal.is_resolved %}
+                        <span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.7rem; margin-left: 0.5rem;">Hal qilindi</span>
+                        {% else %}
+                        <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.7rem; margin-left: 0.5rem;">Yangi</span>
+                        {% endif %}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">
+                        {{ appeal.telegram_user.first_name|default:appeal.telegram_user.username }} &middot; {{ appeal.created_at|date:"d.m.Y H:i" }}
+                        {% if appeal.sender_type %} &middot; {{ appeal.get_sender_type_display }}{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text); line-height: 1.5;">{{ appeal.message|escape }}</div>
+            {% if not appeal.is_resolved %}
+            <div style="display: flex; gap: 0.5rem;">
+                <button onclick="showReplyInput({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                    <i class="fas fa-reply"></i> Javob berish
+                </button>
+                <button onclick="resolveAppeal({{ appeal.id }})" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                    <i class="fas fa-check"></i> Hal qilish
+                </button>
+            </div>
+            <div id="replyForm-{{ appeal.id }}" style="display: none; margin-top: 0.75rem;">
+                <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 60px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; resize: vertical;" placeholder="Javob matni..."></textarea>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button onclick="sendReply({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.8rem;">
+                        <i class="fas fa-paper-plane"></i> Yuborish
+                    </button>
+                    <button onclick="hideReplyInput({{ appeal.id }})" class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.8rem;">Bekor</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fas fa-inbox" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+            <p>Xabarlar yo'q</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function filterAppeals(filter) {
+    const items = document.querySelectorAll('.appeal-item');
+    const btns = document.querySelectorAll('.filter-btn');
+    btns.forEach(b => b.classList.remove('active-filter'));
+    document.querySelector(`[data-filter="${filter}"]`).classList.add('active-filter');
+
+    items.forEach(item => {
+        const resolved = item.dataset.resolved;
+        if (filter === 'all') {
+            item.style.display = '';
+        } else if (filter === 'pending') {
+            item.style.display = resolved === 'false' ? '' : 'none';
+        } else if (filter === 'resolved') {
+            item.style.display = resolved === 'true' ? '' : 'none';
+        }
+    });
+}
+
+function showReplyInput(id) {
+    document.getElementById('replyForm-' + id).style.display = 'block';
+}
+
+function hideReplyInput(id) {
+    document.getElementById('replyForm-' + id).style.display = 'none';
+    document.getElementById('replyText-' + id).value = '';
+}
+
+function sendReply(appealId) {
+    const text = document.getElementById('replyText-' + appealId).value.trim();
+    if (!text) { alert('Javob matnini kiriting!'); return; }
+
+    const formData = new FormData();
+    formData.append('reply', text);
+
+    fetch(`/users/api/reply/${appealId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            location.reload();
+        } else {
+            alert(data.detail || 'Xatolik');
+        }
+    })
+    .catch(() => alert('Tarmoq xatoligi'));
+}
+
+function resolveAppeal(appealId) {
+    fetch(`/users/api/resolve/${appealId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            location.reload();
+        }
+    })
+    .catch(() => alert('Tarmoq xatoligi'));
+}
+</script>
+
+<style>
+.active-filter {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary) !important;
+}
+</style>
+{% endblock %}

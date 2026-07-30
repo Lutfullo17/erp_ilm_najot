@@ -5,9 +5,12 @@ from django.urls import reverse_lazy
 from django.views.decorators.http import require_http_methods
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from users1.views import AdminAccessRequiredMixin
 from .models import Group, GroupStudent, Room
 from students.models import Student
+from users1.models import ScheduleChangeRequest, AuditLog
 import datetime
 
 
@@ -16,38 +19,73 @@ class RoomAvailabilityView(LoginRequiredMixin, AdminAccessRequiredMixin, ListVie
     context_object_name = 'rooms_data'
 
     def get_queryset(self):
-        # We'll build a data structure: {room_id: {day: [groups]}}
         rooms = Room.choices
         days_of_week = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
-        
+        today = timezone.localdate()
+        today_name = days_of_week[today.weekday()]
+        now_time = timezone.localtime().time()
+
         schedule = []
         active_groups = Group.objects.filter(is_active=True).select_related('teacher')
-        
+
         for r_val, r_label in rooms:
             room_days = []
             for day in days_of_week:
-                day_groups = [
-                    g for g in active_groups 
-                    if g.room == r_val and g.lesson_days and day in g.lesson_days
-                ]
-                # Sort by time
-                day_groups.sort(key=lambda x: x.lesson_time if x.lesson_time else datetime.time(0,0))
+                day_groups = []
+                for g in active_groups:
+                    if g.room == r_val and g.lesson_days and day in g.lesson_days:
+                        # O'tgan darslarni belgilash
+                        is_past = False
+                        if day == today_name and g.lesson_time:
+                            # Dars tugaganmi?
+                            if g.end_time:
+                                is_past = now_time > g.end_time
+                            elif g.duration:
+                                hours = int(g.duration)
+                                minutes = int((g.duration - hours) * 60)
+                                end = (datetime.datetime.combine(today, g.lesson_time) + datetime.timedelta(hours=hours, minutes=minutes)).time()
+                                is_past = now_time > end
+                            # Agar kun o'tgan bo'lsa
+                        elif days_of_week.index(day) < days_of_week.index(today_name):
+                            is_past = True
+                        elif days_of_week.index(day) > days_of_week.index(today_name):
+                            is_past = False
+                        # Shu kun, lekin hali dars boshlanmagan yoki davom etayotgan
+                        elif day == today_name:
+                            is_past = False
+
+                        day_groups.append({
+                            'pk': g.pk,
+                            'name': g.name,
+                            'lesson_time': g.lesson_time,
+                            'teacher': g.teacher,
+                            'room': g.room,
+                            'is_past': is_past,
+                        })
+
+                day_groups.sort(key=lambda x: x['lesson_time'] if x['lesson_time'] else datetime.time(0, 0))
                 room_days.append({
                     'day': day,
                     'groups': day_groups
                 })
-            
+
             schedule.append({
                 'id': r_val,
                 'name': r_label,
                 'days': room_days
             })
-            
+
         return schedule
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['days'] = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+        days_of_week = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+        today = timezone.localdate()
+        context['days'] = days_of_week
+        context['today_name'] = days_of_week[today.weekday()]
+        context['rooms'] = Room.choices
+        from users1.models import User
+        context['teachers'] = User.objects.filter(role='TEACHER', is_active=True, is_deleted=False).order_by('last_name', 'first_name')
         return context
 
 
@@ -200,3 +238,198 @@ def toggle_pause_group(request, pk):
     messages.success(request, f"'{group.name}' guruh vaqtincha {status}.")
     return redirect('groups_app:group_detail', pk=pk)
 
+
+DAY_ORDER = {
+    'Dushanba': 0, 'Seshanba': 1, 'Chorshanba': 2,
+    'Payshanba': 3, 'Juma': 4, 'Shanba': 5, 'Yakshanba': 6,
+}
+
+
+@login_required
+def admin_edit_lesson_page(request, group_pk, target_day):
+    """Dars tahrirlash sahifasi (GET) — alohida sahifa sifatida."""
+    if not request.user.is_admin_access:
+        messages.error(request, "Ruxsat yo'q.")
+        return redirect('groups_app:room_availability')
+
+    group = get_object_or_404(Group, pk=group_pk, is_active=True)
+
+    if target_day not in DAY_ORDER:
+        messages.error(request, "Noto'g'ri kun.")
+        return redirect('groups_app:room_availability')
+
+    current_time = group.lesson_time.strftime('%H:%M') if group.lesson_time else ''
+    current_room = str(group.room) if group.room else ''
+    group_name = group.name
+    teacher_name = group.teacher.get_full_name() if group.teacher else ''
+
+    context = {
+        'group': group,
+        'target_day': target_day,
+        'current_time': current_time,
+        'current_room': current_room,
+        'group_name': group_name,
+        'teacher_name': teacher_name,
+        'rooms': Room.choices,
+    }
+    return render(request, 'groups_app/admin_edit_lesson.html', context)
+
+
+@require_http_methods(['POST'])
+def admin_edit_lesson(request, group_pk, target_day):
+    """
+    Admin/Administrator tomonidan darsni to'g'ridan-to'g'ri tahrirlash (1 kun uchun).
+    Xona, vaqt va kun o'zgartirilishi mumkin.
+    """
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        return JsonResponse({'error': "Ruxsat yo'q"}, status=403)
+
+    group = get_object_or_404(Group, pk=group_pk, is_active=True)
+
+    if target_day not in DAY_ORDER:
+        return JsonResponse({'error': "Noto'g'ri kun"}, status=400)
+
+    try:
+        import json as json_module
+        data = json_module.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': "Noto'g'ri ma'lumot"}, status=400)
+
+    new_day = data.get('new_day', '').strip()
+    new_room = data.get('room')
+    new_start_time_str = data.get('start_time', '').strip()
+    reason = data.get('reason', '').strip()
+
+    # Sabab majburiy
+    if not reason:
+        return JsonResponse({'error': "Sababni kiriting"}, status=400)
+
+    # Yangi kun validatsiyasi
+    if new_day and new_day not in DAY_ORDER:
+        return JsonResponse({'error': "Noto'g'ri kun tanlandi"}, status=400)
+
+    # Validatsiya: kamida bitta o'zgarish kerak
+    if not new_day and not new_room and not new_start_time_str:
+        return JsonResponse({'error': "Kamida bitta o'zgarish tanlang"}, status=400)
+
+    # Eski qiymatlarni saqlash (audit log uchun)
+    old_room = group.room
+    old_lesson_time = group.lesson_time
+    old_day = target_day
+
+    # Yangi kun (agar o'zgartirilgan bo'lsa)
+    final_new_day = new_day if new_day else target_day
+
+    # Xona validatsiyasi
+    if new_room is not None:
+        try:
+            new_room = int(new_room)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': "Noto'g'ri xona raqami"}, status=400)
+        valid_rooms = [r[0] for r in Room.choices]
+        if new_room not in valid_rooms:
+            return JsonResponse({'error': "Noto'g'ri xona"}, status=400)
+    else:
+        new_room = group.room
+
+    # Vaqt validatsiyasi
+    new_start_time = group.lesson_time
+    if new_start_time_str:
+        try:
+            new_start_time = datetime.time.fromisoformat(new_start_time_str)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': "Noto'g'ri vaqt formati. Namuna: 14:00"}, status=400)
+
+    # Tugash vaqtini hisoblash
+    if group.duration:
+        hours = int(group.duration)
+        minutes = int((group.duration - hours) * 60)
+        new_end_time = (datetime.datetime.combine(datetime.date.today(), new_start_time) + datetime.timedelta(hours=hours, minutes=minutes)).time()
+    elif group.end_time:
+        duration_hours = (datetime.datetime.combine(datetime.date.today(), group.end_time) - datetime.datetime.combine(datetime.date.today(), group.lesson_time)).seconds / 3600
+        h = int(duration_hours)
+        m = int((duration_hours - h) * 60)
+        new_end_time = (datetime.datetime.combine(datetime.date.today(), new_start_time) + datetime.timedelta(hours=h, minutes=m)).time()
+    else:
+        return JsonResponse({'error': "Guruh davomiyligi aniqlanmagan"}, status=400)
+
+    # Validatsiya: konfliktlar (yangi kun uchun)
+    from users1.services import validate_schedule_change
+    errors = validate_schedule_change(
+        group=group,
+        new_day=final_new_day,
+        new_start_time=new_start_time,
+        new_end_time=new_end_time,
+        new_room=new_room,
+    )
+
+    if errors:
+        return JsonResponse({'error': ' | '.join(errors)}, status=400)
+
+    # ScheduleChangeRequest yaratish
+    today = timezone.localdate()
+    schedule_request = ScheduleChangeRequest.objects.create(
+        teacher=group.teacher,
+        group=group,
+        old_day=old_day,
+        old_start_time=old_lesson_time,
+        old_end_time=group.end_time,
+        new_day=final_new_day,
+        new_start_time=new_start_time,
+        new_end_time=new_end_time,
+        reason=reason,
+        status=ScheduleChangeRequest.Status.APPROVED,
+        effective_week_start=_start_of_week(today),
+        change_date=today,
+        change_type=ScheduleChangeRequest.ChangeType.ADMIN_DIRECT,
+        reviewed_by=request.user,
+        reviewed_at=timezone.now(),
+        review_comment="Admin tomonidan to'g'ridan-to'g'ri o'zgartirildi",
+    )
+
+    # Guruhni yangilash — kun o'zgargan bo'lsa lesson_days ni ham yangilash
+    group.lesson_time = new_start_time
+    group.end_time = new_end_time
+    group.room = new_room
+
+    if new_day and new_day != target_day:
+        # Kunlarni yangilash: eski kuni o'chirib, yangisini qo'shish
+        current_days = [d.strip() for d in group.lesson_days.split(',') if d.strip()]
+        if target_day in current_days:
+            current_days.remove(target_day)
+        if new_day not in current_days:
+            current_days.append(new_day)
+        group.lesson_days = ', '.join(current_days)
+
+    group.save()
+
+    # Audit log
+    AuditLog.objects.create(
+        user=request.user,
+        target_user=group.teacher,
+        action=f"Dars tahrirlandi (admin): {group.name} - {old_day} → {final_new_day}, {new_start_time.strftime('%H:%M')}",
+        old_data={
+            'room': old_room,
+            'lesson_time': str(old_lesson_time.strftime('%H:%M')) if old_lesson_time else None,
+            'day': old_day,
+        },
+        new_data={
+            'room': new_room,
+            'lesson_time': new_start_time.strftime('%H:%M'),
+            'day': final_new_day,
+        },
+        ip_address=request.META.get('REMOTE_ADDR'),
+    )
+
+    # Xabarnomalar yuborish
+    from users1.services import send_schedule_change_notifications
+    send_schedule_change_notifications(schedule_request)
+
+    return JsonResponse({
+        'ok': True,
+        'message': f"Dars muvaffaqiyatli o'zgartirildi: {final_new_day} {new_start_time.strftime('%H:%M')}",
+    })
+
+
+def _start_of_week(value):
+    return value - timezone.timedelta(days=value.weekday())

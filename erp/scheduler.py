@@ -1,46 +1,44 @@
-"""
-APScheduler joblari — avtomatik davomat nazorati.
+"""Avtomatik davomat nazorati uchun APScheduler sozlamalari."""
 
-Bu fayl Django ishga tushganda avtomatik yuklanadi.
-Har 5 daqiqada check_missed_attendance command ishga tushiriladi.
-"""
 import logging
+from io import StringIO
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from django.core.management import call_command
 from django_apscheduler.jobstores import DjangoJobStore
+
 
 logger = logging.getLogger(__name__)
 
 
 def check_attendance_job():
-    """Har 5 daqiqada davomat nazoratini tekshiradi."""
+    """Davomat nazoratini ishga tushiradi va natijani loglaydi."""
     try:
-        from django.core.management import call_command
-        from io import StringIO
-
-        out = StringIO()
-        call_command('check_missed_attendance', stdout=out)
-        output = out.getvalue()
-        logger.info(f"Davomat nazorati natijasi: {output.strip()}")
-    except Exception as e:
-        logger.error(f"Davomat nazorati xatoligi: {e}", exc_info=True)
+        output = StringIO()
+        call_command('check_missed_attendance', stdout=output)
+        logger.info("Davomat nazorati natijasi: %s", output.getvalue().strip())
+    except Exception:
+        logger.exception("Davomat nazoratida xatolik yuz berdi")
 
 
-def start():
-    """Scheduler ni ishga tushiradi."""
-    scheduler = BackgroundScheduler()
-    scheduler.add_jobstore(DjangoJobStore(), "default")
-
-    # Har 5 daqiqada davomat nazorati
+def configure_scheduler(scheduler):
+    """Davomat tekshiruvini har besh daqiqada bajarish uchun job qo'shadi."""
+    scheduler.add_jobstore(DjangoJobStore(), 'default')
     scheduler.add_job(
         check_attendance_job,
-        trigger=CronTrigger(minute="*/5"),
-        id="check_attendance_monitoring",
-        name="Avtomatik davomat nazorati",
+        trigger=CronTrigger(minute='*/5'),
+        id='check_attendance_monitoring',
+        name='Avtomatik davomat nazorati',
         replace_existing=True,
         max_instances=1,
     )
+    return scheduler
 
+
+def start():
+    """Eski chaqiruvlar uchun background schedulerni ishga tushiradi."""
+    scheduler = configure_scheduler(BackgroundScheduler())
     scheduler.start()
-    logger.info("APScheduler ishga tushirildi — davomat nazorati har 5 daqiqada.")
+    logger.info("APScheduler ishga tushirildi.")
+    return scheduler

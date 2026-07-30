@@ -28,6 +28,14 @@
             --danger: #ef4444;
         }
 
+        html[data-theme="light"] {
+            --bg: #f8fafc;
+            --card-bg: rgba(255, 255, 255, 0.94);
+            --text: #172033;
+            --text-muted: #64748b;
+            --border: rgba(15, 23, 42, 0.12);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -45,6 +53,12 @@
             display: flex;
             overflow: hidden;
         }
+
+        html[data-theme="light"] body { background-image: none; }
+        html[data-theme="light"] .nav-link:hover { background: rgba(15, 23, 42, .06); }
+        html[data-theme="light"] .btn-outline:hover,
+        html[data-theme="light"] .dropdown-item:hover { background: rgba(15, 23, 42, .06); }
+        html[data-theme="light"] tr:hover td { background: rgba(15, 23, 42, .025); }
 
         /* Sidebar Responsive */
         .sidebar {
@@ -110,7 +124,7 @@
 
         .nav-link.active {
             background: var(--primary);
-            color: white;
+            color: var(--text);
             box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
         }
 
@@ -225,8 +239,8 @@
         }
 
         select option {
-            background: #1e293b;
-            color: white;
+            background: var(--card-bg);
+            color: var(--text);
         }
 
         input:focus {
@@ -429,17 +443,101 @@
         .animate-fade-in {
             animation: fadeIn 0.5s ease forwards;
         }
+
+        /* Header Avatar Dropdown */
+        .user-profile {
+            position: relative;
+        }
+
+        .header-actions { display: flex; align-items: center; gap: .75rem; }
+        .theme-toggle { width: 45px; height: 45px; border-radius: 50%; border: 1px solid var(--border); background: var(--card-bg); color: var(--warning); cursor: pointer; font-size: 1.1rem; display: grid; place-items: center; transition: .25s ease; }
+        .theme-toggle:hover { transform: translateY(-2px) rotate(12deg); border-color: var(--warning); }
+
+        .avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 0.5rem;
+            min-width: 180px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        .dropdown-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1rem;
+            color: var(--text);
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .dropdown-item i {
+            font-size: 1rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 0.5rem 0;
+        }
         /* Responsive Grid Utilities */
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.25rem; }
     .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
     .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
 
     @media (max-width: 1024px) {
+        .grid-5 { grid-template-columns: repeat(2, 1fr); }
         .grid-4 { grid-template-columns: repeat(2, 1fr); }
         .grid-3 { grid-template-columns: 1fr; }
     }
     @media (max-width: 600px) {
-        .grid-4, .grid-2 { grid-template-columns: 1fr; }
+        .grid-5, .grid-4, .grid-2 { grid-template-columns: 1fr; }
     }
 
     /* Mobile Table to Cards */
@@ -514,12 +612,6 @@
                     <span>Jarima Tizimi</span>
                 </a>
             </li>
-            <li class="nav-item">
-                <a href="{% url 'users1:director_profile' %}" class="nav-link {% if 'admin/profile' in request.path %}active{% endif %}">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Profilim</span>
-                </a>
-            </li>
             {% endif %}
 
             {% if user.is_administrator_role %}
@@ -527,12 +619,6 @@
                 <a href="{% url 'users1:administrator_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'administrator_dashboard' %}active{% endif %}">
                     <i class="fas fa-th-large"></i>
                     <span>Dashboard</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="{% url 'users1:administrator_profile' %}" class="nav-link {% if 'administrator/profile' in request.path %}active{% endif %}">
-                    <i class="fas fa-user-circle"></i>
-                    <span>Profilim</span>
                 </a>
             </li>
             {% endif %}
@@ -562,6 +648,12 @@
                     <span>To'lovlar</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:admin_messages' %}" class="nav-link {% if 'messages' in request.path %}active{% endif %}">
+                    <i class="fas fa-envelope"></i>
+                    <span>Xabarlar</span>
+                </a>
+            </li>
             {% endif %}
             {% if user.is_teacher %}
             <li class="nav-item">
@@ -571,15 +663,21 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'users1:teacher_groups' %}" class="nav-link {% if 'teacher/groups' in request.path %}active{% endif %}">
-                    <i class="fas fa-users"></i>
-                    <span>Guruhlarim</span>
+                <a href="{% url 'users1:teacher_current_lesson_action' 'attendance' %}" class="nav-link {% if 'attendance/mark' in request.path %}active{% endif %}">
+                    <i class="fas fa-check-double"></i>
+                    <span>Davomat</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'users1:teacher_messages' %}" class="nav-link {% if 'teacher/messages' in request.path %}active{% endif %}">
-                    <i class="fas fa-envelope"></i>
-                    <span>Xabarlar</span>
+                <a href="{% url 'users1:teacher_current_lesson_action' 'grades' %}" class="nav-link {% if 'grades' in request.path %}active{% endif %}">
+                    <i class="fas fa-star"></i>
+                    <span>Baholash</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{% url 'users1:teacher_groups' %}" class="nav-link {% if 'teacher/groups' in request.path %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Guruhlarim</span>
                 </a>
             </li>
             <li class="nav-item">
@@ -588,24 +686,8 @@
                     <span>Dars jadvali</span>
                 </a>
             </li>
-            <li class="nav-item">
-                <a href="{% url 'users1:teacher_profile' %}" class="nav-link {% if 'teacher/profile' in request.path %}active{% endif %}">
-                    <i class="fas fa-user"></i>
-                    <span>Profil</span>
-                </a>
-            </li>
             {% endif %}
         </ul>
-        
-        <div class="nav-item" style="position: sticky; bottom: 0; background: var(--card-bg); padding-top: 1rem; margin-top: auto;">
-            <form action="{% url 'users1:logout' %}" method="post" onsubmit="return confirm('Tizimdan chiqmoqchimisiz?');">
-                {% csrf_token %}
-                <button type="submit" class="nav-link" style="background: none; border: none; width: 100%; cursor: pointer; text-align: left;">
-                    <i class="fas fa-power-off"></i>
-                    <span>Chiqish</span>
-                </button>
-            </form>
-        </div>
     </div>
 
     <div class="main-content" id="mainContent">
@@ -616,10 +698,27 @@
                 </div>
                 <h1>{% block header_title %}Xush kelibsiz!{% endblock %}</h1>
             </div>
+            <div class="header-actions">
+                <button class="theme-toggle" id="themeToggle" type="button" aria-label="Oq fon rejimini yoqish" title="Oq fon rejimi"><i class="fas fa-sun"></i></button>
             <div class="user-profile">
-                <div class="avatar">
+                <div class="avatar" id="avatarBtn">
                     {{ user.username.0.upper }}
                 </div>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <a href="{% if user.is_director %}{% url 'users1:director_profile' %}{% elif user.is_administrator_role %}{% url 'users1:administrator_profile' %}{% elif user.is_teacher %}{% url 'users1:teacher_profile' %}{% else %}{% url 'users1:director_profile' %}{% endif %}" class="dropdown-item">
+                        <i class="fas fa-user-circle"></i>
+                        <span>Profil</span>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <form action="{% url 'users1:logout' %}" method="post" onsubmit="return confirm('Tizimdan chiqmoqchimisiz?');">
+                        {% csrf_token %}
+                        <button type="submit" class="dropdown-item" style="background: none; border: none; width: 100%; cursor: pointer; text-align: left; color: var(--danger);">
+                            <i class="fas fa-power-off"></i>
+                            <span>Chiqish</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
             </div>
         </header>
 
@@ -646,27 +745,25 @@
                 </a>
             </li>
             <li>
+                <a href="{% url 'users1:teacher_current_lesson_action' 'attendance' %}" class="bottom-nav-item {% if 'attendance/mark' in request.path %}active{% endif %}">
+                    <i class="fas fa-check-double"></i><span>Davomat</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'users1:teacher_current_lesson_action' 'grades' %}" class="bottom-nav-item {% if 'grades' in request.path %}active{% endif %}">
+                    <i class="fas fa-star"></i><span>Baholash</span>
+                </a>
+            </li>
+            <li>
                 <a href="{% url 'users1:teacher_groups' %}" class="bottom-nav-item {% if 'teacher/groups' in request.path %}active{% endif %}">
                     <i class="fas fa-users"></i>
                     <span>Guruhlar</span>
                 </a>
             </li>
             <li>
-                <a href="{% url 'users1:teacher_messages' %}" class="bottom-nav-item {% if 'teacher/messages' in request.path %}active{% endif %}">
-                    <i class="fas fa-envelope"></i>
-                    <span>Xabarlar</span>
-                </a>
-            </li>
-            <li>
                 <a href="{% url 'users1:teacher_schedule' %}" class="bottom-nav-item {% if 'teacher/schedule' in request.path %}active{% endif %}">
                     <i class="fas fa-calendar-alt"></i>
                     <span>Jadval</span>
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'users1:teacher_profile' %}" class="bottom-nav-item {% if 'teacher/profile' in request.path %}active{% endif %}">
-                    <i class="fas fa-user"></i>
-                    <span>Profil</span>
                 </a>
             </li>
         </ul>
@@ -717,6 +814,12 @@
                 </a>
             </li>
             {% endif %}
+            <li>
+                <a href="{% url 'users1:admin_messages' %}" class="bottom-nav-item {% if 'messages' in request.path %}active{% endif %}">
+                    <i class="fas fa-envelope"></i>
+                    <span>Xabarlar</span>
+                </a>
+            </li>
         </ul>
     </nav>
     {% endif %}
@@ -804,6 +907,45 @@
         });
 
         // Swipe gesture bilan sidebar ochilmasin — faqat tugma orqali
+
+        // Avatar dropdown toggle
+        const avatarBtn = document.getElementById('avatarBtn');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+        const themeToggle = document.getElementById('themeToggle');
+
+        function applyTheme(theme) {
+            const isLight = theme === 'light';
+            document.documentElement.dataset.theme = theme;
+            themeToggle.innerHTML = `<i class="fas fa-${isLight ? 'moon' : 'sun'}"></i>`;
+            themeToggle.setAttribute('aria-label', isLight ? "Qorong'i fon rejimini yoqish" : "Oq fon rejimini yoqish");
+            themeToggle.title = isLight ? "Qorong'i fon rejimi" : "Oq fon rejimi";
+        }
+
+        applyTheme(localStorage.getItem('erp-theme') || 'dark');
+        themeToggle.addEventListener('click', () => {
+            const nextTheme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('erp-theme', nextTheme);
+            applyTheme(nextTheme);
+        });
+
+        avatarBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('active');
+        });
+
+        // Tashqari joy bosilganda dropdown yopish
+        document.addEventListener('click', (e) => {
+            if (!dropdownMenu.contains(e.target) && !avatarBtn.contains(e.target)) {
+                dropdownMenu.classList.remove('active');
+            }
+        });
+
+        // Escape tugmasi bilan dropdown yopish
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                dropdownMenu.classList.remove('active');
+            }
+        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>

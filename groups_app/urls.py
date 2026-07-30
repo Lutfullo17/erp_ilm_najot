@@ -12,4 +12,6 @@ urlpatterns = [
     path('<int:pk>/delete/', views.delete_group, name='group_delete'),
     path('<int:pk>/toggle-pause/', views.toggle_pause_group, name='group_toggle_pause'),
     path('rooms/', views.RoomAvailabilityView.as_view(), name='room_availability'),
+    path('<int:group_pk>/edit-lesson/<str:target_day>/', views.admin_edit_lesson_page, name='admin_edit_lesson_page'),
+    path('<int:group_pk>/edit-lesson/<str:target_day>/save/', views.admin_edit_lesson, name='admin_edit_lesson_save'),
 ]

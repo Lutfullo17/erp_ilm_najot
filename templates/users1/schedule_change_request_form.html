@@ -22,14 +22,15 @@
         {% endif %}
         <div style="display: grid; gap: 1rem;">
             <div class="form-group">
-                <label for="id_new_day" style="font-weight: 600;">Yangi dars kuni</label>
+                <label for="id_new_day" style="font-weight: 600;">Yangi kun</label>
                 {{ form.new_day }}
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">Dars qaysi kunga o'tkaziladi.</div>
                 {{ form.new_day.errors }}
             </div>
             <div class="form-group">
                 <label for="id_new_start_time" style="font-weight: 600;">Yangi boshlanish vaqti</label>
                 {{ form.new_start_time }}
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">{{ form.new_start_time.help_text }}. Tugash vaqti avtomatik ravishda davomiylik bo‘yicha hisoblanadi.</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem;">24 soatlik format: HH:MM (masalan: 14:00)</div>
                 {{ form.new_start_time.errors }}
             </div>
             <div class="form-group">
@@ -39,7 +40,7 @@
             </div>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
                 <button type="submit" class="btn btn-primary" style="padding: 0.85rem 1.25rem;">Arizani yuborish</button>
-                <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-outline" style="padding: 0.85rem 1.25rem;">Ariza tarixiga o‘tish</a>
+                <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-outline" style="padding: 0.85rem 1.25rem;">Ariza tarixiga o'tish</a>
             </div>
         </div>
     </form>

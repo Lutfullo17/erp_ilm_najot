@@ -22,7 +22,6 @@ STATE_WAITING_PHONE = 'WAITING_PHONE'
 STATE_CHOOSING_CHILD = 'CHOOSING_CHILD'
 STATE_CHOOSING_RECIPIENT = 'CHOOSING_RECIPIENT'
 STATE_WAITING_APPEAL = 'WAITING_APPEAL'
-STATE_REPLY_TO_APPEAL = 'REPLY_TO_APPEAL'
 
 MENU_ATTENDANCE = '📊 Davomat'
 MENU_GRADES = '📝 Baholar'
@@ -66,6 +65,7 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     if reply_markup:
         payload['reply_markup'] = reply_markup
 
+    logger.info(f"Sending message to chat_id={chat_id}, reply_markup={reply_markup is not None}")
     data = json.dumps(payload).encode('utf-8')
     req = urlrequest.Request(
         f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage',
@@ -75,9 +75,21 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     )
     try:
         with urlrequest.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode('utf-8'))
+            result = json.loads(response.read().decode('utf-8'))
+            logger.info(f"Message sent successfully: {result.get('result', {}).get('message_id')}")
+            return result
     except urlrequest.HTTPError as e:
         logger.error(f"Telegram xabar yuborishda HTTP xatolik: {e.code} — chat_id={chat_id}")
+        # 403 Forbidden - foydalanuvchi botni blocklagan
+        if e.code == 403:
+            try:
+                tg_user = TelegramUser.objects.filter(telegram_id=chat_id).first()
+                if tg_user:
+                    tg_user.is_blocked = True
+                    tg_user.save(update_fields=['is_blocked', 'updated_at'])
+                    logger.info(f"TelegramUser {chat_id} blocklangan deb belgilandi")
+            except Exception as db_error:
+                logger.error(f"TelegramUser blocklashni saqlashda xatolik: {db_error}")
         return None
     except Exception as e:
         logger.error(f"Telegram xabar yuborishda xatolik: {e} — chat_id={chat_id}")
@@ -168,10 +180,7 @@ def handle_start(chat_id, telegram_user=None):
 
 
 def link_user_by_phone(telegram_user, phone):
-    user = User.objects.filter(phone__contains=phone[-9:]).first()
-    if user:
-        telegram_user.user = user
-        telegram_user.save(update_fields=['user', 'updated_at'])
+    pass
 
 
 def handle_child_selection(chat_id, text, telegram_user):
@@ -557,20 +566,13 @@ def handle_menu(chat_id, text, telegram_user):
         )
         send_telegram_message(chat_id, contact_info, main_menu_keyboard(telegram_user))
     elif text == MENU_APPEAL:
+        logger.info(f"MENU_APPEAL clicked by chat_id={chat_id}, has_student={telegram_user.student is not None}")
         if not telegram_user.student:
             send_telegram_message(chat_id, "Faqat o'quvchilar murojaat yubora oladi.", main_menu_keyboard(telegram_user))
             return
-        telegram_user.state = STATE_CHOOSING_RECIPIENT
+        telegram_user.state = f'{STATE_WAITING_APPEAL}:ADMIN'
         telegram_user.save(update_fields=['state', 'updated_at'])
-        choose_recipient_keyboard = {
-            'inline_keyboard': [
-                [
-                    {'text': '👨‍💼 Adminga', 'callback_data': 'appeal_to:ADMIN'},
-                    {'text': "👨‍🏫 O'qituvchiga", 'callback_data': 'appeal_to:TEACHER'},
-                ],
-            ],
-        }
-        send_telegram_message(chat_id, "Murojaatni kimga yubormoqchisiz?", choose_recipient_keyboard)
+        send_telegram_message(chat_id, "Murojaat matnini yozib yuboring:")
     elif text == '🔄 Boshqa farzandni tanlash':
         # Farzandni o'zgartirish
         students = find_students_by_phone(telegram_user.phone)
@@ -598,82 +600,33 @@ def handle_appeal(chat_id, text, telegram_user):
         send_telegram_message(chat_id, "Murojaat matni juda qisqa. Iltimos, batafsilroq yozing.")
         return
 
+    # Menyu tugmalari matnini filtrlash
+    menu_items = [MENU_ATTENDANCE, MENU_GRADES, MENU_PAYMENTS, MENU_SCHEDULE, MENU_HOMEWORK, MENU_TOPIC, MENU_APPEAL, MENU_CONTACT]
+    if message in menu_items:
+        send_telegram_message(chat_id, "Iltimos, menyudagi tugmalarni bosing emas, murojaat matnini yozing.")
+        return
+
     recipient_type = telegram_user.state.replace(STATE_WAITING_APPEAL + ':', '')
     telegram_user.state = ''
     telegram_user.save(update_fields=['state', 'updated_at'])
 
-    sender_type = get_sender_type(telegram_user)
     TelegramAppeal.objects.create(
         telegram_user=telegram_user,
         student=telegram_user.student,
         message=message,
-        sender_type=sender_type,
+        sender_type=TelegramAppeal.SenderType.STUDENT,
         recipient_type=recipient_type,
     )
     send_telegram_message(chat_id, 'Murojaatingiz qabul qilindi. Tez orada sizga javob beramiz.', main_menu_keyboard(telegram_user))
 
-    # Adminga sodda ko'rinishda xabar yuborish
-    staff_users = TelegramUser.objects.filter(
-        user__role__in=[User.Role.DIRECTOR, User.Role.ADMINISTRATOR, User.Role.TEACHER],
-        is_verified=True,
-    ).exclude(telegram_id=chat_id)
-
-    student_name = str(telegram_user.student) if telegram_user.student else "Noma'lum"
-
-    for staff in staff_users:
-        try:
-            appeal_notification = (
-                f"<b>✉️ YANGI MUROJAAT</b>\n"
-                f"──────────────────\n"
-                f"👤 <b>O'quvchi:</b> {student_name}\n"
-                f"📝 <b>Xabar:</b>\n{message}\n\n"
-                f"Javob berish uchun tizimga kiring."
-            )
-            send_telegram_message(staff.telegram_id, appeal_notification)
-        except Exception as e:
-            logger.error(f"Staff xabar yuborishda xatolik: {e}")
-
 
 def get_sender_type(telegram_user):
-    if telegram_user.user:
-        if telegram_user.user.is_admin_access:
-            return TelegramAppeal.SenderType.ADMIN
-        elif telegram_user.user.is_teacher:
-            return TelegramAppeal.SenderType.TEACHER
     return TelegramAppeal.SenderType.STUDENT
 
 
-STATE_REPLY_TARGET = {}  # chat_id -> {target_id, recipient_label}
-
-
-def handle_reply_to_appeal(chat_id, text, telegram_user):
-    """Admin/O'qituvchi o'quvchiga javob yozganda."""
-    target = STATE_REPLY_TARGET.get(chat_id)
-    if not target:
-        send_telegram_message(chat_id, "Xatolik: javob berilishi kerak bo'lgan murojaat topilmadi.")
-        telegram_user.state = ''
-        telegram_user.save(update_fields=['state', 'updated_at'])
-        return
-
-    target_id = target['target_id']
-    staff_name = target.get('staff_name', 'Admin')
-
-    if telegram_user.user and telegram_user.user.role == User.Role.TEACHER:
-        sender_label = "O'qituvchi"
-    else:
-        sender_label = "Admin"
-
-    appeal_msg = (
-        f"<b>💬 JAVOB KELDI!</b>\n"
-        f"──────────────────\n"
-        f"👤 <b>Yuboruvchi:</b> {sender_label}\n\n"
-        f"{text}"
-    )
-    send_telegram_message(target_id, appeal_msg, main_menu_keyboard())
-    send_telegram_message(chat_id, 'Javob yuborildi.', main_menu_keyboard(telegram_user))
-    STATE_REPLY_TARGET.pop(chat_id, None)
-    telegram_user.state = ''
-    telegram_user.save(update_fields=['state', 'updated_at'])
+# NOTE: handle_reply_to_appeal funksiyasi va STATE_REPLY_TARGET global o'zgaruvchisi
+# hozircha ishlatilmayapti. Kelajakda admin/teacher javob berish funksionalligi
+# qo'shilganda qayta yoqiladi.
 
 
 def handle_callback_query(callback_query):
@@ -684,12 +637,16 @@ def handle_callback_query(callback_query):
     sender = callback_query.get('from', {})
     sender_id = sender.get('id')
 
+    logger.info(f"Callback query received: query_id={query_id}, data={data}, from_chat={from_chat}, sender_id={sender_id}")
+
     if not from_chat:
+        logger.warning("Callback query: from_chat is missing")
         return
 
-    telegram_user = TelegramUser.objects.filter(telegram_id=sender_id).select_related('user').first()
+    telegram_user = TelegramUser.objects.filter(telegram_id=sender_id).first()
 
     if not telegram_user:
+        logger.warning(f"Callback query: telegram_user not found for sender_id={sender_id}")
         answer_callback_query(query_id, "Foydalanuvchi topilmadi.")
         return
 
@@ -701,25 +658,17 @@ def handle_callback_query(callback_query):
 
     # O'quvchi "Adminga" yoki "O'qituvchiga" tugmasini bosganda
     if data.startswith('appeal_to:'):
+        logger.info(f"Appeal_to callback: data={data}, is_verified={telegram_user.is_verified}")
         if not telegram_user.is_verified:
             answer_callback_query(query_id, "Avval tizimga kiring.")
             return
 
         recipient_type = data.split(':', 1)[1]
+        logger.info(f"Setting state to: {STATE_WAITING_APPEAL}:{recipient_type}")
         telegram_user.state = f'{STATE_WAITING_APPEAL}:{recipient_type}'
         telegram_user.save(update_fields=['state', 'updated_at'])
         answer_callback_query(query_id, "Murojaatingizni yozing.")
         send_telegram_message(from_chat, "Murojaatingizni yozib yuboring:")
-        return
-
-    # Faqat admin/teacher foydalanuvchilar javob bera oladi
-    if not telegram_user.user:
-        answer_callback_query(query_id, "Sizda ruxsat yo'q.")
-        return
-
-    is_staff = telegram_user.user.is_admin_access or telegram_user.user.is_teacher
-    if not is_staff:
-        answer_callback_query(query_id, "Sizda ruxsat yo'q.")
         return
 
 
@@ -760,9 +709,7 @@ def handle_update(update):
         handle_child_selection(chat_id, text, telegram_user)
         return
 
-    if telegram_user.state == STATE_REPLY_TO_APPEAL:
-        handle_reply_to_appeal(chat_id, text, telegram_user)
-        return
+    # NOTE: STATE_REPLY_TO_APPEAL holati hozircha ishlatilmayapti
 
     if telegram_user.state and telegram_user.state.startswith(STATE_WAITING_APPEAL):
         handle_appeal(chat_id, text, telegram_user)

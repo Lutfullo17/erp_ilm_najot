@@ -82,6 +82,7 @@ class ScheduleChangeRequestFormTestCase(TestCase):
             data={
                 'new_day': 'Dushanba',
                 'new_start_time': '14:30',
+                'change_date': timezone.localdate().isoformat(),
                 'reason': 'Test sabab',
             },
             group=None,
@@ -99,6 +100,7 @@ class ScheduleChangeRequestFormTestCase(TestCase):
             data={
                 'new_day': 'Dushanba',
                 'new_start_time': '2:30 PM',
+                'change_date': timezone.localdate().isoformat(),
                 'reason': 'Test sabab',
             },
             group=None,
@@ -119,6 +121,7 @@ class ScheduleChangeRequestFormTestCase(TestCase):
             data={
                 'new_day': 'Dushanba',
                 'new_start_time': '14:30',
+                'change_date': timezone.localdate().isoformat(),
                 'reason': 'Test sabab',
             },
             group=self.group,
@@ -136,6 +139,7 @@ class ScheduleChangeRequestFormTestCase(TestCase):
             data={
                 'new_day': 'Dushanba',
                 'new_start_time': '14:30',
+                'change_date': timezone.localdate().isoformat(),
                 'reason': 'Test sabab',
             },
             group=self.group,
@@ -180,19 +184,20 @@ class MissedAttendanceWorkflowTestCase(TestCase):
     def test_check_and_create_missed_alerts_creates_alert_when_session_missing(self):
         self.assertFalse(AttendanceSession.objects.filter(group=self.group, date=timezone.localdate()).exists())
 
-        created_count = check_and_create_missed_alerts()
+        result = check_and_create_missed_alerts()
 
-        self.assertEqual(created_count, 1)
+        self.assertEqual(result['alerts_created'], 1)
         alert = MissedAttendanceAlert.objects.filter(group=self.group, lesson_date=timezone.localdate()).first()
         self.assertIsNotNone(alert)
-        self.assertEqual(alert.status, MissedAttendanceAlert.Status.PENDING)
+        self.assertEqual(alert.status, MissedAttendanceAlert.Status.NOT_CAME)
+        self.assertTrue(alert.penalty_applied)
 
     def test_check_and_create_missed_alerts_does_not_create_if_session_exists(self):
         AttendanceSession.objects.create(group=self.group, teacher=self.teacher, date=timezone.localdate())
 
-        created_count = check_and_create_missed_alerts()
+        result = check_and_create_missed_alerts()
 
-        self.assertEqual(created_count, 0)
+        self.assertEqual(result['alerts_created'], 0)
         self.assertFalse(MissedAttendanceAlert.objects.filter(group=self.group, lesson_date=timezone.localdate()).exists())
 
     def test_resolve_missed_alert_as_came_creates_attendance_penalty(self):
@@ -262,3 +267,29 @@ class MissedAttendanceWorkflowTestCase(TestCase):
         self.assertEqual(response.context['week_offset'], 1)
         expected_start = timezone.localdate() - timezone.timedelta(days=timezone.localdate().weekday()) + timezone.timedelta(days=7)
         self.assertEqual(response.context['week_days'][0]['date'], expected_start)
+
+    def test_current_lesson_action_shows_clear_message_when_no_lesson_is_active(self):
+        self.client.force_login(self.teacher)
+
+        response = self.client.get(reverse('users1:teacher_current_lesson_action', args=['attendance']))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Hozirgi vaqtda dars mavjud emas")
+
+    def test_current_lesson_action_opens_attendance_and_grades_for_active_lesson(self):
+        active_group = Group.objects.create(
+            name='Current Lesson Group',
+            teacher=self.teacher,
+            lesson_days=_today_name(),
+            lesson_time=_time_minus(10),
+            end_time=_time_minus(-30),
+            is_active=True,
+            start_date=timezone.localdate() - datetime.timedelta(days=7),
+        )
+        self.client.force_login(self.teacher)
+
+        attendance_response = self.client.get(reverse('users1:teacher_current_lesson_action', args=['attendance']))
+        grades_response = self.client.get(reverse('users1:teacher_current_lesson_action', args=['grades']))
+
+        self.assertRedirects(attendance_response, reverse('attendance:attendance_mark', args=[active_group.pk]))
+        self.assertIn(f'group={active_group.pk}', grades_response.url)

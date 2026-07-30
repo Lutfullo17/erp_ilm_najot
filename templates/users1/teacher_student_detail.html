@@ -52,13 +52,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Telegram xabar yuborish tugmasi -->
-        <div style="margin-top: 2rem;">
-            <button onclick="openMessageModal()" class="btn btn-primary" style="width: 100%; justify-content: center;">
-                <i class="fab fa-telegram"></i> Telegram orqali xabar yuborish
-            </button>
-        </div>
     </div>
 
     <!-- History/Stats -->
@@ -152,51 +145,12 @@
                         <span class="badge badge-warning" style="font-size: 0.65rem;">Kutilmoqda</span>
                         {% endif %}
                     </div>
-                    <div>{{ appeal.message|truncatechars:100 }}</div>
+                    <div>{{ appeal.message|escape|truncatechars:100 }}</div>
                 </div>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
-    </div>
-</div>
-
-<!-- Telegram xabar modali -->
-<div id="messageModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 1rem;">
-    <div class="glass-panel" style="max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h3 style="font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fab fa-telegram" style="color: #0088cc;"></i> Telegram xabar
-            </h3>
-            <button onclick="closeMessageModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <div style="padding: 0.75rem; border-radius: 10px; background: rgba(255,255,255,0.03); margin-bottom: 1rem;">
-            <div style="font-size: 0.8rem; color: var(--text-muted);">Qabul qiluvchi: Ota-ona</div>
-            <div style="font-weight: 600;">{{ student.parent_phone|default:"Ota-ona telefoni kiritilmagan" }}</div>
-        </div>
-
-        <form id="messageForm" onsubmit="sendMessage(event)">
-            {% csrf_token %}
-            <div style="margin-bottom: 1rem;">
-                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Xabar matni</label>
-                <textarea id="messageText" required placeholder="Xabaringizni yozing..."
-                    style="width: 100%; min-height: 120px; padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem; resize: vertical;"></textarea>
-            </div>
-
-            <div style="display: flex; gap: 0.75rem;">
-                <button type="button" onclick="closeMessageModal()" class="btn btn-outline" style="flex: 1; justify-content: center;">
-                    Bekor qilish
-                </button>
-                <button type="submit" id="sendBtn" class="btn btn-primary" style="flex: 1; justify-content: center;">
-                    <i class="fas fa-paper-plane"></i> Yuborish
-                </button>
-            </div>
-        </form>
-
-        <div id="messageResult" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 10px; text-align: center;"></div>
     </div>
 </div>
 
@@ -234,63 +188,5 @@
     }
 </style>
 
-<script>
-function openMessageModal() {
-    document.getElementById('messageModal').style.display = 'flex';
-}
-
-function closeMessageModal() {
-    document.getElementById('messageModal').style.display = 'none';
-    document.getElementById('messageText').value = '';
-    document.getElementById('messageResult').style.display = 'none';
-}
-
-function sendMessage(e) {
-    e.preventDefault();
-    const text = document.getElementById('messageText').value.trim();
-    if (!text) return;
-
-    const btn = document.getElementById('sendBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuborilmoqda...';
-
-    fetch('{% url "users1:send_teacher_message" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}',
-        },
-        body: JSON.stringify({
-            student_id: {{ student.pk }},
-            message: text,
-        }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        const result = document.getElementById('messageResult');
-        result.style.display = 'block';
-        if (data.ok) {
-            result.style.background = 'rgba(16, 185, 129, 0.15)';
-            result.style.color = 'var(--success)';
-            result.innerHTML = '<i class="fas fa-check-circle"></i> Xabar muvaffaqiyatli yuborildi!';
-            setTimeout(() => closeMessageModal(), 2000);
-        } else {
-            result.style.background = 'rgba(239, 68, 68, 0.15)';
-            result.style.color = 'var(--danger)';
-            result.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (data.detail || 'Xatolik yuz berdi');
-        }
-    })
-    .catch(() => {
-        const result = document.getElementById('messageResult');
-        result.style.display = 'block';
-        result.style.background = 'rgba(239, 68, 68, 0.15)';
-        result.style.color = 'var(--danger)';
-        result.innerHTML = '<i class="fas fa-exclamation-circle"></i> Tarmoq xatoligi';
-    })
-    .finally(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Yuborish';
-    });
-}
 </script>
 {% endblock %}

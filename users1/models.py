@@ -207,6 +207,10 @@ class ScheduleChangeRequest(models.Model):
         REJECTED = 'REJECTED', 'Rad etildi'
         CANCELLED = 'CANCELLED', 'Bekor qilindi'
 
+    class ChangeType(models.TextChoices):
+        ADMIN_DIRECT = 'ADMIN_DIRECT', "Admin to'g'ridan-to'g'ri"
+        TEACHER_REQUEST = 'TEACHER_REQUEST', "O'qituvchi arizasi"
+
     teacher = models.ForeignKey(
         'users1.User',
         on_delete=models.CASCADE,
@@ -244,6 +248,13 @@ class ScheduleChangeRequest(models.Model):
         verbose_name="Kim ko'rib chiqdi"
     )
     review_comment = models.TextField(blank=True, default='', verbose_name="Ko'rib chiqish izohi")
+    change_date = models.DateField(null=True, blank=True, verbose_name="Qaysi sana uchun o'zgarish")
+    change_type = models.CharField(
+        max_length=20,
+        choices=ChangeType.choices,
+        default=ChangeType.TEACHER_REQUEST,
+        verbose_name="O'zgartirish turi"
+    )
 
     class Meta:
         ordering = ['-submitted_at']
