@@ -215,12 +215,16 @@ def check_parent_phone(request):
     if not phone:
         return JsonResponse({'siblings': []})
 
-    # Telefon raqamining oxirgi 9 raqami bo'yicha qidiramiz
+    # Telefon raqamini normalizatsiya qilish
     digits = ''.join(ch for ch in phone if ch.isdigit())
-    if len(digits) < 9:
+    
+    # Agar raqam +998 bilan boshlansa, 998ni olib tashlaymiz
+    if len(digits) == 12 and digits.startswith('998'):
+        search_digits = digits[3:]  # 998ni olib tashlash
+    elif len(digits) == 9:
+        search_digits = digits
+    else:
         return JsonResponse({'siblings': []})
-
-    search_digits = digits[-9:]
 
     # Avval Parent modelidan qidiramiz
     parent = Parent.objects.filter(phone__contains=search_digits).first()

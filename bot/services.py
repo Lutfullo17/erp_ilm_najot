@@ -7,6 +7,7 @@ from decimal import Decimal
 from urllib import request as urlrequest
 
 from django.conf import settings
+from django.db import models
 
 from attendance.models import AttendanceRecord, AttendanceSession
 from grades.models import GradeRecord
@@ -132,6 +133,12 @@ def main_menu_keyboard(telegram_user=None):
     ]
     if telegram_user and telegram_user.student:
         keyboard.append([MENU_APPEAL, MENU_CONTACT])
+    
+    # Agar ota-onada 2+ farzand bo'lsa, farzandni o'zgartirish tugmasini qo'shish
+    if telegram_user and telegram_user.phone:
+        students_count = find_students_by_phone(telegram_user.phone).count()
+        if students_count > 1:
+            keyboard.append(['🔄 Boshqa farzandni tanlash'])
 
     return {
         'keyboard': keyboard,
@@ -162,10 +169,16 @@ def find_students_by_phone(phone):
     if len(digits) < 9:
         return Student.objects.none()
     search_digits = digits[-9:]
-    return Student.objects.filter(
-        parent_phone__contains=search_digits,
+    
+    # Ikkita joydan qidirish: parent_phone va parent.phone
+    students = Student.objects.filter(
         is_active=True,
+    ).filter(
+        models.Q(parent_phone__contains=search_digits) | 
+        models.Q(parent__phone__contains=search_digits)
     ).order_by('first_name', 'last_name')
+    
+    return students
 
 
 def handle_start(chat_id, telegram_user=None):
@@ -187,20 +200,24 @@ def handle_child_selection(chat_id, text, telegram_user):
     """Ota-ona farzandlaridan birini tanlaydi."""
     students = find_students_by_phone(telegram_user.phone)
 
-    # Raqam orqali tanlash
+    # Raqam orqali tanlash (masalan: "1", "1. ali")
     try:
-        index = int(text) - 1
-        if 0 <= index < students.count():
-            student = students[index]
-            telegram_user.student = student
-            telegram_user.is_verified = True
-            telegram_user.state = ''
-            telegram_user.save(update_fields=['student', 'is_verified', 'state', 'updated_at'])
-            send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
-            return
-        else:
-            send_telegram_message(chat_id, "Noto'g'ri raqam. Qaytadan tanlang.", _child_selection_keyboard(students))
-            return
+        # Matndan birinchi raqamni ajratib olish
+        parts = text.split()
+        if parts:
+            first_part = parts[0].rstrip('.')  # "1." -> "1", "1" -> "1"
+            index = int(first_part) - 1
+            if 0 <= index < students.count():
+                student = students[index]
+                telegram_user.student = student
+                telegram_user.is_verified = True
+                telegram_user.state = ''
+                telegram_user.save(update_fields=['student', 'is_verified', 'state', 'updated_at'])
+                send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
+                return
+            else:
+                send_telegram_message(chat_id, "Noto'g'ri raqam. Qaytadan tanlang.", _child_selection_keyboard(students))
+                return
     except (ValueError, TypeError):
         pass
 
@@ -221,37 +238,16 @@ def handle_child_selection(chat_id, text, telegram_user):
 
 
 def _child_selection_keyboard(students):
-    """Farzandlar ro'yxati uchun inline keyboard yaratadi."""
+    """Farzandlar ro'yxati uchun reply keyboard yaratadi (callback o'rniga oddiy raqamlar)."""
     buttons = []
     for i, student in enumerate(students, 1):
-        buttons.append([{'text': f'{i}. {student}', 'callback_data': f'select_child:{student.pk}'}])
+        buttons.append([str(i)])  # Faqat raqam: "1", "2", "3"
 
     return {
-        'inline_keyboard': buttons,
+        'keyboard': buttons,
+        'resize_keyboard': True,
+        'one_time_keyboard': True,
     }
-
-
-def handle_child_selection_callback(chat_id, data, telegram_user):
-    """Inline tugma orqali farzand tanlash."""
-    try:
-        student_pk = int(data.split(':')[1])
-    except (ValueError, IndexError):
-        return
-
-    student = Student.objects.filter(pk=student_pk, is_active=True).first()
-    if not student:
-        return
-
-    # Tekshirish: bu o'quvchi haqiqatan ham shu ota-onaning farzandimi?
-    students = find_students_by_phone(telegram_user.phone)
-    if not students.filter(pk=student.pk).exists():
-        return
-
-    telegram_user.student = student
-    telegram_user.is_verified = True
-    telegram_user.state = ''
-    telegram_user.save(update_fields=['student', 'is_verified', 'state', 'updated_at'])
-    send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
 
 
 def handle_contact(chat_id, message, telegram_user):
@@ -637,39 +633,30 @@ def handle_callback_query(callback_query):
     sender = callback_query.get('from', {})
     sender_id = sender.get('id')
 
-    logger.info(f"Callback query received: query_id={query_id}, data={data}, from_chat={from_chat}, sender_id={sender_id}")
-
     if not from_chat:
-        logger.warning("Callback query: from_chat is missing")
+        answer_callback_query(query_id, "Xatolik: chat_id topilmadi.")
         return
 
     telegram_user = TelegramUser.objects.filter(telegram_id=sender_id).first()
 
     if not telegram_user:
-        logger.warning(f"Callback query: telegram_user not found for sender_id={sender_id}")
         answer_callback_query(query_id, "Foydalanuvchi topilmadi.")
-        return
-
-    # Farzand tanlash (inline tugma)
-    if data.startswith('select_child:'):
-        handle_child_selection_callback(from_chat, data, telegram_user)
-        answer_callback_query(query_id, "Tanlandi.")
         return
 
     # O'quvchi "Adminga" yoki "O'qituvchiga" tugmasini bosganda
     if data.startswith('appeal_to:'):
-        logger.info(f"Appeal_to callback: data={data}, is_verified={telegram_user.is_verified}")
         if not telegram_user.is_verified:
             answer_callback_query(query_id, "Avval tizimga kiring.")
             return
 
         recipient_type = data.split(':', 1)[1]
-        logger.info(f"Setting state to: {STATE_WAITING_APPEAL}:{recipient_type}")
         telegram_user.state = f'{STATE_WAITING_APPEAL}:{recipient_type}'
         telegram_user.save(update_fields=['state', 'updated_at'])
         answer_callback_query(query_id, "Murojaatingizni yozing.")
         send_telegram_message(from_chat, "Murojaatingizni yozib yuboring:")
         return
+    
+    answer_callback_query(query_id, "Noma'lum buyruq.")
 
 
 def handle_update(update):
@@ -697,16 +684,16 @@ def handle_update(update):
         handle_contact(chat_id, message, telegram_user)
         return
 
+    # Farzand tanlash holati - telefon raqam tekshiruvidan oldin
+    if telegram_user.state == STATE_CHOOSING_CHILD:
+        handle_child_selection(chat_id, text, telegram_user)
+        return
+
     if telegram_user.state == STATE_WAITING_PHONE and text and any(c.isdigit() for c in text):
         handle_phone_text(chat_id, text, telegram_user)
         return
 
     if not require_verified(chat_id, telegram_user):
-        return
-
-    # Farzand tanlash holati
-    if telegram_user.state == STATE_CHOOSING_CHILD:
-        handle_child_selection(chat_id, text, telegram_user)
         return
 
     # NOTE: STATE_REPLY_TO_APPEAL holati hozircha ishlatilmayapti

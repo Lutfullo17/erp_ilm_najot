@@ -34,7 +34,8 @@ class Command(BaseCommand):
         while True:
             try:
                 logger.info(f"Polling with offset={offset}")
-                response = requests.get(url, params={'offset': offset, 'timeout': 10})
+                # Connection timeout: 5 seconds, Read timeout: 30 seconds (long polling)
+                response = requests.get(url, params={'offset': offset, 'timeout': 30}, timeout=(5, 30))
                 if response.status_code == 200:
                     data = response.json()
                     results = data.get('result', [])
@@ -49,13 +50,19 @@ class Command(BaseCommand):
                             logger.error(f'Update xatoligi: {e}', exc_info=True)
                 elif response.status_code == 409:
                     self.stdout.write(self.style.WARNING("Webhook faol. Polling uchun uni o'chirish kerak (deleteWebhook)."))
-                    requests.get(f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/deleteWebhook")
+                    requests.get(f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/deleteWebhook", timeout=(5, 30))
                     self.stdout.write(self.style.SUCCESS("Webhook o'chirildi. Polling davom etadi..."))
                 else:
                     self.stdout.write(self.style.ERROR(f'Xatolik: {response.status_code}'))
                     logger.error(f'Polling xatolik: {response.status_code}')
+            except requests.exceptions.Timeout:
+                self.stdout.write(self.style.WARNING('Telegram API ulanish vaqti tugadi. Qayta urinish...'))
+                logger.warning('Telegram API timeout, retrying...')
+            except requests.exceptions.ConnectionError as e:
+                self.stdout.write(self.style.WARNING(f'Ulanish xatoligi: {e}. Qayta urinish...'))
+                logger.warning(f'Connection error: {e}, retrying...')
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'Ulanish xatoligi: {e}'))
                 logger.error(f'Ulanish xatoligi: {e}', exc_info=True)
 
-            time.sleep(1)
+            time.sleep(2)

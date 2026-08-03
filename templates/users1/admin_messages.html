@@ -35,6 +35,15 @@
                         {{ appeal.telegram_user.first_name|default:appeal.telegram_user.username }} &middot; {{ appeal.created_at|date:"d.m.Y H:i" }}
                         {% if appeal.sender_type %} &middot; {{ appeal.get_sender_type_display }}{% endif %}
                     </div>
+                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; font-weight: 500;">
+                        {% for group in appeal.student.groups.all %}
+                        <span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 0.3rem 0.7rem; border-radius: 8px; font-size: 0.85rem; margin-right: 0.4rem; display: inline-block; margin-bottom: 0.3rem;">
+                            <i class="fas fa-users"></i> {{ group.name }}{% if group.teacher %} <span style="color: #a5b4fc; margin-left: 0.3rem;">• {{ group.teacher.get_full_name|default:group.teacher.username }}</span>{% endif %}
+                        </span>
+                        {% empty %}
+                        <span style="color: var(--text-muted); font-style: italic;">Guruh yo'q</span>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
             <div style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text); line-height: 1.5;">{{ appeal.message|escape }}</div>

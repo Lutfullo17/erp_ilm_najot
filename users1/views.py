@@ -2000,10 +2000,14 @@ class AdminMessagesView(LoginRequiredMixin, AdminAccessRequiredMixin, TemplateVi
         context = super().get_context_data(**kwargs)
         context['all_appeals'] = TelegramAppeal.objects.select_related(
             'telegram_user', 'student'
+        ).prefetch_related(
+            'student__groups__teacher'
         ).order_by('-created_at')[:100]
         context['pending_appeals'] = TelegramAppeal.objects.filter(
             is_resolved=False
-        ).select_related('telegram_user', 'student').order_by('-created_at')
+        ).select_related('telegram_user', 'student').prefetch_related(
+            'student__groups__teacher'
+        ).order_by('-created_at')
         context['pending_count'] = context['pending_appeals'].count()
         return context
 
