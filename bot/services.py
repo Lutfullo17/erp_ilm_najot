@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import date
 import decimal
 from decimal import Decimal
-from urllib import request as urlrequest
+import requests
 
 from django.conf import settings
 from django.db import models
@@ -67,22 +67,25 @@ def send_telegram_message(chat_id, text, reply_markup=None):
         payload['reply_markup'] = reply_markup
 
     logger.info(f"Sending message to chat_id={chat_id}, reply_markup={reply_markup is not None}")
-    data = json.dumps(payload).encode('utf-8')
-    req = urlrequest.Request(
-        f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage',
-        data=data,
-        headers={'Content-Type': 'application/json'},
-        method='POST',
-    )
+    
+    url = f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage'
+    
     try:
-        with urlrequest.urlopen(req, timeout=10) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            logger.info(f"Message sent successfully: {result.get('result', {}).get('message_id')}")
-            return result
-    except urlrequest.HTTPError as e:
-        logger.error(f"Telegram xabar yuborishda HTTP xatolik: {e.code} — chat_id={chat_id}")
+        # Xatolar barqaror bo'lishi va bloklanmasligi uchun requests (timeout bilan) ishlatamiz
+        response = requests.post(url, json=payload, timeout=15)
+        
+        # Agar http xatolik bo'lsa darhol exception ga o'tadi
+        response.raise_for_status() 
+        result = response.json()
+        logger.info(f"Message sent successfully: {result.get('result', {}).get('message_id')}")
+        return result
+        
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code
+        logger.error(f"Telegram API xatosi [HTTP {status_code}]: {e.response.text} — chat_id={chat_id}")
+        
         # 403 Forbidden - foydalanuvchi botni blocklagan
-        if e.code == 403:
+        if status_code == 403:
             try:
                 tg_user = TelegramUser.objects.filter(telegram_id=chat_id).first()
                 if tg_user:
@@ -91,9 +94,15 @@ def send_telegram_message(chat_id, text, reply_markup=None):
                     logger.info(f"TelegramUser {chat_id} blocklangan deb belgilandi")
             except Exception as db_error:
                 logger.error(f"TelegramUser blocklashni saqlashda xatolik: {db_error}")
+                
+        return None
+    except requests.exceptions.RequestException as e:
+        # Tarmoq bilan bog'liq xatolar (timeout, connection timeout)
+        logger.error(f"Telegramga kutilmagan ulanish xatosi (tarmoq muammosi): {e} — chat_id={chat_id}")
         return None
     except Exception as e:
-        logger.error(f"Telegram xabar yuborishda xatolik: {e} — chat_id={chat_id}")
+        # Dasturiy boshqa barcha xatolar
+        logger.error(f"Telegram xabar yuborishda noma'lum xatolik: {e} — chat_id={chat_id}", exc_info=True)
         return None
 
 
@@ -103,16 +112,12 @@ def answer_callback_query(callback_query_id, text=None):
     payload = {'callback_query_id': callback_query_id}
     if text:
         payload['text'] = text
-    data = json.dumps(payload).encode('utf-8')
-    req = urlrequest.Request(
-        f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/answerCallbackQuery',
-        data=data,
-        headers={'Content-Type': 'application/json'},
-        method='POST',
-    )
+        
+    url = f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/answerCallbackQuery'
     try:
-        with urlrequest.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode('utf-8'))
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
         logger.error(f"answerCallbackQuery xatoligi: {e}")
 

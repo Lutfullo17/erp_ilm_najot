@@ -44,6 +44,8 @@ class Command(BaseCommand):
                         offset = update['update_id'] + 1
                         logger.info(f"Processing update_id={update['update_id']}, type={list(update.keys())}")
                         try:
+                            # 10 soniyalik timeout Webhook o'rniga polling uchun uzaytirilgan,
+                            # requests to'g'ri ishlashi uchun handle_update ga kiritildi.
                             handle_update(update)
                         except Exception as e:
                             self.stdout.write(self.style.ERROR(f'Update xatoligi: {e}'))
@@ -52,6 +54,9 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING("Webhook faol. Polling uchun uni o'chirish kerak (deleteWebhook)."))
                     requests.get(f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/deleteWebhook", timeout=(5, 30))
                     self.stdout.write(self.style.SUCCESS("Webhook o'chirildi. Polling davom etadi..."))
+                elif response.status_code == 401:
+                    self.stdout.write(self.style.ERROR("TELEGRAM_BOT_TOKEN xato (401 Unauthorized)! Polling to'xtatilmoqda. Iltimos .env dagi tokenni tekshiring va serverni qayta ishga tushiring."))
+                    break
                 else:
                     self.stdout.write(self.style.ERROR(f'Xatolik: {response.status_code}'))
                     logger.error(f'Polling xatolik: {response.status_code}')
