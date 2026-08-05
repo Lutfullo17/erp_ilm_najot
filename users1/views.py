@@ -1875,6 +1875,7 @@ def broadcast_to_group(request):
     if not group:
         return JsonResponse({'detail': 'Guruh topilmadi'}, status=404)
 
+    # 1. Faol o'quvchilar
     students = Student.objects.filter(
         groupstudent__group=group,
         groupstudent__is_active=True,
@@ -1890,51 +1891,38 @@ def broadcast_to_group(request):
         sender_label = "O'qituvchi"
     formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
 
-    # Find all parents connected to the bot for these students
-    parent_phones = students.values_list('parent_phone', flat=True).distinct()
-    normalized_phones = []
-    for p in parent_phones:
-        if p:
-            digits = ''.join(c for c in str(p) if c.isdigit())
-            if len(digits) >= 9:
-                normalized_phones.append(digits[-9:])
+    # Faqat to'liq registratsiyadan o'tgan, o'quvchisi bor va bloklanmagan foydalanuvchilar
+    telegram_users = TelegramUser.objects.filter(
+        student__in=students,
+        is_verified=True,
+        is_blocked=False,
+        phone__isnull=False
+    ).exclude(phone='').distinct()
+
+    from bot.broadcast import execute_broadcast
     
-    q_phone = Q()
-    for np in normalized_phones:
-        q_phone |= Q(phone__endswith=np)
+    # Broadcast orqali yuborish va xatolar hisoboti
+    stats = execute_broadcast(telegram_users, formatted_msg)
 
-    telegram_users = TelegramUser.objects.filter(is_verified=True).filter(
-        Q(student__in=students) | q_phone
-    ).distinct()
+    response_message = (
+        f"Xabar yuborish yakunlandi.\n\n"
+        f"Jami: {stats.total}\n"
+        f"✅ Yuborildi: {stats.success}\n"
+        f"🚫 Block qilganlar: {stats.blocked}\n"
+        f"❌ Xatolik: {stats.total_failed}"
+    )
 
-    # Exclude pure staff (not parents) - those without a student
-    telegram_users = telegram_users.exclude(student__isnull=True)
-
-    sent_count = 0
-    failed_count = 0
-    total_users = telegram_users.count()
-    
-    from bot.services import send_telegram_message
-    for tu in telegram_users:
-        try:
-            result = send_telegram_message(tu.telegram_id, formatted_msg)
-            if result:
-                sent_count += 1
-            else:
-                failed_count += 1
-        except Exception as e:
-            failed_count += 1
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Guruh xabar yuborishda xatolik: chat_id={tu.telegram_id}, error={e}")
-
+    # Agar tarmoq yoki dasturiy xatolar bo'lsa JSON da jo'natish (log uchun qulay)
     return JsonResponse({
         'ok': True,
-        'sent_count': sent_count,
-        'failed_count': failed_count,
-        'total_count': total_users,
+        'sent_count': stats.success,
+        'blocked_count': stats.blocked,
+        'failed_network': stats.failed_network,
+        'failed_api': stats.failed_api,
+        'failed_other': stats.failed_other,
+        'total_count': stats.total,
         'group_name': group.name,
-        'message': f"{sent_count} ta ota-onaga muvaffaqiyatli yuborildi, {failed_count} ta xatolik.",
+        'message': response_message,
     })
 
 
@@ -1961,32 +1949,35 @@ def broadcast_all(request):
         sender_label = "O'qituvchi"
     formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
 
-    telegram_users = TelegramUser.objects.filter(is_verified=True).exclude(
-        student__isnull=True
-    )
+    # Faqat to'liq registratsiyadan o'tgan active studentli mijozlar
+    telegram_users = TelegramUser.objects.filter(
+        is_verified=True,
+        is_blocked=False,
+        student__isnull=False,
+        student__is_active=True,
+        phone__isnull=False
+    ).exclude(phone='')
 
-    sent_count = 0
-    failed_count = 0
-    from bot.services import send_telegram_message
-    for tu in telegram_users:
-        try:
-            result = send_telegram_message(tu.telegram_id, formatted_msg)
-            if result:
-                sent_count += 1
-            else:
-                failed_count += 1
-        except Exception as e:
-            failed_count += 1
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Hammaga xabar yuborishda xatolik: chat_id={tu.telegram_id}, error={e}")
+    from bot.broadcast import execute_broadcast
+    stats = execute_broadcast(telegram_users, formatted_msg)
+
+    response_message = (
+        f"Ummumiy xabar yuborish yakunlandi.\n\n"
+        f"Jami recipient: {stats.total}\n"
+        f"✅ Yuborildi: {stats.success}\n"
+        f"🚫 Block qilganlar: {stats.blocked}\n"
+        f"❌ Xatolik (Tarmoq/API/Boshqa): {stats.failed_network} / {stats.failed_api} / {stats.failed_other}"
+    )
 
     return JsonResponse({
         'ok': True,
-        'sent_count': sent_count,
-        'failed_count': failed_count,
-        'total_count': sent_count + failed_count,
-        'message': f"{sent_count} ta ota-onaga muvaffaqiyatli yuborildi, {failed_count} ta xatolik.",
+        'sent_count': stats.success,
+        'blocked_count': stats.blocked,
+        'failed_network': stats.failed_network,
+        'failed_api': stats.failed_api,
+        'failed_other': stats.failed_other,
+        'total_count': stats.total,
+        'message': response_message,
     })
 
 

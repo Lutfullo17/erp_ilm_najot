@@ -302,7 +302,7 @@ function sendBroadcast() {
         btn.disabled = false;
         btn.innerHTML = originalText;
         if (ok) {
-            alert(data.group_name + ' guruhiga ' + data.sent_count + ' ta foydalanuvchiga xabar yuborildi!');
+            alert(data.message || data.group_name + ' guruhiga xabar yuborildi!');
             document.getElementById('broadcastMessage').value = '';
             document.getElementById('groupSelect').value = '';
         } else {

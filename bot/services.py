@@ -88,7 +88,7 @@ def send_telegram_message(chat_id, text, reply_markup=None):
         if status_code == 403:
             try:
                 tg_user = TelegramUser.objects.filter(telegram_id=chat_id).first()
-                if tg_user:
+                if tg_user and tg_user.is_verified and tg_user.student_id:
                     tg_user.is_blocked = True
                     tg_user.save(update_fields=['is_blocked', 'updated_at'])
                     logger.info(f"TelegramUser {chat_id} blocklangan deb belgilandi")
@@ -197,8 +197,49 @@ def find_students_by_phone(phone):
 
 def handle_start(chat_id, telegram_user=None):
     if telegram_user:
+        if telegram_user.is_verified and telegram_user.phone:
+            if not telegram_user.student:
+                students = find_students_by_phone(telegram_user.phone)
+                if not students.exists():
+                    telegram_user.state = STATE_WAITING_PHONE
+                    telegram_user.is_verified = False
+                    telegram_user.save(update_fields=['state', 'is_verified', 'updated_at'])
+                elif students.count() == 1:
+                    telegram_user.student = students.first()
+                    telegram_user.state = ''
+                    telegram_user.save(update_fields=['student', 'state', 'updated_at'])
+                    send_telegram_message(
+                        chat_id,
+                        "Xush kelibsiz, yana qaytganingizdan xursandmiz.",
+                        main_menu_keyboard(telegram_user),
+                    )
+                    return
+                else:
+                    telegram_user.state = STATE_CHOOSING_CHILD
+                    telegram_user.save(update_fields=['state', 'updated_at'])
+                    child_list = '\n'.join([f"{i}. {s}" for i, s in enumerate(students, 1)])
+                    text_msg = (
+                        f"Xush kelibsiz, yana qaytganingizdan xursandmiz.\n\n"
+                        f"<b>👤 Sizning farzandlaringiz:</b>\n"
+                        f"──────────────────\n"
+                        f"{child_list}\n\n"
+                        f"Farzandni tanlang:"
+                    )
+                    send_telegram_message(chat_id, text_msg, _child_selection_keyboard(students))
+                    return
+            else:
+                telegram_user.state = ''
+                telegram_user.save(update_fields=['state', 'updated_at'])
+                send_telegram_message(
+                    chat_id,
+                    "Xush kelibsiz, yana qaytganingizdan xursandmiz.",
+                    main_menu_keyboard(telegram_user),
+                )
+                return
+
         telegram_user.state = STATE_WAITING_PHONE
         telegram_user.save(update_fields=['state', 'updated_at'])
+
     send_telegram_message(
         chat_id,
         'Tizimga kirish uchun telefon raqamingizni yuboring.',

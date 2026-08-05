@@ -403,7 +403,7 @@ function sendBroadcast() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
         if (ok) {
-            alert(data.group_name + ' guruhiga ' + data.sent_count + ' ta foydalanuvchiga xabar yuborildi!');
+            alert(data.message || data.group_name + ' guruhiga xabar yuborildi!');
             document.getElementById('broadcastMessage').value = '';
             document.getElementById('groupSelect').value = '';
         } else {
@@ -443,7 +443,7 @@ function sendBroadcastAll() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
         if (ok) {
-            alert(data.sent_count + ' ta foydalanuvchiga xabar yuborildi!');
+            alert(data.message || 'Xabar yuborildi!');
             document.getElementById('broadcastAllMessage').value = '';
         } else {
             alert(data.detail || 'Xatolik yuz berdi');
