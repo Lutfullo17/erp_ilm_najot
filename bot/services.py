@@ -130,6 +130,15 @@ def contact_keyboard():
     }
 
 
+def appeal_cancel_keyboard():
+    """Murojaat yozish holatida bekor qilish tugmasi."""
+    return {
+        'keyboard': [['❌ Bekor qilish']],
+        'resize_keyboard': True,
+        'one_time_keyboard': True,
+    }
+
+
 def main_menu_keyboard(telegram_user=None):
     keyboard = [
         [MENU_ATTENDANCE, MENU_GRADES],
@@ -543,6 +552,12 @@ def topic_text(student):
 def handle_menu(chat_id, text, telegram_user):
     student = telegram_user.student
 
+    # Agar foydalanuvchi murojaat yozish holatida bo'lsa va menyu tugmasini bossa,
+    # murojaat holatini bekor qilish
+    if telegram_user.state and telegram_user.state.startswith(STATE_WAITING_APPEAL):
+        telegram_user.state = ''
+        telegram_user.save(update_fields=['state', 'updated_at'])
+
     if text == MENU_ATTENDANCE:
         send_telegram_message(chat_id, attendance_text(student), main_menu_keyboard(telegram_user))
     elif text == MENU_GRADES:
@@ -573,7 +588,7 @@ def handle_menu(chat_id, text, telegram_user):
             return
         telegram_user.state = f'{STATE_WAITING_APPEAL}:ADMIN'
         telegram_user.save(update_fields=['state', 'updated_at'])
-        send_telegram_message(chat_id, "Murojaat matnini yozib yuboring:")
+        send_telegram_message(chat_id, "Murojaat matnini yozib yuboring:", appeal_cancel_keyboard())
     elif text == '🔄 Boshqa farzandni tanlash':
         # Farzandni o'zgartirish
         students = find_students_by_phone(telegram_user.phone)
@@ -702,6 +717,17 @@ def handle_update(update):
         return
 
     # NOTE: STATE_REPLY_TO_APPEAL holati hozircha ishlatilmayapti
+
+    # Murojaat bekor qilish tugmasi
+    if text == '❌ Bekor qilish':
+        if telegram_user.state and telegram_user.state.startswith(STATE_WAITING_APPEAL):
+            telegram_user.state = ''
+            telegram_user.save(update_fields=['state', 'updated_at'])
+            send_telegram_message(chat_id, "Murojaat bekor qilindi.", main_menu_keyboard(telegram_user))
+            return
+        else:
+            send_telegram_message(chat_id, "Bekor qilish uchun murojaat holatida bo'lish kerak.", main_menu_keyboard(telegram_user))
+            return
 
     if telegram_user.state and telegram_user.state.startswith(STATE_WAITING_APPEAL):
         handle_appeal(chat_id, text, telegram_user)
