@@ -640,6 +640,15 @@
 
             {% if user.is_admin_access %}
             <li class="nav-item">
+                <a href="{% url 'users1:notifications' %}" class="nav-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
+                    <i class="fas fa-bell"></i>
+                    <span>Bildirishnomalar</span>
+                    {% if notification_count %}
+                    <span style="margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{ notification_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{% url 'students:student_list' %}" class="nav-link {% if 'students' in request.path %}active{% endif %}">
                     <i class="fas fa-user-graduate"></i>
                     <span>O'quvchilar</span>

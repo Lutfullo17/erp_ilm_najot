@@ -1,10 +1,13 @@
 from datetime import date
+from decimal import Decimal
+
 from django.views.generic import TemplateView
-from django.db.models import Sum, Count, Q
+from django.db.models import Case, Count, DecimalField, F, Q, Sum, Value, When
 from django.db.models.functions import TruncMonth
 from django.contrib.auth.mixins import LoginRequiredMixin
 from users1.views import DirectorRequiredMixin
-from payments.models import PaymentTransaction, StudentMonthBalance, MonthBalanceStatus
+from payments.billing import add_months
+from payments.models import PaymentAllocation, PaymentMethod, PaymentTransaction, StudentMonthBalance
 from students.models import Student
 from groups_app.models import Group
 
@@ -19,7 +22,7 @@ class TodayAttendanceView(LoginRequiredMixin, AdminAccessRequiredMixin, Template
         context = super().get_context_data(**kwargs)
         today = timezone.localdate()
         sessions = AttendanceSession.objects.filter(date=today).select_related('group', 'teacher').prefetch_related('records')
-        
+
         attendance_stats = []
         for session in sessions:
             records = session.records.all()
@@ -33,96 +36,174 @@ class TodayAttendanceView(LoginRequiredMixin, AdminAccessRequiredMixin, Template
                 'late': sum(1 for r in records if r.status == AttendanceStatus.LATE),
             }
             attendance_stats.append(stats)
-            
+
         context['attendance_stats'] = attendance_stats
         context['today'] = today
         return context
 
+
+MONEY = DecimalField(max_digits=14, decimal_places=2)
+
+
+def _parse_month(value, default):
+    if value:
+        try:
+            return date.fromisoformat(value + '-01')
+        except ValueError:
+            pass
+    return default
+
+
+def _capped_paid():
+    """Oy uchun to'langan summa (shu oydagi ortiqcha to'lov/avans hisobga olinmaydi)."""
+    return Case(
+        When(paid_amount__gt=F('required_amount'), then=F('required_amount')),
+        default=F('paid_amount'),
+        output_field=MONEY,
+    )
+
+
+def _debt_expr():
+    return Case(
+        When(paid_amount__lt=F('required_amount'), then=F('required_amount') - F('paid_amount')),
+        default=Value(Decimal('0')),
+        output_field=MONEY,
+    )
+
+
+def _month_aggregates():
+    return dict(
+        expected=Sum('required_amount'),
+        collected=Sum(_capped_paid()),
+        debt=Sum(_debt_expr()),
+        total_users=Count('id'),
+        paid_users=Count('id', filter=Q(paid_amount__gte=F('required_amount'))),
+        partial_users=Count('id', filter=Q(paid_amount__gt=0, paid_amount__lt=F('required_amount'))),
+        unpaid_users=Count('id', filter=Q(paid_amount=0, required_amount__gt=0)),
+    )
+
+
+def _percent(part, whole):
+    return round(float(part) / float(whole) * 100) if whole else 100
+
+
 class FinanceReportView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
+    """Moliyaviy hisobot.
+
+    Ikki xil ko'rsatkich atayin alohida ko'rsatiladi:
+    * Kassa — tanlangan oyda haqiqatda qabul qilingan pul (to'lov sanasi bo'yicha);
+    * Hisoblangan — tanlangan oy uchun o'quvchilardan kutilgan summa, uning qanchasi yopilgani va qarz.
+    """
     template_name = 'reports/finance_report.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Month Filter
-        selected_month_str = self.request.GET.get('month')
-        if selected_month_str:
-            try:
-                selected_month = date.fromisoformat(selected_month_str + '-01')
-            except ValueError:
-                selected_month = date.today().replace(day=1)
-        else:
-            selected_month = date.today().replace(day=1)
-        
-        context['selected_month'] = selected_month
-        
-        # Monthly income for the last 12 months
-        monthly_income = PaymentTransaction.objects.annotate(
-            month=TruncMonth('payment_date')
-        ).values('month').annotate(
-            total=Sum('amount')
-        ).order_by('-month')[:12]
-        
-        context['monthly_income'] = monthly_income
-        
-        # Overall Totals (Lifetime)
-        context['total_income'] = PaymentTransaction.objects.aggregate(total=Sum('amount'))['total'] or 0
-        context['total_students_count'] = Student.objects.filter(is_active=True).count()
-        context['total_groups_count'] = Group.objects.filter(is_active=True).count()
-        
-        # Selected Month Statistics
-        month_balances = StudentMonthBalance.objects.filter(month=selected_month)
-        month_totals = month_balances.aggregate(
-            expected=Sum('required_amount'),
-            collected=Sum('paid_amount'),
-            paid_users=Count('id', filter=Q(status=MonthBalanceStatus.CLOSED)),
-            partial_users=Count('id', filter=Q(status=MonthBalanceStatus.PARTIAL)),
-            unpaid_users=Count('id', filter=Q(status=MonthBalanceStatus.OPEN)),
-            total_users=Count('id')
+        today = timezone.localdate()
+        this_month = today.replace(day=1)
+        selected_month = _parse_month(self.request.GET.get('month'), this_month)
+        next_month = add_months(selected_month, 1)
+        context.update(
+            selected_month=selected_month,
+            today=today,
+            is_future_month=selected_month > this_month,
         )
-        
-        context['month_stats'] = {
-            'expected': month_totals['expected'] or 0,
-            'collected': month_totals['collected'] or 0,
-            'debt': (month_totals['expected'] or 0) - (month_totals['collected'] or 0),
-            'paid_users': month_totals['paid_users'],
-            'partial_users': month_totals['partial_users'],
-            'unpaid_users': month_totals['unpaid_users'],
-            'total_users': month_totals['total_users'],
-        }
-        
-        # Group-wise Stats for Selected Month (Optimized)
-        from django.db.models import F
-        group_stats_qs = month_balances.values(
-            'group_id', 'group__name'
-        ).annotate(
-            total_students=Count('id'),
-            expected=Sum('required_amount'),
-            collected=Sum('paid_amount'),
-            paid=Count('id', filter=Q(status=MonthBalanceStatus.CLOSED)),
-            partial=Count('id', filter=Q(status=MonthBalanceStatus.PARTIAL)),
-            unpaid=Count('id', filter=Q(status=MonthBalanceStatus.OPEN)),
-            debt=Sum(F('required_amount') - F('paid_amount'))
-        ).order_by('group__name')
 
+        # ---------------- 1. Kassa: shu oyda qabul qilingan pul
+        month_payments = PaymentTransaction.objects.filter(
+            payment_date__gte=selected_month, payment_date__lt=next_month,
+        )
+        cash = month_payments.aggregate(
+            total=Sum('amount'),
+            count=Count('id'),
+            cash=Sum('amount', filter=Q(method=PaymentMethod.CASH)),
+            card=Sum('amount', filter=Q(method=PaymentMethod.CARD)),
+            transfer=Sum('amount', filter=Q(method=PaymentMethod.TRANSFER)),
+        )
+        split = PaymentAllocation.objects.filter(payment__in=month_payments).aggregate(
+            this=Sum('amount', filter=Q(balance__month=selected_month)),
+            past=Sum('amount', filter=Q(balance__month__lt=selected_month)),
+            future=Sum('amount', filter=Q(balance__month__gt=selected_month)),
+        )
+        context['cash'] = {
+            'total': cash['total'] or 0,
+            'count': cash['count'],
+            'cash': cash['cash'] or 0,
+            'card': cash['card'] or 0,
+            'transfer': cash['transfer'] or 0,
+            'for_this_month': split['this'] or 0,
+            'for_past_months': split['past'] or 0,
+            'for_future_months': split['future'] or 0,
+        }
+
+        # ---------------- 2. Hisoblangan: shu oy uchun (faqat to'lov muddati kelgan o'quvchilar)
+        month_balances = StudentMonthBalance.objects.filter(month=selected_month)
+        due_balances = month_balances.due(today)
+        month_stats = {k: (v or 0) for k, v in due_balances.aggregate(**_month_aggregates()).items()}
+        month_stats['percent'] = _percent(month_stats['collected'], month_stats['expected'])
+        # O'quvchilar soni: bir nechta guruhdagi o'quvchi bir marta sanaladi
+        per_student = list(due_balances.values('student').annotate(
+            debt=Sum(_debt_expr()), paid=Sum('paid_amount'), required=Sum('required_amount'),
+        ))
+        month_stats['total_students'] = len(per_student)
+        month_stats['paid_students'] = sum(1 for r in per_student if not r['debt'])
+        month_stats['unpaid_students'] = sum(1 for r in per_student if r['debt'] and not r['paid'])
+        month_stats['partial_students'] = (
+            month_stats['total_students'] - month_stats['paid_students'] - month_stats['unpaid_students']
+        )
+        context['month_stats'] = month_stats
+        context['not_due'] = month_balances.not_due(today).aggregate(count=Count('id'), paid=Sum('paid_amount'))
+
+        # ---------------- 3. Umumiy holat (bugungi kun bo'yicha, barcha oylar)
+        all_debts = StudentMonthBalance.objects.debts(today)
+        current_debts = all_debts.current_members()
+        former_debts = all_debts.former_members()
+        context['overall'] = {
+            'debt': current_debts.aggregate(s=Sum(_debt_expr()))['s'] or 0,
+            'debtors': current_debts.values('student').distinct().count(),
+            'former_debt': former_debts.aggregate(s=Sum(_debt_expr()))['s'] or 0,
+            'former_debtors': former_debts.values('student').distinct().count(),
+            'advance': StudentMonthBalance.objects.not_due(today).aggregate(s=Sum('paid_amount'))['s'] or 0,
+            'total_income': PaymentTransaction.objects.aggregate(s=Sum('amount'))['s'] or 0,
+            'active_students': Student.objects.filter(is_active=True).count(),
+            'active_groups': Group.objects.filter(is_active=True).count(),
+        }
+
+        # ---------------- 4. Guruhlar kesimida
+        group_rows = due_balances.values(
+            'group_id', 'group__name', 'group__teacher__first_name', 'group__teacher__last_name',
+        ).annotate(**_month_aggregates()).order_by('group__name')
         group_stats = []
-        for g in group_stats_qs:
-            expected = g['expected'] or 0
-            collected = g['collected'] or 0
-            percent = (float(collected) / float(expected) * 100) if expected > 0 else 0
-            
+        for g in group_rows:
+            teacher = f"{g['group__teacher__first_name'] or ''} {g['group__teacher__last_name'] or ''}".strip()
             group_stats.append({
-                'group': {'id': g['group_id'], 'name': g['group__name']},
-                'total_students': g['total_students'],
-                'paid': g['paid'],
-                'partial': g['partial'],
-                'unpaid': g['unpaid'],
-                'expected': expected,
-                'collected': collected,
-                'debt': g['debt'],
-                'percent': percent,
+                'group': {'id': g['group_id'], 'name': g['group__name'], 'teacher': teacher},
+                'total_students': g['total_users'],
+                'paid': g['paid_users'],
+                'partial': g['partial_users'],
+                'unpaid': g['unpaid_users'],
+                'expected': g['expected'] or 0,
+                'collected': g['collected'] or 0,
+                'debt': g['debt'] or 0,
+                'percent': _percent(g['collected'] or 0, g['expected'] or 0),
             })
-            
-        context['group_stats'] = sorted(group_stats, key=lambda x: x['percent'])
-        
+        context['group_stats'] = sorted(group_stats, key=lambda x: (x['percent'], x['group']['name']))
+
+        # ---------------- 5. Oxirgi 12 oy kassasi (tanlangan oy bilan tugaydi)
+        first = add_months(selected_month, -11)
+        rows = (
+            PaymentTransaction.objects.filter(payment_date__gte=first, payment_date__lt=next_month)
+            .annotate(m=TruncMonth('payment_date')).values('m').annotate(total=Sum('amount'))
+        )
+        by_month = {(r['m'].date() if hasattr(r['m'], 'date') else r['m']): r['total'] for r in rows}
+        months = [add_months(first, i) for i in range(12)]
+        peak = max([by_month.get(m) or 0 for m in months])
+        context['monthly_income'] = [
+            {
+                'month': m,
+                'total': by_month.get(m) or 0,
+                'width': round(float(by_month.get(m) or 0) / float(peak) * 100) if peak else 0,
+                'is_selected': m == selected_month,
+            }
+            for m in reversed(months)
+        ]
         return context

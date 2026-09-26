@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Bildirishnomalar{% endblock %}
+{% block header_title %}Bildirishnomalar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notif-section { margin-bottom: 1.75rem; }
+    .notif-section h3 { font-size: 1rem; margin: 0 0 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .notif-section h3 .count { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-muted); }
+    .notif-list { display: flex; flex-direction: column; gap: 0.6rem; }
+    .notif-item { padding: 0.8rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+    .notif-item .main { display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
+    .notif-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.8rem; }
+    .notif-title { font-weight: 700; font-size: 0.85rem; }
+    .notif-sub { font-size: 0.8rem; color: var(--text-muted); }
+    .notif-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .notif-actions .btn { padding: 0.4rem 0.75rem; font-size: 0.75rem; }
+    @media (max-width: 640px) {
+        .notif-item { flex-direction: column; align-items: stretch; }
+        .notif-actions { justify-content: flex-start; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 1rem;">
+
+{% if not has_any %}
+<div class="glass-panel" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+    <i class="fas fa-check-circle" style="font-size: 2rem; color: var(--success); margin-bottom: 0.75rem;"></i>
+    <div>Hozircha yangi bildirishnoma yo'q.</div>
+</div>
+{% endif %}
+
+{% if missing_attendance %}
+<div class="notif-section">
+    <h3><i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i> Bugun davomat olinmagan <span class="count">{{ missing_attendance|length }}</span></h3>
+    <div class="notif-list">
+        {% for group in missing_attendance %}
+        <div class="glass-panel notif-item" style="border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.06);">
+            <div class="main">
+                <div class="notif-icon" style="background: var(--danger); color: white;"><i class="fas fa-exclamation-triangle"></i></div>
+                <div>
+                    <div class="notif-title">{{ group.name }}</div>
+                    <div class="notif-sub">{{ group.teacher.get_full_name|default:"O'qituvchisiz" }} · {{ group.lesson_time|time:'H:i' }}–{{ group.end_time|time:'H:i' }}</div>
+                </div>
+            </div>
+            <div class="notif-actions">
+                <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="background: var(--danger);">Davomat</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if pending_alerts %}
+<div class="notif-section">
+    <h3><i class="fas fa-bell" style="color: var(--warning);"></i> O'qituvchi darsga keldimi? <span class="count">{{ pending_alerts|length }}</span></h3>
+    <div class="notif-list">
+        {% for alert in pending_alerts %}
+        <div class="glass-panel notif-item alert-item-{{ alert.pk }}" style="border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05);">
+            <div class="main">
+                <div class="notif-icon" style="background: rgba(245,158,11,0.2); color: #f59e0b;"><i class="fas fa-bell"></i></div>
+                <div>
+                    <div class="notif-title">{{ alert.teacher.get_full_name|default:alert.teacher.username }}</div>
+                    <div class="notif-sub">{{ alert.group.name }} · {{ alert.lesson_date|date:"d.m.Y" }} — davomat olinmagan</div>
+                </div>
+            </div>
+            <div class="notif-actions">
+                <button onclick="resolveAlert({{ alert.pk }}, 'came')" class="btn" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);">✅ Keldi (-5 ball)</button>
+                <button onclick="resolveAlert({{ alert.pk }}, 'not_came')" class="btn" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">❌ Kelmadi (-10 ball)</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if teachers_with_3_consecutive %}
+<div class="notif-section">
+    <h3><i class="fas fa-user-times" style="color: #ef4444;"></i> 3 va undan ko'p darsda davomat yo'q <span class="count">{{ teachers_with_3_consecutive|length }}</span></h3>
+    <div class="notif-list">
+        {% for teacher in teachers_with_3_consecutive %}
+        <div class="glass-panel notif-item" style="border: 1px solid rgba(239,68,68,0.5); background: rgba(239,68,68,0.05);">
+            <div class="main">
+                <div class="notif-icon" style="background: #ef4444; color: white;"><i class="fas fa-user-times"></i></div>
+                <div>
+                    <div class="notif-title">{{ teacher.get_full_name|default:teacher.username }}</div>
+                    <div class="notif-sub">{{ teacher.missed }} ta darsda "kelmadi" deb jarimalangan</div>
+                </div>
+            </div>
+            <div class="notif-actions">
+                <a href="{% url 'users1:teacher_detail' teacher.pk %}" class="btn btn-primary" style="background: #ef4444;">Ko'rish</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if pending_schedule_requests %}
+<div class="notif-section">
+    <h3><i class="fas fa-calendar-alt" style="color: var(--primary);"></i> Jadval o'zgartirish arizalari <span class="count">{{ pending_schedule_requests|length }}</span>
+        <a href="{% url 'users1:admin_schedule_request_history' %}" style="margin-left: auto; font-size: 0.8rem; font-weight: 500;">Barchasi</a></h3>
+    <div class="notif-list">
+        {% for request in pending_schedule_requests %}
+        <a href="{% url 'users1:schedule_change_request_detail' request.pk %}" class="glass-panel notif-item" style="border: 1px solid rgba(99,102,241,0.3); text-decoration: none; color: inherit;">
+            <div class="main">
+                <div class="notif-icon" style="background: rgba(99,102,241,0.2); color: var(--primary);"><i class="fas fa-calendar-alt"></i></div>
+                <div>
+                    <div class="notif-title">{{ request.group.name }}</div>
+                    <div class="notif-sub">{{ request.teacher.get_full_name|default:request.teacher.username }} · {{ request.submitted_at|date:"d.m.Y H:i" }}</div>
+                </div>
+            </div>
+            <div style="text-align: right; font-size: 0.8rem;">
+                <div style="font-weight: 600;">{{ request.old_day }} {{ request.old_start_time|time:"H:i" }} → {{ request.new_day }} {{ request.new_start_time|time:"H:i" }}</div>
+                <span style="color: var(--warning);">Kutmoqda</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if birthdays_today %}
+<div class="notif-section">
+    <h3><i class="fas fa-birthday-cake" style="color: var(--warning);"></i> Bugungi tug'ilgan kunlar <span class="count">{{ birthdays_today|length }}</span></h3>
+    <div class="glass-panel" style="padding: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        {% for student in birthdays_today %}
+        <a href="{% url 'students:student_detail' student.pk %}" style="background: rgba(255,255,255,0.05); padding: 0.4rem 0.75rem; border-radius: 10px; font-size: 0.8rem; border: 1px solid rgba(245, 158, 11, 0.2); text-decoration: none; color: inherit;">{{ student.get_full_name }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+</div>
+
+<script>
+async function resolveAlert(alertPk, decision) {
+    const decisionText = decision === 'came' ? 'keldi (-5 ball)' : 'kelmadi (-10 ball)';
+    if (!confirm(`O'qituvchi darsga ${decisionText} deb belgilansinmi?`)) return;
+    try {
+        const resp = await fetch(`{% url 'users1:resolve_missed_alert' 0 %}`.replace('/0/', `/${alertPk}/`), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({ decision }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert(data.error || 'Xatolik yuz berdi');
+        }
+    } catch (e) {
+        alert('Tarmoq xatoligi');
+    }
+}
+</script>
+{% endblock %}

@@ -12,16 +12,21 @@ class ErpConfig(AppConfig):
         import logging
         logger = logging.getLogger(__name__)
 
-        # Test rejimida scheduler ni ishga tushirmaslik
-        if 'test' in sys.argv or 'pytest' in sys.argv:
+        # Scheduler faqat web-server jarayonida ishga tushadi: migrate, shell, sync_balances,
+        # run_scheduler kabi boshqa manage.py buyruqlarida emas.
+        if os.environ.get('DISABLE_WEB_SCHEDULER') == 'True':
             return
+        argv = ' '.join(sys.argv)
+        if 'test' in sys.argv or 'pytest' in argv:
+            return
+        is_manage = os.path.basename(sys.argv[0]) in ('manage.py', 'django-admin', 'django-admin.py')
+        if is_manage and (len(sys.argv) < 2 or sys.argv[1] != 'runserver'):
+            return
+        if is_manage and os.environ.get('RUN_MAIN') != 'true' and '--noreload' not in argv:
+            return  # runserver autoreload'ning kuzatuvchi jarayoni
 
-        # Faqat asosiy ish jarayonida (worker emas) scheduler ni ishga tushiramiz
-        # RUN_MAIN=true — bu Django dev server reload da qayta ishga tushmaslik uchun
-        if os.environ.get('RUN_MAIN', 'false') == 'true' or not os.environ.get('WERKZEUG_RUN_MAIN'):
-            try:
-                from .scheduler import start
-                start()
-                logger.info("APScheduler muvaffaqiyatli ishga tushirildi")
-            except Exception as e:
-                logger.error(f"APScheduler ishga tushirishda xatolik: {e}", exc_info=True)
+        try:
+            from .scheduler import start
+            start()
+        except Exception as e:
+            logger.error(f"APScheduler ishga tushirishda xatolik: {e}", exc_info=True)

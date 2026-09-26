@@ -126,6 +126,12 @@ class GroupCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView):
     fields = ['name', 'monthly_fee', 'teacher', 'start_date', 'lesson_days', 'lesson_time', 'duration', 'room']
     success_url = reverse_lazy('groups_app:group_list')
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Narxsiz guruhda to'lov qabul qilib bo'lmaydi; tekin guruh uchun 0 kiritiladi.
+        form.fields['monthly_fee'].required = True
+        return form
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['rooms'] = Group._meta.get_field('room').choices
@@ -159,6 +165,12 @@ class GroupUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView):
     template_name = 'groups_app/group_form.html'
     fields = ['name', 'monthly_fee', 'teacher', 'start_date', 'lesson_days', 'lesson_time', 'duration', 'room']
     success_url = reverse_lazy('groups_app:group_list')
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Narxsiz guruhda to'lov qabul qilib bo'lmaydi; tekin guruh uchun 0 kiritiladi.
+        form.fields['monthly_fee'].required = True
+        return form
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

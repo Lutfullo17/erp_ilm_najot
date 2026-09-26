@@ -1,5 +1,4 @@
 import json
-from datetime import date
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
@@ -9,41 +8,67 @@ from django.db.models import Sum
 from django.http import JsonResponse
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
+from django.utils import timezone
 
 from users1.views import AdminAccessRequiredMixin
 from .models import PaymentTransaction, StudentMonthBalance
 from students.models import Student
 from groups_app.models import Group, GroupStudent
-from .services import PaymentInputError, apply_payment, get_student_payment_state, first_day_of_month
+from .services import PaymentInputError, apply_payment, get_student_payment_state
 
 
 def _serialize_student_for_payment(student):
-    groups = GroupStudent.objects.filter(
-        student=student,
-        is_active=True,
-        group__is_active=True,
-    ).select_related('group').values(
-        'group__id', 'group__name', 'group__monthly_fee'
+    """O'quvchi va to'lov qabul qilinadigan guruhlari.
+
+    Hozirgi guruhlar + qarzi qolgan sobiq guruhlar (former=True — faqat qarzni to'lash mumkin).
+    """
+    groups = []
+    seen = set()
+    if student.is_active:
+        for gs in GroupStudent.objects.filter(
+            student=student, is_active=True, group__is_active=True,
+        ).select_related('group'):
+            seen.add(gs.group_id)
+            groups.append({
+                'id': gs.group.id,
+                'name': gs.group.name,
+                'monthly_fee': str(gs.group.monthly_fee),
+                'former': False,
+            })
+    debts = (
+        StudentMonthBalance.objects.debts().filter(student=student).exclude(group_id__in=seen)
+        .values('group__id', 'group__name', 'group__monthly_fee')
+        .annotate(debt=Sum(models.F('required_amount') - models.F('paid_amount')))
     )
+    for d in debts:
+        groups.append({
+            'id': d['group__id'],
+            'name': f"{d['group__name']} (sobiq, qarz: {d['debt']:,.0f})".replace(',', ' '),
+            'monthly_fee': str(d['group__monthly_fee']),
+            'former': True,
+            'debt': str(d['debt']),
+        })
     return {
         'id': student.id,
         'full_name': f'{student.first_name} {student.last_name}',
         'phone': student.phone,
-        'groups': [
-            {
-                'id': g['group__id'],
-                'name': g['group__name'],
-                'monthly_fee': str(g['group__monthly_fee']),
-            }
-            for g in groups
-        ],
+        'groups': groups,
     }
+
+
+def _payable_students():
+    """Faol o'quvchilar va qarzi qolgan sobiq (o'chirilgan/ketgan) o'quvchilar."""
+    return Student.objects.filter(
+        models.Q(is_active=True)
+        | models.Q(pk__in=StudentMonthBalance.objects.debts().values('student_id'))
+    )
+
 
 @require_http_methods(['GET'])
 def api_get_student_for_payment(request, student_id):
     if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
-    student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
+    student = get_object_or_404(_payable_students(), pk=student_id)
     return JsonResponse(_serialize_student_for_payment(student))
 
 
@@ -55,37 +80,13 @@ def api_search_students(request):
     if len(query) < 2:
         return JsonResponse({'students': []})
 
-    students = Student.objects.filter(
+    students = _payable_students().filter(
         models.Q(first_name__icontains=query) |
         models.Q(last_name__icontains=query) |
         models.Q(phone__icontains=query),
-        is_active=True,
     ).distinct()[:20]
 
-    results = []
-    for student in students:
-        groups = GroupStudent.objects.filter(
-            student=student,
-            is_active=True,
-            group__is_active=True,
-        ).select_related('group').values(
-            'group__id', 'group__name', 'group__monthly_fee'
-        )
-        results.append({
-            'id': student.id,
-            'full_name': f'{student.first_name} {student.last_name}',
-            'phone': student.phone,
-            'groups': [
-                {
-                    'id': g['group__id'],
-                    'name': g['group__name'],
-                    'monthly_fee': str(g['group__monthly_fee']),
-                }
-                for g in groups
-            ],
-        })
-
-    return JsonResponse({'students': results})
+    return JsonResponse({'students': [_serialize_student_for_payment(s) for s in students]})
 
 class PaymentListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     model = PaymentTransaction
@@ -101,7 +102,6 @@ class PaymentListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        from django.utils import timezone
         today = timezone.localdate()
         if self.request.user.is_director:
             context['monthly_income'] = PaymentTransaction.objects.filter(
@@ -118,7 +118,7 @@ class PaymentCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['today'] = date.today().isoformat()
+        context['today'] = timezone.localdate().isoformat()
         return context
 
     def form_valid(self, form):
@@ -143,11 +143,11 @@ class DebtorListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     context_object_name = 'debtors'
 
     def get_queryset(self):
-        today_month = first_day_of_month(date.today())
-        return StudentMonthBalance.objects.filter(
-            status__in=['OPEN', 'PARTIAL'],
-            month__lte=today_month,
-        ).select_related('student', 'group')
+        return (
+            StudentMonthBalance.objects.debts().current_members()
+            .select_related('student', 'group')
+            .order_by('student__last_name', 'student__first_name', 'month')
+        )
 
 
 class GroupDebtorView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
@@ -157,12 +157,11 @@ class GroupDebtorView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
 
     def get_queryset(self):
         self.group = get_object_or_404(Group, pk=self.kwargs['group_id'])
-        today_month = first_day_of_month(date.today())
-        return StudentMonthBalance.objects.filter(
-            group=self.group,
-            status__in=['OPEN', 'PARTIAL'],
-            month__lte=today_month,
-        ).select_related('student').order_by('student__last_name')
+        return (
+            StudentMonthBalance.objects.debts().current_members()
+            .filter(group=self.group)
+            .select_related('student').order_by('student__last_name', 'student__first_name', 'month')
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -193,28 +192,20 @@ def student_balance(request, student_id, group_id):
 def api_student_all_debts(request, student_id):
     if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
-    student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
-    # Check debts in all active student groups
-    debt_info = []
-    groups = GroupStudent.objects.filter(student=student, is_active=True, group__is_active=True).select_related('group')
-    
-    for gs in groups:
-        # Calculate total debt for this group
-        total_debt = StudentMonthBalance.objects.filter(
-            student=student, 
-            group=gs.group, 
-            status__in=['OPEN', 'PARTIAL']
-        ).aggregate(total=Sum(models.F('required_amount') - models.F('paid_amount')))['total'] or 0
-        
-        if total_debt > 0:
-            debt_info.append({
-                'id': gs.group.id,
-                'name': gs.group.name,
-                'debt': str(total_debt),
-                'fee': str(gs.group.monthly_fee)
-            })
-            
+    student = get_object_or_404(_payable_students(), pk=student_id)
+    # Barcha guruhlar bo'yicha qarz (sobiq guruhlar ham — qarz yo'qolib qolmasligi uchun)
+    rows = (
+        StudentMonthBalance.objects.debts().filter(student=student)
+        .values('group__id', 'group__name', 'group__monthly_fee')
+        .annotate(debt=Sum(models.F('required_amount') - models.F('paid_amount')))
+        .order_by('group__name')
+    )
+    debt_info = [
+        {'id': r['group__id'], 'name': r['group__name'], 'debt': str(r['debt']), 'fee': str(r['group__monthly_fee'])}
+        for r in rows if r['debt'] > 0
+    ]
     return JsonResponse({'debts': debt_info})
+
 
 @require_http_methods(['POST'])
 def create_payment(request):
