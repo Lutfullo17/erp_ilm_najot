@@ -25,7 +25,7 @@ class GroupAdmin(admin.ModelAdmin):
 
 @admin.register(GroupStudent)
 class GroupStudentAdmin(admin.ModelAdmin):
-    list_display = ('group', 'student', 'joined_at', 'is_active')
+    list_display = ('group', 'student', 'joined_at', 'left_at', 'is_active')
     list_filter = ('is_active', 'joined_at', 'group')
     search_fields = ('group__name', 'student__first_name', 'student__last_name')
     autocomplete_fields = ('group', 'student')

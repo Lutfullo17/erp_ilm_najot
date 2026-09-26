@@ -474,10 +474,9 @@ def payments_text(student):
     ).select_related('group').order_by('-payment_date')[:15]
 
     # Barcha qarzli balanslarni olish (admindagidek jami qarz)
-    debt_balances = StudentMonthBalance.objects.filter(
-        student=student,
-    ).select_related('group').order_by('-month')
-    debt_balances = [b for b in debt_balances if b.debt_amount > 0]
+    debt_balances = list(
+        StudentMonthBalance.objects.debts().filter(student=student).select_related('group').order_by('-month')
+    )
 
     total_debt = sum(float(b.debt_amount) for b in debt_balances)
 

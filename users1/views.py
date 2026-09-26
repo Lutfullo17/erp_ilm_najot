@@ -1654,11 +1654,7 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
 
         # Qarzdorlar soni
         today = timezone.localdate()
-        today_month = first_day_of_month(today)
-        context['debtors_count'] = StudentMonthBalance.objects.filter(
-            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL],
-            month__lte=today_month,
-        ).values('student').distinct().count()
+        context['debtors_count'] = StudentMonthBalance.objects.debts(today).current_members().values('student').distinct().count()
 
         # Bugungi tug'ilgan kunlar
         context['birthdays_today'] = Student.objects.filter(
@@ -1694,11 +1690,9 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
 
         # Guruhlar bo'yicha qarzlar
         today = timezone.localdate()
-        today_month = first_day_of_month(today)
-        debtors_qs = StudentMonthBalance.objects.filter(
-            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL],
-            month__lte=today_month,
-        ).select_related('student', 'group').order_by('group__name', 'month')
+        debtors_qs = StudentMonthBalance.objects.debts(today).current_members().select_related(
+            'student', 'group',
+        ).order_by('group__name', 'month')
 
         grouped_debtors = defaultdict(lambda: {'group': None, 'students': [], 'total_debt': 0})
         for d in debtors_qs:
@@ -1718,29 +1712,6 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         ).select_related('telegram_user', 'student').order_by('-created_at')[:10]
         context['pending_appeals_count'] = TelegramAppeal.objects.filter(is_resolved=False).count()
 
-        # DAVOMAT olinmagan guruhlar (Optimized)
-        from attendance.models import AttendanceSession
-        days_map = {
-            0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba',
-            4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'
-        }
-        today_name = days_map[today.weekday()]
-        now_time = timezone.localtime().time()
-
-        groups_today = Group.objects.filter(
-            is_active=True,
-            lesson_days__contains=today_name,
-            end_time__lt=now_time
-        ).select_related('teacher')
-
-        groups_today_ids = groups_today.values_list('id', flat=True)
-        sessions_today_group_ids = set(AttendanceSession.objects.filter(
-            group_id__in=groups_today_ids, 
-            date=today
-        ).values_list('group_id', flat=True))
-
-        missing_attendance = [g for g in groups_today if g.id not in sessions_today_group_ids]
-        context['missing_attendance'] = missing_attendance
         context['groups'] = Group.objects.filter(is_active=True).order_by('name')
 
         # === PENALTY STATISTICS FOR DASHBOARD ===
@@ -1767,17 +1738,8 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
 
         context['recent_penalties'] = TeacherPenalty.objects.select_related('teacher', 'group').order_by('-created_at')[:5]
 
-        # Ketma-ket 3 ta darsda davomat olinmagan teacherlar
-        teachers_with_3_consecutive = []
-        for teacher in User.objects.filter(role=User.Role.TEACHER, is_deleted=False):
-            recent_alerts = MissedAttendanceAlert.objects.filter(
-                teacher=teacher,
-                status=MissedAttendanceAlert.Status.NOT_CAME,
-                penalty_applied=True,
-            ).order_by('-lesson_date')[:3]
-            if len(recent_alerts) >= 3:
-                teachers_with_3_consecutive.append(teacher)
-        context['teachers_with_3_consecutive'] = teachers_with_3_consecutive
+        # Ogohlantirishlar (davomat olinmagan, 3 ta dars, jadval arizalari, tug'ilgan kunlar)
+        # endi alohida "Bildirishnomalar" sahifasida: users1:notifications
 
         # Botga ulangan/ulnmagan o'quvchilar
         from bot.models import TelegramUser as BotTelegramUser
@@ -2089,29 +2051,6 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
 
         context['groups'] = Group.objects.filter(is_active=True).order_by('name')
 
-        # DAVOMAT olinmagan guruhlar (Optimized)
-        from attendance.models import AttendanceSession
-        days_map = {
-            0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba',
-            4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'
-        }
-        today_name = days_map[today.weekday()]
-        now_time = timezone.localtime().time()
-
-        groups_today = Group.objects.filter(
-            is_active=True,
-            lesson_days__contains=today_name,
-            end_time__lt=now_time
-        ).select_related('teacher')
-
-        groups_today_ids = groups_today.values_list('id', flat=True)
-        sessions_today_group_ids = set(AttendanceSession.objects.filter(
-            group_id__in=groups_today_ids, 
-            date=today
-        ).values_list('group_id', flat=True))
-
-        missing_attendance = [g for g in groups_today if g.id not in sessions_today_group_ids]
-        context['missing_attendance'] = missing_attendance
 
         # Pending alerts for administrator notification
         context['pending_alerts'] = MissedAttendanceAlert.objects.filter(
@@ -2147,4 +2086,34 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
         context['blocked_students_count'] = blocked_students.count()
         context['bot_telegram_blocked_count'] = all_students.filter(pk__in=telegram_blocked_ids).count()
 
+        return context
+
+
+class NotificationsView(LoginRequiredMixin, AdminAccessRequiredMixin, TemplateView):
+    """Bildirishnomalar: avval Boshqaruv panelining tepasida chiqadigan barcha ogohlantirishlar."""
+    template_name = 'users1/notifications.html'
+
+    def get_context_data(self, **kwargs):
+        from .notifications import missing_attendance_groups, teachers_with_repeated_misses
+
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        context['missing_attendance'] = missing_attendance_groups()
+        context['teachers_with_3_consecutive'] = (
+            teachers_with_repeated_misses() if self.request.user.is_director else []
+        )
+        context['pending_alerts'] = MissedAttendanceAlert.objects.filter(
+            status=MissedAttendanceAlert.Status.PENDING,
+        ).select_related('teacher', 'group').order_by('-lesson_date', '-created_at')
+        context['pending_schedule_requests'] = ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.PENDING,
+        ).select_related('teacher', 'group').order_by('-submitted_at')
+        context['birthdays_today'] = Student.objects.filter(
+            birth_date__month=today.month, birth_date__day=today.day, is_active=True,
+        )
+        context['has_any'] = any([
+            context['missing_attendance'], context['teachers_with_3_consecutive'],
+            context['pending_alerts'].exists(), context['pending_schedule_requests'].exists(),
+            context['birthdays_today'].exists(),
+        ])
         return context

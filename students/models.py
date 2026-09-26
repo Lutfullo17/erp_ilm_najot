@@ -114,11 +114,8 @@ class Student(models.Model):
     @property
     def has_debt(self):
         """O'quvchining kamida bitta ochiq qarzi bor-yo'qligini tekshiradi."""
-        from payments.models import StudentMonthBalance, MonthBalanceStatus
-        return StudentMonthBalance.objects.filter(
-            student=self,
-            status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL],
-        ).exists()
+        from payments.models import StudentMonthBalance
+        return StudentMonthBalance.objects.debts().filter(student=self).exists()
 
     @property
     def discount_display(self):

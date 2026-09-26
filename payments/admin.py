@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PaymentAllocation, PaymentTransaction, StudentMonthBalance
+from .models import BillingPause, PaymentAllocation, PaymentTransaction, StudentMonthBalance
 
 
 class PaymentAllocationInline(admin.TabularInline):
@@ -13,11 +13,20 @@ class PaymentAllocationInline(admin.TabularInline):
 
 @admin.register(StudentMonthBalance)
 class StudentMonthBalanceAdmin(admin.ModelAdmin):
-    list_display = ('student', 'group', 'month', 'required_amount', 'paid_amount', 'debt_amount', 'advance_amount', 'status')
+    list_display = ('student', 'group', 'month', 'due_date', 'required_amount', 'paid_amount', 'debt_amount', 'advance_amount', 'status')
     list_filter = ('status', 'month', 'group')
     search_fields = ('student__first_name', 'student__last_name', 'group__name')
     autocomplete_fields = ('student', 'group')
-    readonly_fields = ('debt_amount', 'advance_amount', 'status')
+    # paid_amount to'lovlardan avtomatik hisoblanadi — qo'lda o'zgartirilsa keyingi sync'da qayta yoziladi.
+    readonly_fields = ('due_date', 'paid_amount', 'debt_amount', 'advance_amount', 'status')
+
+
+@admin.register(BillingPause)
+class BillingPauseAdmin(admin.ModelAdmin):
+    list_display = ('student', 'group', 'start_date', 'end_date', 'reason')
+    list_filter = ('start_date',)
+    search_fields = ('student__first_name', 'student__last_name', 'group__name', 'reason')
+    autocomplete_fields = ('student', 'group')
 
 
 @admin.register(PaymentTransaction)

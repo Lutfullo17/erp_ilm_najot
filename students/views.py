@@ -154,7 +154,10 @@ class StudentUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView
             group = Group.objects.filter(pk=group_id, is_active=True).first()
             if group:
                 # Eski guruhlarini deaktivatsiya qilish (agar boshqa guruh tanlangan bo'lsa)
-                GroupStudent.objects.filter(student=student, is_active=True).exclude(group=group).update(is_active=False)
+                # .update() emas, .save(): signal chiqqan sanani yozadi va balanslarni qayta hisoblaydi
+                for old_gs in GroupStudent.objects.filter(student=student, is_active=True).exclude(group=group):
+                    old_gs.is_active = False
+                    old_gs.save()
                 # Yangisini yaratish yoki faollashtirish
                 gs, created = GroupStudent.objects.get_or_create(group=group, student=student)
                 if not gs.is_active:
@@ -192,9 +195,11 @@ def delete_student(request, pk):
     student.save()
 
     # Guruh a'zolarini avtomatik deaktivatsiya qilish
-    deactivated = GroupStudent.objects.filter(
-        student=student, is_active=True
-    ).update(is_active=False)
+    deactivated = 0
+    for gs in GroupStudent.objects.filter(student=student, is_active=True):
+        gs.is_active = False
+        gs.save()
+        deactivated += 1
 
     msg = f"{student.first_name} {student.last_name} o'chirildi."
     if deactivated:
@@ -256,9 +261,8 @@ def get_student_debt(request, pk):
     from payments.models import StudentMonthBalance
     from django.db import models as db_models
 
-    total_debt = StudentMonthBalance.objects.filter(
+    total_debt = StudentMonthBalance.objects.debts().filter(
         student=student,
-        paid_amount__lt=db_models.F('required_amount'),
     ).aggregate(
         total=db_models.Sum(db_models.F('required_amount') - db_models.F('paid_amount'))
     )['total'] or 0

@@ -4,14 +4,15 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from groups_app.models import Group
 from students.models import Student
 
 from bot.notifications import notify_payment_received, notify_payment_deleted
+from .billing import add_months, current_due_month, sync_pair
 from .models import (
     MonthBalanceStatus,
-    PaymentAllocation,
     PaymentMethod,
     PaymentTransaction,
     StudentMonthBalance,
@@ -35,8 +36,8 @@ def first_day_of_month(value):
 
 
 def parse_payment_date(value):
-    if value is None:
-        return date.today()
+    if value in (None, ''):
+        return timezone.localdate()
     if isinstance(value, date):
         return value
 
@@ -47,81 +48,7 @@ def parse_payment_date(value):
 
 
 def next_month(value):
-    if value.month == 12:
-        return date(value.year + 1, 1, 1)
-    return date(value.year, value.month + 1, 1)
-
-
-def add_months(value, months):
-    year = value.year + (value.month - 1 + months) // 12
-    month = (value.month - 1 + months) % 12 + 1
-    return date(year, month, 1)
-
-
-def get_group_start_month(group):
-    if getattr(group, 'start_date', None):
-        return first_day_of_month(group.start_date)
-    return first_day_of_month(date.today())
-
-
-def get_current_due_month(group, as_of_date=None):
-    as_of_date = as_of_date or date.today()
-    if not getattr(group, 'start_date', None):
-        return first_day_of_month(as_of_date)
-
-    start_date = group.start_date
-    if as_of_date < start_date:
-        return None
-
-    months_since_start = (as_of_date.year - start_date.year) * 12 + (as_of_date.month - start_date.month)
-    if as_of_date.day < start_date.day:
-        months_since_start -= 1
-
-    if months_since_start < 0:
-        return None
-
-    return add_months(first_day_of_month(start_date), months_since_start)
-
-
-def get_due_months(group, as_of_date=None):
-    current_due_month = get_current_due_month(group, as_of_date)
-    if current_due_month is None:
-        return []
-
-    months = []
-    month = get_group_start_month(group)
-    while month <= current_due_month:
-        months.append(month)
-        month = next_month(month)
-    return months
-
-
-def get_or_create_advance_balance(student, group, month, lock=False):
-    qs = StudentMonthBalance.objects.all()
-    if lock:
-        qs = qs.select_for_update()
-
-    balance, _ = qs.get_or_create(
-        student=student,
-        group=group,
-        month=month,
-        defaults={'required_amount': 0, 'paid_amount': 0},
-    )
-    return balance
-
-
-def ensure_due_balances(student, group, as_of_date=None):
-    due_months = get_due_months(group, as_of_date)
-    effective_fee = student.get_effective_fee(group.monthly_fee)
-    balances = []
-    for month in due_months:
-        balance = get_or_create_month_balance(student, group, month)
-        if balance.required_amount == 0:
-            balance.required_amount = effective_fee
-            balance.full_clean()
-            balance.save()
-        balances.append(balance)
-    return balances
+    return add_months(value, 1)
 
 
 def parse_money(value, field_name='amount'):
@@ -131,6 +58,8 @@ def parse_money(value, field_name='amount'):
         raise PaymentInputError(
             f"{field_name} noto'g'ri son bo'lishi kerak."
         )
+    if not amount.is_finite():
+        raise PaymentInputError(f"{field_name} noto'g'ri son bo'lishi kerak.")
 
     amount = amount.quantize(Decimal('0.01'))
     if amount < 0:
@@ -150,44 +79,28 @@ def assert_admin_user(user):
 
 
 def get_payment_group(group_id):
-    return get_object_or_404(Group.objects.filter(is_active=True), pk=group_id)
+    # Yopilgan guruh ham qaytariladi: undagi eski qarzlarni undirish mumkin bo'lishi kerak.
+    return get_object_or_404(Group, pk=group_id)
+
+
+def is_current_member(student, group):
+    return (
+        student.is_active and group.is_active
+        and group.groupstudent_set.filter(student=student, is_active=True).exists()
+    )
+
+
+def outstanding_debt(student, group):
+    rows = StudentMonthBalance.objects.debts().filter(student=student, group=group)
+    return sum((b.debt_amount for b in rows), Decimal('0'))
 
 
 def get_payment_student(student_id, group):
-    student = get_object_or_404(Student.objects.filter(is_active=True), pk=student_id)
-    is_group_student = group.groupstudent_set.filter(student=student, is_active=True).exists()
-    if not is_group_student:
-        raise PaymentInputError("O'quvchi ushbu guruhga biriktirilmagan.")
-    return student
-
-
-def get_or_create_month_balance(student, group, month, lock=False):
-    # Guruh tekin bo'lsa ham uning uchun balans yaratilishiga ruxsat beramiz.
-    if group.monthly_fee < 0:
-        raise PaymentInputError("Guruh oylik to'lovi 0 dan past bo'lishi mumkin emas.")
-
-    # Chegirma hisobga olingan to'lov
-    effective_fee = student.get_effective_fee(group.monthly_fee)
-
-    qs = StudentMonthBalance.objects.all()
-    if lock:
-        qs = qs.select_for_update()
-
-    balance, created = qs.get_or_create(
-        student=student,
-        group=group,
-        month=month,
-        defaults={'required_amount': effective_fee},
-    )
-
-    # Yangi yaratilgan balanslar uchun chegirma qo'llanadi
-    # Eski to'langan balanslarni o'zgartirmaymiz
-    if not created and balance.required_amount != effective_fee and balance.paid_amount == 0:
-        balance.required_amount = effective_fee
-        balance.full_clean()
-        balance.save()
-
-    return balance
+    """Hozirgi a'zo — istalgan to'lov; sobiq a'zo (ketgan, chiqqan, guruh yopilgan) — faqat qarzini to'lashi mumkin."""
+    student = get_object_or_404(Student, pk=student_id)
+    if is_current_member(student, group) or outstanding_debt(student, group) > 0:
+        return student
+    raise PaymentInputError("O'quvchi ushbu guruhga biriktirilmagan.")
 
 
 def serialize_money(value):
@@ -196,33 +109,37 @@ def serialize_money(value):
 
 
 def serialize_balance(balance):
+    is_due = balance.is_due
     return {
         'id': balance.id,
         'month': balance.month.isoformat(),
+        'due_date': balance.due_date.isoformat() if balance.due_date else None,
+        'is_due': is_due,
         'required_amount': serialize_money(balance.required_amount),
         'paid_amount': serialize_money(balance.paid_amount),
-        'debt_amount': serialize_money(balance.debt_amount),
-        'advance_amount': serialize_money(balance.advance_amount),
+        # Muddati kelmagan oy qarz emas: undagi pul — oldindan to'lov (avans).
+        'debt_amount': serialize_money(balance.debt_amount if is_due else 0),
+        'advance_amount': serialize_money(balance.advance_amount if is_due else balance.paid_amount),
         'status': balance.status,
-        'status_label': balance.get_status_display(),
+        'status_label': balance.get_status_display() if is_due else "Oldindan to'lov",
     }
 
 
-def build_payment_summary(allocations, payment_month):
+def build_payment_summary(balances, payment_month):
     current_month_status = None
     closed_months_count = 0
     advance_amount = Decimal('0')
     debt_amount = Decimal('0')
 
-    for balance in allocations:
+    for balance in balances:
         if balance.status == MonthBalanceStatus.CLOSED:
             closed_months_count += 1
-
         if balance.month == payment_month:
             current_month_status = balance.status
             debt_amount = balance.debt_amount
-
-        if balance.advance_amount > 0:
+        if not balance.is_due:
+            advance_amount += balance.paid_amount
+        elif balance.advance_amount > 0:
             advance_amount += balance.advance_amount
 
     return {
@@ -235,35 +152,32 @@ def build_payment_summary(allocations, payment_month):
 
 
 def get_student_payment_state(student_id, group_id, from_month=None, months=6):
+    """To'lov formasi uchun holat: barcha qarzli oylar, oxirgi `months` oy va avanslar."""
     group = get_payment_group(group_id)
     student = get_payment_student(student_id, group)
-    today = date.today()
-    start_month = first_day_of_month(from_month or get_group_start_month(group))
+    today = timezone.localdate()
+    sync_pair(student, group, as_of=today)
 
-    if from_month is not None and getattr(group, 'start_date', None):
-        start_month = max(start_month, get_group_start_month(group))
-
-    current_due_month = get_current_due_month(group, today)
-    if current_due_month is not None:
-        end_month = add_months(start_month, max(0, months - 1))
-        if end_month > current_due_month:
-            end_month = current_due_month
-        ensure_due_balances(student, group, today)
+    qs = StudentMonthBalance.objects.filter(student=student, group=group).order_by('month')
+    cur = current_due_month(group, today)
+    if from_month:
+        window_start = first_day_of_month(from_month)
+    elif cur is not None:
+        window_start = add_months(cur, -(max(1, months) - 1))
     else:
-        end_month = add_months(start_month, max(0, months - 1))
+        window_start = None
 
-    balances_qs = StudentMonthBalance.objects.filter(
-        student=student,
-        group=group,
-        month__range=(start_month, end_month),
-    ).order_by('month')
-
-    balances = [serialize_balance(balance) for balance in balances_qs]
+    balances = [
+        b for b in qs
+        if window_start is None
+        or b.month >= window_start            # oxirgi oylar va avanslar
+        or b.paid_amount < b.required_amount  # eski qarzlar doim ko'rinadi
+    ]
 
     return {
         'student': {'id': student.id, 'full_name': str(student)},
-        'group': {'id': group.id, 'name': group.name, 'monthly_fee': serialize_money(group.monthly_fee)},
-        'balances': balances,
+        'group': {'id': group.id, 'name': group.name, 'monthly_fee': serialize_money(group.monthly_fee or 0)},
+        'balances': [serialize_balance(b) for b in balances],
     }
 
 
@@ -273,10 +187,29 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
 
     group = get_payment_group(group_id)
     student = get_payment_student(student_id, group)
-    payment_date = parse_payment_date(payment_date)
-    payment_month = first_day_of_month(payment_date)
-    amount = parse_money(amount)
+    if group.monthly_fee is None:
+        raise PaymentInputError(
+            f"'{group.name}' guruhining oylik to'lovi kiritilmagan. Avval guruh narxini belgilang."
+        )
 
+    payment_date = parse_payment_date(payment_date)
+    today = timezone.localdate()
+    if payment_date > today:
+        raise PaymentInputError("To'lov sanasi kelajakda bo'lishi mumkin emas.")
+
+    amount = parse_money(amount)
+    if amount <= 0:
+        raise PaymentInputError("To'lov summasi 0 dan katta bo'lishi kerak.")
+
+    if not is_current_member(student, group):
+        # Sobiq a'zoning kelgusi oylari yo'q — ortiqcha summa hech qaysi oyga tushmay "osilib" qoladi.
+        debt = outstanding_debt(student, group)
+        if amount > debt:
+            raise PaymentInputError(
+                f"O'quvchi bu guruhda endi o'qimaydi. Faqat qolgan qarzini ({serialize_money(debt)} so'm) to'lashi mumkin."
+            )
+
+    method = method or PaymentMethod.CASH
     if method not in PaymentMethod.values:
         raise PaymentInputError("To'lov turi noto'g'ri.")
 
@@ -284,7 +217,7 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
     if len(note_str) > 255:
         raise PaymentInputError("Izoh 255 belgidan oshmasligi kerak.")
 
-    payment = PaymentTransaction.objects.create(
+    payment = PaymentTransaction(
         student=student,
         group=group,
         amount=amount,
@@ -293,103 +226,20 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
         created_by=user,
         note=note_str,
     )
+    payment._skip_sync = True  # quyida o'zimiz sync qilamiz
+    payment.save()
 
-    payment_month = max(payment_month, get_group_start_month(group))
-    current_due_month = get_current_due_month(group, payment_date)
-    if current_due_month is not None:
-        ensure_due_balances(student, group, payment_date)
+    sync_pair(student, group, as_of=today)
 
-    earliest_debt = StudentMonthBalance.objects.filter(
-        student=student,
-        group=group,
-        status__in=[MonthBalanceStatus.OPEN, MonthBalanceStatus.PARTIAL]
-    ).order_by('month').first()
+    allocations = list(payment.allocations.select_related('balance').order_by('balance__month'))
+    balances = [a.balance for a in allocations]
 
-    if earliest_debt:
-        current_month = earliest_debt.month
-    elif current_due_month is not None and get_group_start_month(group) <= current_due_month:
-        current_month = get_group_start_month(group)
-    else:
-        current_month = payment_month
-
-    remaining = amount
-    allocations = []
-    allocated_balances = []
-
-    limit = 24
-    while remaining > 0 and limit > 0:
-        is_due_month = current_due_month is not None and current_month <= current_due_month
-
-        if is_due_month:
-            balance = get_or_create_month_balance(student, group, current_month, lock=True)
-        elif remaining < group.monthly_fee:
-            balance = get_or_create_advance_balance(student, group, current_month, lock=True)
-        else:
-            balance = get_or_create_month_balance(student, group, current_month, lock=True)
-
-        if balance.required_amount == 0:
-            if is_due_month or remaining >= group.monthly_fee:
-                balance.required_amount = group.monthly_fee
-                balance.full_clean()
-                balance.save()
-            else:
-                balance.paid_amount += remaining
-                balance.save()
-
-                PaymentAllocation.objects.create(
-                    payment=payment,
-                    balance=balance,
-                    amount=remaining,
-                )
-                allocations.append(serialize_balance(balance))
-                allocated_balances.append(balance)
-                remaining = Decimal('0')
-                break
-
-        debt = balance.debt_amount
-        if debt <= 0:
-            current_month = next_month(current_month)
-            limit -= 1
-            continue
-
-        allocated = min(remaining, debt)
-        balance.paid_amount += allocated
-        balance.save()
-
-        PaymentAllocation.objects.create(
-            payment=payment,
-            balance=balance,
-            amount=allocated,
-        )
-        allocations.append(serialize_balance(balance))
-        allocated_balances.append(balance)
-
-        remaining -= allocated
-
-        if allocated < debt:
-            break
-
-        current_month = next_month(current_month)
-        limit -= 1
-
-    if remaining > 0 and current_month > (current_due_month or date.min) and remaining < group.monthly_fee:
-        advance_balance = get_or_create_advance_balance(student, group, current_month, lock=True)
-        advance_balance.paid_amount += remaining
-        advance_balance.save()
-
-        PaymentAllocation.objects.create(
-            payment=payment,
-            balance=advance_balance,
-            amount=remaining,
-        )
-        allocations.append(serialize_balance(advance_balance))
-        allocated_balances.append(advance_balance)
-        remaining = Decimal('0')
-
-    try:
-        notify_payment_received(payment)
-    except Exception:
-        pass
+    def _notify():
+        try:
+            notify_payment_received(payment)
+        except Exception:
+            pass
+    transaction.on_commit(_notify)
 
     return {
         'payment': {
@@ -400,9 +250,11 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
         },
         'student': {'id': student.id, 'full_name': str(student)},
         'group': {'id': group.id, 'name': group.name, 'monthly_fee': serialize_money(group.monthly_fee)},
-        'allocations': allocations,
-        'summary': build_payment_summary(allocated_balances, payment_month),
-        'remaining': serialize_money(remaining),
+        'allocations': [
+            dict(serialize_balance(a.balance), allocated_amount=serialize_money(a.amount)) for a in allocations
+        ],
+        'summary': build_payment_summary(balances, first_day_of_month(payment_date)),
+        'remaining': '0',
     }
 
 
@@ -410,21 +262,22 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
 def delete_payment(user, payment_id):
     if not user.is_director:
         raise PermissionDenied("Faqat direktor to'lovlarni o'chira oladi.")
-    
-    payment = get_object_or_404(PaymentTransaction, pk=payment_id)
-    
-    # Revert allocations
-    allocations = payment.allocations.all().select_for_update()
-    for allocation in allocations:
-        balance = allocation.balance
-        balance.paid_amount -= allocation.amount
-        balance.save() # Status will be refreshed in save/signal if implemented
-        
-    # Telegram notification
-    try:
-        notify_payment_deleted(payment)
-    except:
-        pass
 
-    payment.delete()
+    payment = get_object_or_404(PaymentTransaction.objects.select_related('student', 'group'), pk=payment_id)
+    student, group = payment.student, payment.group
+    snapshot = PaymentTransaction(
+        pk=payment.pk, student=student, group=group, amount=payment.amount,
+        payment_date=payment.payment_date, method=payment.method,
+    )
+
+    payment._skip_sync = True
+    payment.delete()  # taqsimotlar CASCADE bilan o'chadi
+    sync_pair(student, group)  # qolgan to'lovlar qayta taqsimlanadi
+
+    def _notify():
+        try:
+            notify_payment_deleted(snapshot)
+        except Exception:
+            pass
+    transaction.on_commit(_notify)
     return True

@@ -74,4 +74,5 @@ urlpatterns = [
 
     # ── Admin Messages ─────────────────────────────────────────────────────
     path('messages/', views.AdminMessagesView.as_view(), name='admin_messages'),
+    path('notifications/', views.NotificationsView.as_view(), name='notifications'),
 ]

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 
 class Room(models.IntegerChoices):
@@ -128,7 +129,10 @@ class Group(models.Model):
 class GroupStudent(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
     student = models.ForeignKey('students.Student', on_delete=models.CASCADE)
-    joined_at = models.DateField(auto_now_add=True)
+    # To'lov shu sanadagi oydan boshlab hisoblanadi (tahrirlash mumkin).
+    joined_at = models.DateField(default=timezone.localdate, verbose_name="Qo'shilgan sana")
+    # Guruhdan chiqqan sana: shu sanadan keyin boshlanadigan oylar hisoblanmaydi.
+    left_at = models.DateField(null=True, blank=True, verbose_name="Chiqqan sana")
     is_active = models.BooleanField(default=True)
 
     class Meta:
