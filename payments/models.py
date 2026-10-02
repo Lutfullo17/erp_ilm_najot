@@ -165,6 +165,10 @@ class PaymentTransaction(models.Model):
 
     class Meta:
         ordering = ('-payment_date', '-created_at')
+        indexes = [
+            models.Index(fields=['payment_date'], name='pay_date_idx'),
+            models.Index(fields=['student', 'group'], name='pay_student_group_idx'),
+        ]
         verbose_name = "To'lov"
         verbose_name_plural = "To'lovlar"
 

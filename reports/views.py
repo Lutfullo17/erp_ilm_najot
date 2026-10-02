@@ -48,7 +48,9 @@ MONEY = DecimalField(max_digits=14, decimal_places=2)
 def _parse_month(value, default):
     if value:
         try:
-            return date.fromisoformat(value + '-01')
+            parsed = date.fromisoformat(value + '-01')
+            if 2000 <= parsed.year <= 2100:
+                return parsed
         except ValueError:
             pass
     return default

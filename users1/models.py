@@ -94,6 +94,7 @@ class AuditLog(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [models.Index(fields=['-created_at'], name='audit_created_idx')]
         verbose_name = "Audit Log"
         verbose_name_plural = "Audit Loglar"
 

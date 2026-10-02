@@ -15,6 +15,8 @@ STATIC = {'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticF
 @override_settings(STORAGES=STATIC)
 class NotificationsPageTests(TestCase):
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # menyu belgisi keshlanadi
         self.director = User.objects.create_user(username='dir', password='x', role=User.Role.DIRECTOR)
         self.admin = User.objects.create_user(username='adm', password='x', role=User.Role.ADMINISTRATOR)
         self.teacher = User.objects.create_user(username='t', password='x', role=User.Role.TEACHER, first_name='Ali')

@@ -31,6 +31,7 @@ class AttendanceSession(models.Model):
     class Meta:
         unique_together = ('group', 'date')
         ordering = ('-date', 'group__name')
+        indexes = [models.Index(fields=['date'], name='att_session_date_idx')]
         verbose_name = 'Davomat'
         verbose_name_plural = 'Davomatlar'
 

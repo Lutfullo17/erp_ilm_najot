@@ -1030,8 +1030,10 @@ def run_attendance_check(request):
             'message': 'Davomat nazorati tugatildi',
             'result': result
         })
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception('Davomat nazoratida xatolik')
+        return JsonResponse({'error': 'Server xatosi'}, status=500)
 
 
 # ---------------------------------------------------------------------------
@@ -1832,26 +1834,24 @@ def reply_appeal(request, appeal_id):
     if not reply_text:
         return JsonResponse({'detail': 'Javob matni kiriting'}, status=400)
 
+    from html import escape
+    from bot.services import send_telegram_message
+    formatted_reply = (
+        f"<b>💬 JAVOB KELDI!</b>\n"
+        f"──────────────────\n"
+        f"👤 <b>Yuboruvchi:</b> Admin\n\n"
+        f"Javob: {escape(reply_text)}"
+    )
+    try:
+        sent = send_telegram_message(appeal.telegram_user.telegram_id, formatted_reply)
+    except Exception:
+        sent = None
+    if not sent:
+        # Yuborilmagan javob "hal qilindi" deb belgilanmaydi.
+        return JsonResponse({'detail': "Javob Telegram'ga yuborilmadi. Qayta urinib ko'ring."}, status=502)
+
     appeal.is_resolved = True
     appeal.save()
-
-    try:
-        from bot.services import send_telegram_message
-        if request.user.role == User.Role.TEACHER:
-            sender_label = "O'qituvchi"
-        else:
-            sender_label = "Admin"
-
-        formatted_reply = (
-            f"<b>💬 JAVOB KELDI!</b>\n"
-            f"──────────────────\n"
-            f"👤 <b>Yuboruvchi:</b> {sender_label}\n\n"
-            f"Javob: {reply_text}"
-        )
-        send_telegram_message(appeal.telegram_user.telegram_id, formatted_reply)
-    except Exception:
-        pass
-
     messages.success(request, "Javob muvaffaqiyatli yuborildi!")
     return JsonResponse({'ok': True})
 
@@ -1906,7 +1906,8 @@ def broadcast_to_group(request):
         sender_label = "Admin"
     else:
         sender_label = "O'qituvchi"
-    formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
+    from html import escape
+    formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{escape(text)}"
 
     # Faqat to'liq registratsiyadan o'tgan, o'quvchisi bor va bloklanmagan foydalanuvchilar
     telegram_users = TelegramUser.objects.filter(
@@ -1964,7 +1965,8 @@ def broadcast_all(request):
         sender_label = "Admin"
     else:
         sender_label = "O'qituvchi"
-    formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{text}"
+    from html import escape
+    formatted_msg = f"<b>✉️ {sender_label} xabari</b>\n\n{escape(text)}"
 
     # Faqat to'liq registratsiyadan o'tgan active studentli mijozlar
     telegram_users = TelegramUser.objects.filter(

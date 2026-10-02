@@ -281,6 +281,7 @@ def delete_group(request, pk):
     group = get_object_or_404(Group, pk=pk)
     try:
         group.delete()
+        AuditLog.objects.create(user=request.user, role=request.user.role, action=f"Guruh o'chirildi: {group.name}")
         messages.success(request, f"'{group.name}' guruhi butunlay o'chirildi.")
     except ProtectedError:
         # Agar guruhda darslar yoki baholar bo'lsa, o'chirib bo'lmaydi
@@ -300,6 +301,10 @@ def toggle_pause_group(request, pk):
     group = get_object_or_404(Group, pk=pk)
     group.is_paused = not group.is_paused
     group.save()
+    state_text = "to'xtatildi" if group.is_paused else "qayta faollashtirildi"
+    AuditLog.objects.create(
+        user=request.user, role=request.user.role, action=f"Guruh {state_text}: {group.name}",
+    )
     status = "to'xtatildi" if group.is_paused else "faollashtirildi"
     messages.success(request, f"'{group.name}' guruh vaqtincha {status}.")
     return redirect('groups_app:group_detail', pk=pk)

@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from users1.views import AdminAccessRequiredMixin
+from users1.views import AdminAccessRequiredMixin, create_audit_log
 from groups_app.models import Group, GroupStudent
 from .models import Student, Parent
 
@@ -121,6 +121,7 @@ class StudentCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView
 
     def form_valid(self, form):
         student = form.save()
+        create_audit_log(self.request, f"O'quvchi qo'shildi: {student}")
         group_id = self.request.POST.get('group')
         if group_id:
             group = Group.objects.filter(pk=group_id, is_active=True).first()
@@ -147,7 +148,17 @@ class StudentUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView
         return context
 
     def form_valid(self, form):
+        fields = ('status', 'has_discount', 'discount_type', 'discount_value')
+        before = {k: str(v) for k, v in Student.objects.filter(pk=self.object.pk).values(*fields).first().items()}
         student = form.save()
+        after = {k: str(getattr(student, k)) for k in fields}
+        if before != after:
+            from users1.models import AuditLog
+            AuditLog.objects.create(
+                user=self.request.user, role=self.request.user.role,
+                action=f"O'quvchi holati/chegirmasi o'zgardi: {student}",
+                old_data=before, new_data=after,
+            )
         group_id = self.request.POST.get('group')
         
         if group_id:

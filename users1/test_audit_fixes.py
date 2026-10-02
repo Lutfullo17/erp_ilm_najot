@@ -404,3 +404,49 @@ class HardeningTests(AuditBase):
         self.assertNotIn('${s.full_name}', html)
         self.assertNotIn('${g.name}', html)
         self.assertNotIn('${d.name}', html)
+
+
+class RobustnessTests(AuditBase):
+    def test_payment_api_does_not_leak_internal_errors(self):  # O-5
+        with mock.patch('payments.views.apply_payment', side_effect=RuntimeError('SECRET INTERNAL')):
+            r = self.jpost(self.login(self.admin), '/payments/api/create/',
+                           {'student_id': self.s1.pk, 'group_id': self.g1.pk, 'amount': 1000})
+        self.assertEqual(r.status_code, 500)
+        self.assertNotIn('SECRET INTERNAL', r.content.decode())
+
+    def test_payment_input_error_is_400(self):
+        r = self.jpost(self.login(self.admin), '/payments/api/create/',
+                       {'student_id': self.s1.pk, 'group_id': self.g1.pk, 'amount': -5})
+        self.assertEqual(r.status_code, 400)
+
+    def test_absent_notification_not_resent_on_resave(self):  # O-4
+        from attendance.models import AttendanceRecord
+        s = AttendanceSession.objects.create(group=self.g1, teacher=self.t1, date=self.today)
+        with mock.patch('attendance.signals.transaction.on_commit', side_effect=lambda f: f()), \
+                mock.patch('bot.notifications.notify_attendance_absent') as notify:
+            rec = AttendanceRecord.objects.create(session=s, student=self.s1, status='ABSENT')
+            rec.comment = 'x'
+            rec.save()
+            AttendanceRecord.objects.update_or_create(session=s, student=self.s1, defaults={'status': 'ABSENT'})
+        self.assertEqual(notify.call_count, 1)
+
+    def test_broadcast_text_is_html_escaped(self):  # O-4
+        from bot.models import TelegramUser
+        TelegramUser.objects.create(telegram_id=9, student=self.s1, is_verified=True, phone='998901112233')
+        with mock.patch('bot.broadcast.execute_broadcast') as ex:
+            ex.return_value = mock.Mock(total=0, success=0, blocked=0, total_failed=0,
+                                        failed_network=0, failed_api=0, failed_other=0)
+            self.jpost(self.login(self.director), '/users/api/broadcast-all/', {'message': '<b>x</b> & y'})
+        self.assertIn('&lt;b&gt;x&lt;/b&gt; &amp; y', ex.call_args[0][1])
+
+    def test_student_discount_change_is_audited(self):  # O-16
+        from users1.models import AuditLog
+        self.login(self.admin).post('/students/%d/edit/' % self.s1.pk, {
+            'full_name': 'Ali Valiyev', 'gender': 'MALE', 'status': 'ACTIVE', 'has_discount': 'on',
+            'discount_type': 'PERCENTAGE', 'discount_value': '10', 'group': self.g1.pk})
+        log = AuditLog.objects.get(action__startswith="O'quvchi holati/chegirmasi")
+        self.assertEqual(Decimal(log.new_data['discount_value']), Decimal('10'))
+
+    def test_report_month_out_of_range_does_not_crash(self):  # P-4
+        r = self.login(self.director).get('/reports/finance/?month=9999-12')
+        self.assertEqual(r.status_code, 200)

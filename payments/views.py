@@ -5,7 +5,10 @@ from django.views.generic import ListView, CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models, transaction
 from django.db.models import Sum
-from django.http import JsonResponse
+import logging
+
+from django.core.exceptions import PermissionDenied
+from django.http import Http404, JsonResponse
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
@@ -15,6 +18,20 @@ from .models import PaymentTransaction, StudentMonthBalance
 from students.models import Student
 from groups_app.models import Group, GroupStudent
 from .services import PaymentInputError, apply_payment, get_student_payment_state
+
+logger = logging.getLogger(__name__)
+
+
+def _error_response(exc):
+    """Kutilgan xatolar aniq status bilan; kutilmaganlari loglanadi, foydalanuvchiga ichki matn chiqmaydi."""
+    if isinstance(exc, PaymentInputError):
+        return JsonResponse({'detail': str(exc)}, status=400)
+    if isinstance(exc, PermissionDenied):
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
+    if isinstance(exc, Http404):
+        return JsonResponse({'detail': 'Topilmadi.'}, status=404)
+    logger.exception('Kutilmagan xatolik')
+    return JsonResponse({'detail': 'Server xatosi. Qayta urinib ko\'ring.'}, status=500)
 
 
 def _serialize_student_for_payment(student):
@@ -133,8 +150,8 @@ class PaymentCreateView(LoginRequiredMixin, AdminAccessRequiredMixin, CreateView
                 self.request.POST.get('note'),
             )
             return redirect(self.success_url)
-        except Exception as e:
-            form.add_error(None, str(e))
+        except (PaymentInputError, PermissionDenied, Http404) as e:
+            form.add_error(None, str(e) or "Ruxsat yo'q.")
             return self.form_invalid(form)
 
 class DebtorListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
@@ -186,7 +203,7 @@ def student_balance(request, student_id, group_id):
         )
         return JsonResponse(data)
     except Exception as e:
-        return JsonResponse({'detail': str(e)}, status=400)
+        return _error_response(e)
 
 @require_http_methods(['GET'])
 def api_student_all_debts(request, student_id):
@@ -224,8 +241,13 @@ def create_payment(request):
             idempotency_key=payload.get('idempotency_key'),
         )
         return JsonResponse(data, status=200 if data.get('duplicate') else 201)
+    except (ValueError, TypeError, AttributeError) as e:
+        if isinstance(e, PaymentInputError):
+            return _error_response(e)
+        logger.warning('create_payment noto\'g\'ri so\'rov: %s', e)
+        return JsonResponse({'detail': "So'rov ma'lumotlari noto'g'ri."}, status=400)
     except Exception as e:
-        return JsonResponse({'detail': str(e)}, status=400)
+        return _error_response(e)
 
 
 @require_http_methods(['POST'])
@@ -235,6 +257,8 @@ def delete_payment_view(request, pk):
     try:
         delete_payment(request.user, pk)
         messages.success(request, "To'lov muvaffaqiyatli o'chirildi va balanslar qayta hisoblandi.")
-    except Exception as e:
+    except PermissionDenied as e:
         messages.error(request, str(e))
+    except Http404:
+        messages.error(request, "To'lov topilmadi.")
     return redirect('payments:payment_list')

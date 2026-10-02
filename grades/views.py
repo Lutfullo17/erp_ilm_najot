@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
@@ -12,6 +13,8 @@ from django.utils import timezone
 from groups_app.models import Group
 from users1.views import TeacherRequiredMixin
 from .models import GradeSession
+logger = logging.getLogger(__name__)
+
 from .services import GradeInputError, get_grade_snapshot, get_teacher_groups, save_grades
 
 
@@ -168,8 +171,9 @@ def group_grades(request, group_id):
             return json_error(error)
         except PermissionDenied as error:
             return json_error(error, status=403)
-        except Exception as error:
-            return json_error(f"Kutilmagan xatolik: {error}", status=500)
+        except Exception:
+            logger.exception('Baholarni olishda xatolik')
+            return json_error("Server xatosi.", status=500)
 
         return JsonResponse(data)
 
@@ -186,7 +190,8 @@ def group_grades(request, group_id):
         return json_error(error)
     except PermissionDenied as error:
         return json_error(error, status=403)
-    except Exception as error:
-        return json_error(f"Kutilmagan xatolik: {error}", status=500)
+    except Exception:
+        logger.exception('Baholarni saqlashda xatolik')
+        return json_error("Server xatosi.", status=500)
 
     return JsonResponse(data)

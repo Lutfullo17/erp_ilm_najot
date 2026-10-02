@@ -66,6 +66,11 @@ def notifications_context(request):
     if user is None or not getattr(user, 'is_authenticated', False) or not getattr(user, 'is_admin_access', False):
         return {}
     try:
-        return {'notification_count': notification_count(user)}
+        from django.core.cache import cache
+        count = cache.get('notification_count')
+        if count is None:
+            count = notification_count(user)
+            cache.set('notification_count', count, 30)  # menyu belgisi: 30 soniyagacha eskirishi mumkin
+        return {'notification_count': count}
     except Exception:
         return {}
