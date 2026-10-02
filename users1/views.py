@@ -695,6 +695,9 @@ from users1.services import validate_teacher_deletion
 
 @require_http_methods(['POST'])
 def delete_teacher(request, pk):
+    if not request.user.is_authenticated or not request.user.is_director:
+        messages.error(request, "Faqat Director o'qituvchilarni o'chira oladi.")
+        return redirect('users1:login' if not request.user.is_authenticated else 'users1:index')
     teacher = get_object_or_404(User, pk=pk, role='TEACHER')
 
     # Validation

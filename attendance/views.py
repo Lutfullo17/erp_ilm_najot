@@ -228,6 +228,8 @@ def save_lesson_plan(request):
     group = Group.objects.filter(pk=group_id, is_active=True).first()
     if not group:
         return JsonResponse({'detail': 'Guruh topilmadi'}, status=404)
+    if not user.is_admin_access and group.teacher_id != user.pk:
+        return JsonResponse({'detail': "Bu guruh sizga biriktirilmagan."}, status=403)
 
     try:
         plan_date = datetime.strptime(date_str, '%Y-%m-%d').date()
