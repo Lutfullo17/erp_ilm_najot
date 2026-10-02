@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from users1.views import AdminAccessRequiredMixin
 from .models import Group, GroupStudent, Room
+from .services import MembershipError, add_student, remove_student
 from students.models import Student
 from users1.models import ScheduleChangeRequest, AuditLog
 import datetime
@@ -95,10 +96,14 @@ class GroupListView(LoginRequiredMixin, AdminAccessRequiredMixin, ListView):
     context_object_name = 'groups'
 
     def get_queryset(self):
+        from django.db.models import Count, Q
         query = self.request.GET.get('q')
+        qs = Group.objects.select_related('teacher').annotate(active_students=Count(
+            'groupstudent', filter=Q(groupstudent__is_active=True, groupstudent__student__is_active=True),
+        ))
         if query:
-            return Group.objects.filter(name__icontains=query)
-        return Group.objects.all()
+            return qs.filter(name__icontains=query)
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -211,10 +216,25 @@ def add_student_to_group(request, pk):
         student_id = request.POST.get('student_id')
         if student_id:
             student = get_object_or_404(Student, pk=student_id)
-            gs, created = GroupStudent.objects.get_or_create(group=group, student=student)
-            if not gs.is_active:
-                gs.is_active = True
-                gs.save()
+            try:
+                add_student(group, student, request.user)
+            except MembershipError as exc:
+                messages.error(request, str(exc))
+    return redirect('groups_app:group_detail', pk=pk)
+
+
+@require_http_methods(['POST'])
+def remove_student_from_group(request, pk, student_pk):
+    if not request.user.is_authenticated or not request.user.is_admin_access:
+        messages.error(request, "Ruxsat yo'q.")
+        return redirect('users1:login')
+    group = get_object_or_404(Group, pk=pk)
+    student = get_object_or_404(Student, pk=student_pk)
+    try:
+        remove_student(group, student, request.user)
+        messages.success(request, f"{student} {group.name} guruhidan chiqarildi.")
+    except MembershipError as exc:
+        messages.error(request, str(exc))
     return redirect('groups_app:group_detail', pk=pk)
 
 
@@ -231,10 +251,11 @@ def add_student_to_group_modal(request, student_pk):
         group_id = request.POST.get('group_id')
         if group_id:
             group = get_object_or_404(Group, pk=group_id)
-            gs, created = GroupStudent.objects.get_or_create(group=group, student=student)
-            if not gs.is_active:
-                gs.is_active = True
-                gs.save()
+            try:
+                _, created = add_student(group, student, request.user)
+            except MembershipError as exc:
+                messages.error(request, str(exc))
+                return redirect('students:student_detail', pk=student_pk)
             if created:
                 messages.success(request, f"{student.get_full_name()} {group.name} guruhiga qo'shildi.")
             else:

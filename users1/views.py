@@ -1360,7 +1360,7 @@ class TeacherGroupsView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
                 is_today = today_name in lesson_days_list
                 if is_today:
                     today_count += 1
-            total_students += group.students.count()
+            total_students += GroupStudent.objects.filter(group=group, is_active=True, student__is_active=True).count()
             groups_with_status.append({
                 'group': group,
                 'is_today': is_today,

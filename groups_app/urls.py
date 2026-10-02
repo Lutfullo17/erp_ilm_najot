@@ -9,6 +9,7 @@ urlpatterns = [
     path('new/', views.GroupCreateView.as_view(), name='group_create'),
     path('<int:pk>/edit/', views.GroupUpdateView.as_view(), name='group_edit'),
     path('<int:pk>/add-student/', views.add_student_to_group, name='add_student'),
+    path('<int:pk>/remove-student/<int:student_pk>/', views.remove_student_from_group, name='remove_student'),
     path('<int:pk>/delete/', views.delete_group, name='group_delete'),
     path('<int:pk>/toggle-pause/', views.toggle_pause_group, name='group_toggle_pause'),
     path('rooms/', views.RoomAvailabilityView.as_view(), name='room_availability'),

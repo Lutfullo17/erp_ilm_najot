@@ -229,3 +229,46 @@ class PaymentIntegrityTests(AuditBase):
     def test_director_can_backdate(self):  # Y-9
         old = str(self.today - datetime.timedelta(days=30))
         self.assertEqual(self._pay(user=self.director, payment_date=old).status_code, 201)
+
+
+class MembershipTests(AuditBase):
+    EDIT = {'full_name': 'Ali Valiyev', 'phone': '901234567', 'gender': 'MALE', 'status': 'ACTIVE',
+            'discount_type': 'PERCENTAGE', 'discount_value': '0'}
+
+    def _active(self):
+        return sorted(GroupStudent.objects.filter(student=self.s1, is_active=True).values_list('group__name', flat=True))
+
+    def test_editing_multi_group_student_keeps_memberships(self):  # Y-7
+        GroupStudent.objects.create(group=self.g2, student=self.s1)
+        self.login(self.admin).post('/students/%d/edit/' % self.s1.pk, dict(self.EDIT, group=self.g1.pk))
+        self.assertEqual(self._active(), ['G1', 'G2'])
+
+    def test_editing_single_group_student_can_transfer(self):
+        self.login(self.admin).post('/students/%d/edit/' % self.s1.pk, dict(self.EDIT, group=self.g2.pk))
+        self.assertEqual(self._active(), ['G2'])
+
+    def test_cannot_add_deleted_or_left_student(self):  # O-12
+        self.s_other.status = Student.Status.LEFT
+        self.s_other.save()
+        self.login(self.admin).post('/groups/%d/add-student/' % self.g1.pk, {'student_id': self.s_other.pk})
+        self.assertFalse(GroupStudent.objects.filter(group=self.g1, student=self.s_other).exists())
+
+    def test_cannot_add_to_inactive_group(self):
+        self.g1.is_active = False
+        self.g1.save()
+        s3 = Student.objects.create(first_name='N', last_name='M')
+        self.login(self.admin).post('/groups/%d/add-student/' % self.g1.pk, {'student_id': s3.pk})
+        self.assertFalse(GroupStudent.objects.filter(group=self.g1, student=s3).exists())
+
+    def test_remove_student_endpoint(self):
+        self.login(self.admin).post('/groups/%d/remove-student/%d/' % (self.g1.pk, self.s1.pk))
+        gs = GroupStudent.objects.get(group=self.g1, student=self.s1)
+        self.assertFalse(gs.is_active)
+        self.assertIsNotNone(gs.left_at)
+
+    def test_group_list_counts_only_active_members(self):  # O-2
+        s3 = Student.objects.create(first_name='N', last_name='M')
+        GroupStudent.objects.create(group=self.g1, student=s3, is_active=False)
+        r = self.login(self.admin).get('/groups/')
+        g1 = [g for g in r.context['groups'] if g.pk == self.g1.pk][0]
+        self.assertEqual(g1.active_students, 1)

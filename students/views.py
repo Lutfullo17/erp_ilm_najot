@@ -153,16 +153,21 @@ class StudentUpdateView(LoginRequiredMixin, AdminAccessRequiredMixin, UpdateView
         if group_id:
             group = Group.objects.filter(pk=group_id, is_active=True).first()
             if group:
-                # Eski guruhlarini deaktivatsiya qilish (agar boshqa guruh tanlangan bo'lsa)
-                # .update() emas, .save(): signal chiqqan sanani yozadi va balanslarni qayta hisoblaydi
-                for old_gs in GroupStudent.objects.filter(student=student, is_active=True).exclude(group=group):
-                    old_gs.is_active = False
-                    old_gs.save()
-                # Yangisini yaratish yoki faollashtirish
-                gs, created = GroupStudent.objects.get_or_create(group=group, student=student)
-                if not gs.is_active:
-                    gs.is_active = True
-                    gs.save()
+                active = list(GroupStudent.objects.filter(student=student, is_active=True))
+                already_in = any(gs.group_id == group.pk for gs in active)
+                if len(active) > 1 and not already_in:
+                    # Forma faqat bitta guruhni ko'rsatadi; ko'p guruhli o'quvchining a'zoliklari
+                    # bu yerda o'zgartirilmaydi (guruh sahifasidan boshqariladi).
+                    messages.warning(self.request, "O'quvchi bir nechta guruhda — guruhni guruh sahifasidan o'zgartiring.")
+                elif not already_in:
+                    from groups_app.services import MembershipError, add_student, remove_student
+                    try:
+                        # Bitta guruhdan boshqasiga ko'chirish: .save() signal chiqish sanasini yozadi
+                        for old_gs in active:
+                            remove_student(old_gs.group, student, self.request.user)
+                        add_student(group, student, self.request.user)
+                    except MembershipError as exc:
+                        messages.error(self.request, str(exc))
         
         messages.success(self.request, "O'quvchi ma'lumotlari yangilandi!")
         return redirect(self.success_url)
