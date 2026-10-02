@@ -1505,7 +1505,10 @@ class TeacherScheduleView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView
         today = timezone.localdate()
         day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 
-        week_offset = int(self.request.GET.get('week_offset', 0))
+        try:
+            week_offset = max(-52, min(52, int(self.request.GET.get('week_offset', 0))))
+        except (TypeError, ValueError):
+            week_offset = 0
         start_of_week = today - timezone.timedelta(days=today.weekday()) + timezone.timedelta(days=7 * week_offset)
         week_days = []
         for i in range(7):

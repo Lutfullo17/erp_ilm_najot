@@ -450,3 +450,7 @@ class RobustnessTests(AuditBase):
     def test_report_month_out_of_range_does_not_crash(self):  # P-4
         r = self.login(self.director).get('/reports/finance/?month=9999-12')
         self.assertEqual(r.status_code, 200)
+
+    def test_teacher_schedule_bad_week_offset_is_ok(self):  # O-1
+        r = self.login(self.t1).get('/users/teacher/schedule/?week_offset=abc')
+        self.assertEqual(r.status_code, 200)
