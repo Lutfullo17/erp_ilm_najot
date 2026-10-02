@@ -70,13 +70,13 @@
                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Dars mavzusi</label>
                     <input type="text" name="lesson_topic" value="{{ session.lesson_topic }}"
                            placeholder="Mavzu kiriting..." {% if is_locked %}disabled{% endif %}
-                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 0.9rem;">
                 </div>
                 <div>
                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Uyga vazifa</label>
                     <input type="text" name="homework" value="{{ session.homework }}"
                            placeholder="Vazifa kiriting..." {% if is_locked %}disabled{% endif %}
-                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 0.9rem;">
                 </div>
             </div>
         </div>
@@ -97,7 +97,7 @@
                     {% endif %}
                 </div>
 
-                <div class="attendance-options" style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.1); padding: 0.4rem; border-radius: 12px;">
+                <div class="attendance-options" style="display: flex; gap: 0.5rem; background: var(--surface-2); padding: 0.4rem; border-radius: 12px;">
                     {% for status_val, status_label in status_choices %}
                     <label class="status-btn" style="cursor: {% if is_locked %}not-allowed{% else %}pointer{% endif %}; margin-bottom: 0;">
                         <input type="radio" name="status_{{ student.id }}" value="{{ status_val }}"
@@ -113,7 +113,7 @@
 
         {% if not is_locked %}
         <div style="margin-top: 3rem; position: sticky; bottom: 2rem; display: flex; justify-content: center;">
-            <button type="submit" class="btn btn-primary" style="padding: 1.25rem 4rem; font-size: 1.1rem; box-shadow: 0 15px 30px rgba(99, 102, 241, 0.4);">
+            <button type="submit" class="btn btn-primary" style="padding: 1.25rem 4rem; font-size: 1.1rem; ">
                 <i class="fas fa-save"></i> Saqlash
             </button>
         </div>
@@ -133,10 +133,9 @@
 
 <style>
     .status-btn input:checked + .status-label {
-        background: var(--primary);
+        background: var(--primary-fill);
         color: white;
-        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
-    }
+        }
     
     .status-label {
         padding: 0.5rem 1rem;

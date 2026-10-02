@@ -104,6 +104,25 @@ def _get_week_override(group, week_start):
     ).order_by('-submitted_at').first()
 
 
+def _today_numbers(user):
+    """Bosh sahifa uchun bugungi muhim raqamlar."""
+    today = timezone.localdate()
+    day_names = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+    today_name = day_names[today.weekday()]
+    lessons = sum(
+        1 for g in Group.objects.filter(is_active=True, is_paused=False).exclude(lesson_days='')
+        if today_name in _parse_lesson_days(g.lesson_days) and (g.start_date is None or g.start_date <= today)
+    )
+    payments = PaymentTransaction.objects.filter(payment_date=today)
+    if not user.is_director:
+        payments = payments.filter(created_by=user)
+    return {
+        'today_lessons_count': lessons,
+        'today_payments_total': payments.aggregate(total=Sum('amount'))['total'] or 0,
+        'debtors_count': StudentMonthBalance.objects.debts(today).current_members().values('student').distinct().count(),
+    }
+
+
 def _get_current_teacher_lesson(teacher):
     """Hozir davom etayotgan o'qituvchi darsini qaytaradi."""
     today = timezone.localdate()
@@ -1712,9 +1731,9 @@ class AdminDashboardView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView
         context['teachers_count'] = User.objects.filter(role=User.Role.TEACHER, is_deleted=False).count()
         context['admins_count'] = User.objects.filter(role=User.Role.ADMINISTRATOR).count()
 
-        # Qarzdorlar soni
+        # Bugungi muhim raqamlar (darslar, to'lovlar, qarzdorlar)
         today = timezone.localdate()
-        context['debtors_count'] = StudentMonthBalance.objects.debts(today).current_members().values('student').distinct().count()
+        context.update(_today_numbers(self.request.user))
 
         # Bugungi tug'ilgan kunlar
         context['birthdays_today'] = Student.objects.filter(
@@ -2100,6 +2119,7 @@ class AdministratorDashboardView(LoginRequiredMixin, AdministratorRequiredMixin,
 
         context['active_groups_count'] = Group.objects.filter(is_active=True).count()
         context['total_students_count'] = Student.objects.filter(is_active=True).count()
+        context.update(_today_numbers(self.request.user))
 
         context['today_attendance'] = AttendanceRecord.objects.filter(
             session__date=today

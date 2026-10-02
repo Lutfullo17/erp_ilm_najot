@@ -228,14 +228,13 @@
         border-radius: 50px;
         font-size: 0.85rem;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-2);
     }
 
     .day-chip input:checked + span {
-        background: var(--primary);
+        background: var(--primary-fill);
         border-color: var(--primary);
         color: white;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         transform: translateY(-2px);
     }
 

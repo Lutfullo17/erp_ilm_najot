@@ -53,7 +53,7 @@
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 0.8rem;">
                 {% for group in student.groups.all %}
-                <a href="{% url 'groups_app:group_detail' group.id %}" class="badge" style="background: var(--primary); color: white; padding: 0.6rem 1.2rem; text-decoration: none;">
+                <a href="{% url 'groups_app:group_detail' group.id %}" class="badge" style="background: var(--primary-fill); color: white; padding: 0.6rem 1.2rem; text-decoration: none;">
                     {{ group.name }}
                 </a>
                 {% empty %}
@@ -101,7 +101,7 @@
     .info-row i {
         width: 35px;
         height: 35px;
-        background: rgba(255,255,255,0.05);
+        background: var(--surface-2);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -109,14 +109,13 @@
         color: var(--primary);
     }
     .avatar {
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        background: var(--primary-fill);
         color: white;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 20px;
         font-weight: 700;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
+        }
 </style>
 {% endblock %}

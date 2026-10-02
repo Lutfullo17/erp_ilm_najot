@@ -7,17 +7,17 @@
 .back-link { display:inline-flex; align-items:center; gap:0.5rem; color:var(--text-muted); text-decoration:none; margin-bottom:1.5rem; font-size:0.9rem; transition:color 0.2s; }
 .back-link:hover { color:var(--primary); }
 .teacher-hero {
-    background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(16,185,129,0.1) 100%);
+    background: var(--surface-2);
     border: 1px solid var(--border); border-radius: 28px; padding: 2rem;
     display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem;
     position: relative; overflow: hidden;
 }
 .teacher-avatar {
     width: 90px; height: 90px; border-radius: 24px;
-    background: linear-gradient(135deg, #6366f1, #10b981);
+    background: var(--primary-fill);
     display: flex; align-items: center; justify-content: center;
     font-size: 2rem; font-weight: 800; color: white;
-    border: 3px solid rgba(255,255,255,0.2); flex-shrink: 0;
+    border: 3px solid var(--border-strong); flex-shrink: 0;
 }
 .teacher-info h2 { font-size: 1.7rem; font-weight: 700; margin-bottom: 0.25rem; }
 .teacher-info .username { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
@@ -32,7 +32,7 @@
     display: inline-flex; align-items: center; gap: 0.4rem;
 }
 .two-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-.section-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; backdrop-filter: blur(12px); }
+.section-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; }
 .section-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.6rem; }
 .action-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .btn-sm { padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: 12px; }
@@ -49,7 +49,7 @@
 .penalty-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border); }
 .penalty-item:last-child { border-bottom: none; }
 .pts-badge { background: rgba(239,68,68,0.15); color: #ef4444; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
-.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; }
+.modal-overlay { display:none; position:fixed; inset:0; background:var(--surface-2); z-index:9999; align-items:center; justify-content:center; }
 .modal-overlay.active { display:flex; }
 .modal { background:#1e293b; border:1px solid var(--border); border-radius:24px; padding:2rem; width:100%; max-width:480px; margin:1rem; }
 .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }

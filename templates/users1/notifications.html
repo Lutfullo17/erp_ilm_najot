@@ -7,7 +7,7 @@
 <style>
     .notif-section { margin-bottom: 1.75rem; }
     .notif-section h3 { font-size: 1rem; margin: 0 0 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
-    .notif-section h3 .count { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-muted); }
+    .notif-section h3 .count { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); }
     .notif-list { display: flex; flex-direction: column; gap: 0.6rem; }
     .notif-item { padding: 0.8rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
     .notif-item .main { display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
@@ -129,7 +129,7 @@
     <h3><i class="fas fa-birthday-cake" style="color: var(--warning);"></i> Bugungi tug'ilgan kunlar <span class="count">{{ birthdays_today|length }}</span></h3>
     <div class="glass-panel" style="padding: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
         {% for student in birthdays_today %}
-        <a href="{% url 'students:student_detail' student.pk %}" style="background: rgba(255,255,255,0.05); padding: 0.4rem 0.75rem; border-radius: 10px; font-size: 0.8rem; border: 1px solid rgba(245, 158, 11, 0.2); text-decoration: none; color: inherit;">{{ student.get_full_name }}</a>
+        <a href="{% url 'students:student_detail' student.pk %}" style="background: var(--surface-2); padding: 0.4rem 0.75rem; border-radius: 10px; font-size: 0.8rem; border: 1px solid rgba(245, 158, 11, 0.2); text-decoration: none; color: inherit;">{{ student.get_full_name }}</a>
         {% endfor %}
     </div>
 </div>

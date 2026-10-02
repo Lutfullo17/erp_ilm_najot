@@ -22,7 +22,7 @@
     <div style="overflow-x: auto;">
         <div style="display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 0.75rem; min-width: 900px;">
             {% for day in week_days %}
-            <div style="border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.03); min-height: 260px;">
+            <div style="border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); min-height: 260px;">
                 <div style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
                     <div style="font-weight: 700; font-size: 0.9rem;">{{ day.day_name }}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{{ day.date|date:"d-M" }}</div>
@@ -46,7 +46,7 @@
                             {% endif %}
                             <div style="margin-top: 0.65rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
                                 {% if day.date < today %}
-                                    <span style="padding: 0.35rem 0.6rem; font-size: 0.72rem; opacity: 0.45; pointer-events: none; cursor: not-allowed; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted);">Jadvalni o'zgartirish</span>
+                                    <span style="padding: 0.35rem 0.6rem; font-size: 0.72rem; opacity: 0.45; pointer-events: none; cursor: not-allowed; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted);">Jadvalni o'zgartirish</span>
                                 {% else %}
                                     <a href="{% url 'users1:schedule_change_request_create' lesson.group.id %}?day={{ day.day_name }}" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 8px; color: #3b82f6; font-weight: 600; text-decoration: none; transition: all 0.2s;">Jadvalni o'zgartirish</a>
                                 {% endif %}

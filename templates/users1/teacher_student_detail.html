@@ -44,7 +44,7 @@
                     <small style="color: var(--text-muted); display: block;">Guruhlar</small>
                     <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem;">
                         {% for g in student_groups %}
-                        <span class="badge" style="background: var(--primary); color: white; padding: 0.3rem 0.7rem; font-size: 0.75rem;">{{ g.name }}</span>
+                        <span class="badge" style="background: var(--primary-fill); color: white; padding: 0.3rem 0.7rem; font-size: 0.75rem;">{{ g.name }}</span>
                         {% empty %}
                         <span style="color: var(--text-muted); font-size: 0.85rem;">Guruh yo'q</span>
                         {% endfor %}
@@ -136,7 +136,7 @@
             </h3>
             <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                 {% for appeal in recent_appeals %}
-                <div style="padding: 0.75rem; border-radius: 10px; background: rgba(255,255,255,0.03); font-size: 0.85rem;">
+                <div style="padding: 0.75rem; border-radius: 10px; background: var(--surface-2); font-size: 0.85rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
                         <span style="color: var(--text-muted); font-size: 0.75rem;">{{ appeal.created_at|timesince }} oldin</span>
                         {% if appeal.is_resolved %}
@@ -163,7 +163,7 @@
     .info-row i {
         width: 35px;
         height: 35px;
-        background: rgba(255,255,255,0.05);
+        background: var(--surface-2);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -171,15 +171,14 @@
         color: var(--primary);
     }
     .avatar {
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        background: var(--primary-fill);
         color: white;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 20px;
         font-weight: 700;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
+        }
 
     @media (max-width: 768px) {
         div[style*="grid-template-columns: 1fr 2fr"] {

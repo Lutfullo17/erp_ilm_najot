@@ -14,13 +14,13 @@
                 </h3>
                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">{{ group.name }}</div>
             </div>
-            <a href="{% url 'users1:teacher_schedule' %}" style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">
+            <a href="{% url 'users1:teacher_schedule' %}" style="padding: 0.5rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">
                 <i class="fas fa-arrow-left"></i> Orqaga
             </a>
         </div>
 
         <!-- Hozirgi ma'lumot -->
-        <div style="margin-bottom: 1.25rem; padding: 0.85rem; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid var(--border);">
+        <div style="margin-bottom: 1.25rem; padding: 0.85rem; background: var(--surface-2); border-radius: 10px; border: 1px solid var(--border);">
             <div style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">{{ group.name }}</div>
             <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
                 {{ old_day }} | {{ old_start_time|time:"H:i" }} - {{ old_end_time|time:"H:i" }}
@@ -51,11 +51,11 @@
 
                 <!-- Hafta navigatsiya -->
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                    <button type="button" id="prevWeek" onclick="changeWeek(-1)" style="padding: 0.4rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;">
+                    <button type="button" id="prevWeek" onclick="changeWeek(-1)" style="padding: 0.4rem 0.8rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;">
                         <i class="fas fa-chevron-left"></i>
                     </button>
                     <span id="weekTitle" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);"></span>
-                    <button type="button" id="nextWeek" onclick="changeWeek(1)" style="padding: 0.4rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;">
+                    <button type="button" id="nextWeek" onclick="changeWeek(1)" style="padding: 0.4rem 0.8rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;">
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -70,7 +70,7 @@
             <!-- Xona -->
             <div class="form-group">
                 <label for="room" style="font-weight: 600; font-size: 0.85rem;">Xona</label>
-                <select id="room" name="room" style="width: 100%; padding: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 0.9rem;">
+                <select id="room" name="room" style="width: 100%; padding: 0.85rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 0.9rem;">
                     <option value="">— O'zgartirmaslik —</option>
                     {% for r_val, r_label in rooms %}
                     <option value="{{ r_val }}">{{ r_label }}</option>
@@ -87,7 +87,7 @@
                 <input type="text" id="startTime" name="new_start_time" placeholder="HH:MM" maxlength="5"
                     value="{{ old_start_time|time:'H:i' }}"
                     pattern="([01]\d|2[0-3]):[0-5]\d"
-                    style="width: 100%; padding: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 1rem; font-family: monospace;">
+                    style="width: 100%; padding: 0.85rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 1rem; font-family: monospace;">
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">24 soatlik: HH:MM (masalan: 14:00)</div>
                 {% if form.new_start_time.errors %}
                 <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;">{{ form.new_start_time.errors }}</div>
@@ -98,7 +98,7 @@
             <div class="form-group">
                 <label for="reason" style="font-weight: 600; font-size: 0.85rem;">Sabab *</label>
                 <textarea id="reason" name="reason" rows="3" required placeholder="O'zgartirish sababini kiriting..."
-                    style="width: 100%; padding: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 0.9rem; resize: vertical;"></textarea>
+                    style="width: 100%; padding: 0.85rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; color: white; font-size: 0.9rem; resize: vertical;"></textarea>
                 {% if form.reason.errors %}
                 <div style="color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;">{{ form.reason.errors }}</div>
                 {% endif %}
@@ -119,12 +119,12 @@
 <style>
     .cal-day {
         padding: 0.6rem 0.25rem; border-radius: 8px; border: 1px solid var(--border);
-        background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;
+        background: var(--surface-2); color: var(--text-muted); cursor: pointer;
         text-align: center; transition: all 0.15s; min-height: 50px;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem;
     }
     .cal-day:hover { background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); }
-    .cal-day.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .cal-day.active { background: var(--primary-fill); border-color: var(--primary); color: white; }
     .cal-day.is-today { border-color: rgba(99, 102, 241, 0.6); border-width: 2px; }
     .cal-day.is-today.active { border-color: white; }
     .cal-day.past { opacity: 0.35; cursor: default; pointer-events: none; }

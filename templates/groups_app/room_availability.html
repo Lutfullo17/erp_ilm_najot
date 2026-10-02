@@ -20,10 +20,10 @@
                     <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary);"></span> Band
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                    <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);"></span> Bo'sh
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border);"></span> Bo'sh
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                    <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); opacity: 0.4;"></span> O'tgan
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); opacity: 0.4;"></span> O'tgan
                 </div>
             </div>
         </div>
@@ -46,7 +46,7 @@
                     <div style="font-size: 0.65rem; color: var(--primary); margin-top: 0.2rem;">Bugun</div>
                     {% endif %}
                 </div>
-                <div style="min-height: 250px; background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 0 0 12px 12px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="min-height: 250px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 0 0 12px 12px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
                     {% for group in day_data.groups %}
                     <div style="display: flex; flex-direction: column; gap: 0;">
                         <div class="lesson-card {% if group.is_past %}lesson-past{% endif %}"
@@ -79,7 +79,7 @@
 <style>
     div::-webkit-scrollbar { height: 6px; }
     div::-webkit-scrollbar-track { background: transparent; }
-    div::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    div::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 10px; }
 
     {% if user.is_admin_access %}
     .edit-btn:hover { background: rgba(99, 102, 241, 0.25) !important; }

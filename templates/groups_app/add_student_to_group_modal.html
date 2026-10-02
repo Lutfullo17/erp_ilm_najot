@@ -16,7 +16,7 @@
             
             <div>
                 <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem;">Guruhni tanlang</label>
-                <select name="group_id" required style="width: 100%; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 0.9rem;">
+                <select name="group_id" required style="width: 100%; padding: 0.75rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 0.9rem;">
                     <option value="">-- Guruhni tanlang --</option>
                     {% for group in available_groups %}
                     <option value="{{ group.id }}">{{ group.name }}{% if group.teacher %} - {{ group.teacher.get_full_name|default:group.teacher.username }}{% endif %}</option>

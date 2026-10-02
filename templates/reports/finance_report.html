@@ -72,7 +72,7 @@
         margin-bottom: 1.25rem;
         line-height: 1.6;
     }
-    .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; width: 110px; max-width: 100%; }
+    .bar-track { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; width: 110px; max-width: 100%; }
     .bar-fill { height: 100%; }
     @media (max-width: 600px) {
         .fin-header { flex-direction: column; align-items: stretch !important; gap: 1rem; }
@@ -252,8 +252,8 @@
             <div style="display: flex; align-items: center; gap: 0.75rem;{% if item.is_selected %} font-weight: 700;{% endif %}">
                 <div style="width: 70px; flex-shrink: 0; font-size: 0.85rem; color: {% if item.is_selected %}var(--text){% else %}var(--text-muted){% endif %};">{{ item.month|date:"M Y" }}</div>
                 <div style="flex-grow: 1; min-width: 0;">
-                    <div style="height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden;">
-                        <div style="width: {{ item.width|unlocalize }}%; background: linear-gradient(to right, var(--primary), var(--secondary)); height: 100%;"></div>
+                    <div style="height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden;">
+                        <div style="width: {{ item.width|unlocalize }}%; background: var(--primary-fill); height: 100%;"></div>
                     </div>
                 </div>
                 <div style="width: 95px; flex-shrink: 0; text-align: right; font-size: 0.85rem;">{{ item.total|money }}</div>

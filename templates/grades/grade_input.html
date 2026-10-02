@@ -13,7 +13,7 @@
                 <div>
                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Guruh</label>
                     <select name="group" id="group-select" required onchange="this.form.submit()"
-                            style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                            style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 0.9rem;">
                         <option value="">Guruhni tanlang</option>
                         {% for group in groups %}
                         <option value="{{ group.id }}" {% if selected_group_id == group.id|slugify %}selected{% endif %}>{{ group.name }}</option>
@@ -23,12 +23,12 @@
                 <div>
                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Sana</label>
                     <input type="date" name="date" value="{{ selected_date }}" required onchange="this.form.submit()"
-                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 0.9rem;">
                 </div>
                 <div>
                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Baholash nomi</label>
                     <input type="text" name="title" value="{{ selected_title }}" placeholder="Dars bahosi"
-                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 0.9rem;">
                 </div>
             </div>
             <button type="submit" class="btn btn-outline" style="align-self: flex-start; padding: 0.6rem 1.5rem; font-size: 0.85rem;">
@@ -90,7 +90,7 @@
                                        min="0" max="100" step="0.01" placeholder="0-100"
                                        class="grade-input"
                                        {% if student.is_locked %}readonly style="width: 100%; padding: 0.6rem 0.8rem; padding-right: 2rem; border-radius: 10px; border: 1px solid rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); color: var(--text); font-size: 0.9rem; cursor: not-allowed;"
-                                       {% else %}style="width: 100%; padding: 0.6rem 0.8rem; padding-right: 2rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;"{% endif %}>
+                                       {% else %}style="width: 100%; padding: 0.6rem 0.8rem; padding-right: 2rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 0.9rem;"{% endif %}>
                                 <span style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.8rem;">%</span>
                             </div>
                         </div>
@@ -106,7 +106,7 @@
         </div>
 
         <div style="margin-top: 2rem; position: sticky; bottom: 2rem; display: flex; justify-content: center;">
-            <button type="submit" class="btn btn-primary" style="padding: 1.25rem 4rem; font-size: 1.1rem; box-shadow: 0 15px 30px rgba(99, 102, 241, 0.4);">
+            <button type="submit" class="btn btn-primary" style="padding: 1.25rem 4rem; font-size: 1.1rem; ">
                 <i class="fas fa-save"></i> Baholarni saqlash
             </button>
         </div>

@@ -5,43 +5,12 @@
 {% block header_title %}Ishchi Paneli{% endblock %}
 
 {% block content %}
-<!-- Statistika kartalar -->
-<div class="grid-3" style="margin-bottom: 2rem;">
-    <a href="{% url 'students:student_list' %}" class="glass-panel" style="padding: 1.5rem; border-left: 4px solid var(--primary); text-decoration: none; display: block; color: var(--text); transition: transform 0.2s;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; background: rgba(99, 102, 241, 0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-user-graduate" style="font-size: 1.25rem; color: var(--primary);"></i>
-            </div>
-            <div>
-                <div style="font-size: 1.75rem; font-weight: 700;">{{ total_students_count }}</div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">Jami o'quvchilar</div>
-            </div>
-        </div>
-    </a>
-
-    <a href="{% url 'groups_app:group_list' %}" class="glass-panel" style="padding: 1.5rem; border-left: 4px solid var(--success); text-decoration: none; display: block; color: var(--text); transition: transform 0.2s;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; background: rgba(16, 185, 129, 0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-users" style="font-size: 1.25rem; color: var(--success);"></i>
-            </div>
-            <div>
-                <div style="font-size: 1.75rem; font-weight: 700;">{{ active_groups_count }}</div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">Faol guruhlar</div>
-            </div>
-        </div>
-    </a>
-
-    <a href="{% url 'reports:today_attendance' %}" class="glass-panel" style="padding: 1.5rem; border-left: 4px solid var(--warning); text-decoration: none; display: block; color: var(--text); transition: transform 0.2s;">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="width: 50px; height: 50px; background: rgba(245, 158, 11, 0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-calendar-check" style="font-size: 1.25rem; color: var(--warning);"></i>
-            </div>
-            <div>
-                <div style="font-size: 1.75rem; font-weight: 700;">{{ today_attendance }}</div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">Bugungi davomat</div>
-            </div>
-        </div>
-    </a>
+<!-- Bugungi muhim raqamlar -->
+<div class="stat-grid">
+    {% url 'groups_app:group_list' as u1 %}{% include 'components/stat_tile.html' with href=u1 icon='chalkboard' tone='primary' value=today_lessons_count label="Bugungi darslar" %}
+    {% url 'payments:debtor_list' as u2 %}{% include 'components/stat_tile.html' with href=u2 icon='exclamation-circle' tone='danger' value=debtors_count label="Qarzdorlar" %}
+    {% url 'payments:payment_list' as u3 %}{% include 'components/stat_tile.html' with href=u3 icon='wallet' tone='success' value=today_payments_total|money label="Bugungi to'lovlar (so'm)" %}
+    {% url 'reports:today_attendance' as u4 %}{% include 'components/stat_tile.html' with href=u4 icon='calendar-check' tone='warning' value=today_attendance label="Bugungi davomat" %}
 </div>
 
 <div class="grid-2" style="margin-bottom: 1.5rem; grid-template-columns: 1.5fr 1fr;">
@@ -143,7 +112,7 @@
             </select>
         </div>
         <div class="form-group" style="margin: 0; flex: 2; min-width: 200px;">
-            <textarea id="broadcastMessage" style="width: 100%; min-height: 50px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: white; resize: vertical;" placeholder="Xabar matni..."></textarea>
+            <textarea id="broadcastMessage" style="width: 100%; min-height: 50px; padding: 0.75rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; color: white; resize: vertical;" placeholder="Xabar matni..."></textarea>
         </div>
         <button onclick="sendBroadcast()" class="btn btn-primary" style="height: 50px; flex-grow: 1; justify-content: center;">
             <i class="fas fa-paper-plane"></i> <span>Yuborish</span>

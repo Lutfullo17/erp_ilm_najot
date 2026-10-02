@@ -37,7 +37,7 @@
                     </div>
                     <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; font-weight: 500;">
                         {% for group in appeal.student.groups.all %}
-                        <span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 0.3rem 0.7rem; border-radius: 8px; font-size: 0.85rem; margin-right: 0.4rem; display: inline-block; margin-bottom: 0.3rem;">
+                        <span style="background: rgba(99, 102, 241, 0.15); color: var(--primary); padding: 0.3rem 0.7rem; border-radius: 8px; font-size: 0.85rem; margin-right: 0.4rem; display: inline-block; margin-bottom: 0.3rem;">
                             <i class="fas fa-users"></i> {{ group.name }}{% if group.teacher %} <span style="color: #a5b4fc; margin-left: 0.3rem;">• {{ group.teacher.get_full_name|default:group.teacher.username }}</span>{% endif %}
                         </span>
                         {% empty %}
@@ -57,7 +57,7 @@
                 </button>
             </div>
             <div id="replyForm-{{ appeal.id }}" style="display: none; margin-top: 0.75rem;">
-                <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 60px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; resize: vertical;" placeholder="Javob matni..."></textarea>
+                <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 60px; padding: 0.75rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; color: white; resize: vertical;" placeholder="Javob matni..."></textarea>
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                     <button onclick="sendReply({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.8rem;">
                         <i class="fas fa-paper-plane"></i> Yuborish
@@ -144,7 +144,7 @@ function resolveAppeal(appealId) {
 
 <style>
 .active-filter {
-    background: var(--primary) !important;
+    background: var(--primary-fill) !important;
     color: white !important;
     border-color: var(--primary) !important;
 }
