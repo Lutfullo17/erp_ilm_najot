@@ -74,10 +74,16 @@ class GradeInputView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
         records = []
         for key, value in request.POST.items():
             if key.startswith('percentage_'):
-                student_id = int(key.split('_')[1])
+                try:
+                    student_id = int(key.split('_')[1])
+                except (IndexError, ValueError):
+                    continue
+                # Bo'sh maydon = baholanmagan (0% emas).
+                if not str(value).strip():
+                    continue
                 comment_key = f'comment_{student_id}'
                 comment = request.POST.get(comment_key, '')
-                percentage = value if value else '0'
+                percentage = value
                 records.append({
                     'student_id': student_id,
                     'percentage': percentage,
@@ -94,7 +100,7 @@ class GradeInputView(LoginRequiredMixin, TeacherRequiredMixin, TemplateView):
         except (GradeInputError, PermissionDenied) as e:
             messages.error(request, str(e))
         except Exception as e:
-            messages.error(request, f"Xatolik yuz berdi: {e}")
+            messages.error(request, "Kutilmagan xatolik yuz berdi. Qayta urinib ko'ring.")
 
         return redirect(f'/grades/input/?group={group_id}&date={grade_date}&title={title}')
 

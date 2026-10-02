@@ -156,3 +156,39 @@ class BotSecurityTests(AuditBase):
     def test_scrub_removes_token(self):  # Y-11
         from bot.utils import scrub
         self.assertNotIn('SECRETTOKEN', scrub('url: /bot123:SECRETTOKEN/sendMessage'))
+
+
+class AttendanceGradeTests(AuditBase):
+    def test_attendance_rejects_foreign_student_and_bad_status(self):  # Y-3
+        c = self.login(self.t1)
+        c.post('/attendance/mark/%d/' % self.g1.pk, {'status_%d' % self.s_other.pk: 'ABSENT'})
+        c.post('/attendance/mark/%d/' % self.g1.pk, {'status_%d' % self.s1.pk: 'GARBAGE'})
+        self.assertEqual(AttendanceRecord.objects.count(), 0)
+
+    def test_attendance_valid_saved(self):
+        self.login(self.t1).post('/attendance/mark/%d/' % self.g1.pk, {'status_%d' % self.s1.pk: 'PRESENT'})
+        self.assertEqual(AttendanceRecord.objects.get().status, 'PRESENT')
+
+    def test_admin_override_keeps_snapshot_in_audit_log(self):  # Y-5
+        from users1.models import AuditLog
+        s = AttendanceSession.objects.create(group=self.g1, teacher=self.t1, date=self.today)
+        AttendanceRecord.objects.create(session=s, student=self.s1, status='PRESENT')
+        self.jpost(self.login(self.admin), '/attendance/api/admin-override/%d/' % self.g1.pk,
+                   {'date': str(self.today)})
+        log = AuditLog.objects.filter(action__startswith='Admin Override').get()
+        self.assertEqual(log.old_data['records'][0]['status'], 'PRESENT')
+
+    def test_blank_grade_is_not_saved_as_zero(self):  # Y-6
+        s2 = Student.objects.create(first_name='Vali', last_name='X')
+        GroupStudent.objects.create(group=self.g1, student=s2)
+        self.login(self.t1).post('/grades/input/', {
+            'group_id': self.g1.pk, 'grade_date': str(self.today), 'title': 'T',
+            'percentage_%d' % self.s1.pk: '85', 'percentage_%d' % s2.pk: ''})
+        recs = {r.student_id: r.percentage for r in GradeRecord.objects.all()}
+        self.assertEqual(recs, {self.s1.pk: Decimal('85.00')})
+
+    def test_grade_for_foreign_student_rejected(self):
+        self.login(self.t1).post('/grades/input/', {
+            'group_id': self.g1.pk, 'grade_date': str(self.today), 'title': 'T',
+            'percentage_%d' % self.s_other.pk: '50'})
+        self.assertFalse(GradeRecord.objects.exists())

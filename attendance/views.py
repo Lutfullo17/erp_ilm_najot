@@ -1,4 +1,8 @@
+import re
 from datetime import datetime, date, timedelta
+
+from django.db import transaction
+from django.utils import timezone
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views import View
@@ -23,9 +27,9 @@ class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
 
     def get(self, request, group_id):
         group = get_object_or_404(Group, id=group_id)
-        today = date.today()
+        today = timezone.localdate()
 
-        now = datetime.now().time()
+        now = timezone.localtime().time()
         if request.user.is_teacher and not request.user.is_admin_access:
             days_map = {0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba', 4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'}
             today_name = days_map[today.weekday()]
@@ -92,8 +96,8 @@ class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
 
     def post(self, request, group_id):
         group = get_object_or_404(Group, id=group_id)
-        today = date.today()
-        now = datetime.now().time()
+        today = timezone.localdate()
+        now = timezone.localtime().time()
 
         if request.user.is_teacher and not request.user.is_admin_access:
             days_map = {0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba', 4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'}
@@ -138,9 +142,24 @@ class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
         session.homework = request.POST.get('homework', '')
         session.save()
 
+        valid_statuses = set(AttendanceStatus.values)
+        member_ids = set(
+            group.groupstudent_set.filter(is_active=True, student__is_active=True)
+            .values_list('student_id', flat=True)
+        )
+        updates = {}
         for key, value in request.POST.items():
-            if key.startswith('status_'):
-                student_id = key.split('_')[1]
+            match = re.fullmatch(r'status_(\d+)', key)
+            if not match:
+                continue
+            student_id = int(match.group(1))
+            if student_id not in member_ids or value not in valid_statuses:
+                messages.error(request, "Davomat ma'lumotlari noto'g'ri. Sahifani yangilab qayta urinib ko'ring.")
+                return redirect('attendance:attendance_mark', group_id=group_id)
+            updates[student_id] = value
+
+        with transaction.atomic():
+            for student_id, value in updates.items():
                 AttendanceRecord.objects.update_or_create(
                     session=session,
                     student_id=student_id,
@@ -183,19 +202,22 @@ def admin_override_attendance(request, group_id):
     )
 
     # Mavjud davomat yozuvlarini o'chirish — admin qayta kiritishi mumkin
-    session.records.all().delete()
-
     from users1.models import AuditLog
-    AuditLog.objects.create(
-        user=user,
-        role=user.role,
-        action="Admin Override: Davomat vaqtidan tashqari kiritildi",
-        new_data={
-            'group_id': group.id,
-            'group_name': group.name,
-            'date': str(override_date),
-        }
-    )
+    with transaction.atomic():
+        old_records = list(session.records.values('student_id', 'status', 'comment'))
+        session.records.all().delete()
+        AuditLog.objects.create(
+            user=user,
+            role=user.role,
+            action="Admin Override: Davomat vaqtidan tashqari kiritildi",
+            old_data={'records': old_records},
+            new_data={
+                'group_id': group.id,
+                'group_name': group.name,
+                'date': str(override_date),
+            },
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
 
     return JsonResponse({
         'ok': True,

@@ -131,8 +131,10 @@ def save_grades(user, group_id, grade_date, title, records):
     memberships = list(get_active_group_students(group))
     student_ids = {membership.student_id for membership in memberships}
 
-    if set(normalized) != student_ids:
-        raise GradeInputError("Baholar guruhdagi barcha faol o'quvchilar uchun yuborilishi kerak.")
+    if not normalized:
+        raise GradeInputError("Kamida bitta baho kiriting.")
+    if not set(normalized) <= student_ids:
+        raise GradeInputError("Baho faqat guruhning faol o'quvchilari uchun qo'yiladi.")
 
     session, _ = GradeSession.objects.select_for_update().get_or_create(
         group=group,
@@ -144,16 +146,11 @@ def save_grades(user, group_id, grade_date, title, records):
     session.full_clean()
     session.save()
 
+    already = set(session.records.values_list('student_id', flat=True))
     for student_id, data in normalized.items():
-        from students.models import Student
-        student = Student.objects.filter(pk=student_id).first()
-        record, created = GradeRecord.objects.get_or_create(
-            session=session,
-            student_id=student_id,
-            defaults=data,
-        )
-        if not created:
-            raise GradeInputError(f"{student} uchun baho allaqachon qo'yilgan. O'zgartirib bo'lmaydi.")
+        if student_id in already:
+            continue  # qo'yilgan baho o'zgarmaydi
+        record = GradeRecord(session=session, student_id=student_id, **data)
         record.full_clean()
         record.save()
 
