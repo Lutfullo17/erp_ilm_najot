@@ -16,6 +16,7 @@ from students.models import Student, Parent
 from users1.models import User
 
 from .models import TelegramAppeal, TelegramUser
+from .utils import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +99,11 @@ def send_telegram_message(chat_id, text, reply_markup=None):
         return None
     except requests.exceptions.RequestException as e:
         # Tarmoq bilan bog'liq xatolar (timeout, connection timeout)
-        logger.error(f"Telegramga kutilmagan ulanish xatosi (tarmoq muammosi): {e} — chat_id={chat_id}")
+        logger.error(f"Telegramga kutilmagan ulanish xatosi (tarmoq muammosi): {scrub(e)} — chat_id={chat_id}")
         return None
     except Exception as e:
         # Dasturiy boshqa barcha xatolar
-        logger.error(f"Telegram xabar yuborishda noma'lum xatolik: {e} — chat_id={chat_id}", exc_info=True)
+        logger.error(f"Telegram xabar yuborishda noma'lum xatolik: {scrub(e)} — chat_id={chat_id}", exc_info=True)
         return None
 
 
@@ -119,7 +120,7 @@ def answer_callback_query(callback_query_id, text=None):
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"answerCallbackQuery xatoligi: {e}")
+        logger.error(f"answerCallbackQuery xatoligi: {scrub(e)}")
 
 
 def contact_keyboard():
@@ -309,8 +310,9 @@ def handle_contact(chat_id, message, telegram_user):
     contact = message.get('contact') or {}
     sender_id = (message.get('from') or {}).get('id')
 
-    if contact.get('user_id') and contact.get('user_id') != sender_id:
-        send_telegram_message(chat_id, "Iltimos, faqat o'zingizning telefon raqamingizni yuboring.", contact_keyboard())
+    # Faqat Telegram "kontakt yuborish" tugmasi orqali, o'z raqami (user_id majburiy) qabul qilinadi.
+    if not contact.get('user_id') or contact.get('user_id') != sender_id:
+        send_telegram_message(chat_id, "Iltimos, faqat o'zingizning telefon raqamingizni tugma orqali yuboring.", contact_keyboard())
         return
 
     phone = normalize_phone(contact.get('phone_number'))
@@ -750,7 +752,12 @@ def handle_update(update):
         return
 
     if telegram_user.state == STATE_WAITING_PHONE and text and any(c.isdigit() for c in text):
-        handle_phone_text(chat_id, text, telegram_user)
+        # Matn orqali kiritilgan raqamning egaligi isbotlanmaydi — faqat tugma orqali.
+        send_telegram_message(
+            chat_id,
+            "Xavfsizlik uchun raqamni yozib yuborish mumkin emas. Quyidagi tugma orqali yuboring.",
+            contact_keyboard(),
+        )
         return
 
     if not require_verified(chat_id, telegram_user):

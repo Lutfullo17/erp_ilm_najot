@@ -98,3 +98,61 @@ class PermissionTests(AuditBase):
         r = self.jpost(self.login(self.t1), '/attendance/api/save-lesson-plan/',
                        {'group_id': self.g1.pk, 'date': str(self.today), 'topic': 'OK'})
         self.assertEqual(r.status_code, 200)
+
+
+class BotSecurityTests(AuditBase):
+    def _update(self, client, text=None, contact=None, secret='s3cret', uid=777):
+        message = {'chat': {'id': uid}, 'from': {'id': uid, 'first_name': 'X'}}
+        if text is not None:
+            message['text'] = text
+        if contact is not None:
+            message['contact'] = contact
+        headers = {'HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN': secret} if secret else {}
+        return client.post('/bot/telegram/webhook/', json.dumps({'message': message}),
+                           content_type='application/json', **headers)
+
+    def setUp(self):
+        super().setUp()
+        self.s1.parent_phone = '+998901112233'
+        self.s1.save()
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='')
+    def test_webhook_without_configured_secret_is_refused(self):  # K-2
+        self.assertEqual(self._update(Client(), '/start', secret='').status_code, 503)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_webhook_wrong_secret_forbidden(self):
+        self.assertEqual(self._update(Client(), '/start', secret='bad').status_code, 403)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_typed_phone_does_not_verify(self):  # K-2
+        from bot.models import TelegramUser
+        with mock.patch('bot.services.send_telegram_message'):
+            c = Client()
+            self._update(c, '/start')
+            self._update(c, '901112233')
+        self.assertFalse(TelegramUser.objects.get(telegram_id=777).is_verified)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_foreign_contact_without_user_id_rejected(self):  # K-2
+        from bot.models import TelegramUser
+        with mock.patch('bot.services.send_telegram_message'):
+            self._update(Client(), contact={'phone_number': '+998901112233'})
+        self.assertFalse(TelegramUser.objects.get(telegram_id=777).is_verified)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_own_contact_verifies(self):
+        from bot.models import TelegramUser
+        with mock.patch('bot.services.send_telegram_message'):
+            self._update(Client(), contact={'phone_number': '+998901112233', 'user_id': 777})
+        self.assertTrue(TelegramUser.objects.get(telegram_id=777).is_verified)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_handler_exception_returns_200(self):  # O-6
+        with mock.patch('bot.views.handle_update', side_effect=RuntimeError('boom')):
+            self.assertEqual(self._update(Client(), '/start').status_code, 200)
+
+    @override_settings(TELEGRAM_BOT_TOKEN='123:SECRETTOKEN')
+    def test_scrub_removes_token(self):  # Y-11
+        from bot.utils import scrub
+        self.assertNotIn('SECRETTOKEN', scrub('url: /bot123:SECRETTOKEN/sendMessage'))

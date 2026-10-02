@@ -2,6 +2,7 @@ import logging
 import requests
 from django.conf import settings
 from bot.models import TelegramUser
+from bot.utils import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -79,12 +80,12 @@ def send_message_to_user(chat_id, text, result_stats, tg_user):
 
     except requests.exceptions.RequestException as e:
         # Timeout, Connection errors
-        logger.error(f"Tarmoq xatosi chat_id={chat_id}: {e}")
+        logger.error(f"Tarmoq xatosi chat_id={chat_id}: {scrub(e)}")
         result_stats.add_network_error()
         
     except Exception as e:
         # Other unknown issues
-        logger.error(f"Noma'lum xatolik chat_id={chat_id}: {e}", exc_info=True)
+        logger.error(f"Noma'lum xatolik chat_id={chat_id}: {scrub(e)}")
         result_stats.add_other_error()
 
 

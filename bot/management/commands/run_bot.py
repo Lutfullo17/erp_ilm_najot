@@ -4,6 +4,7 @@ import logging
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from bot.services import handle_update
+from bot.utils import scrub
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +20,14 @@ class Command(BaseCommand):
 
         # Webhookni o'chirish
         try:
-            webhook_response = requests.get(f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/deleteWebhook")
+            webhook_response = requests.get(f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/deleteWebhook", timeout=(5, 30))
             webhook_data = webhook_response.json()
             if webhook_data.get('ok'):
                 self.stdout.write(self.style.SUCCESS("Webhook o'chirildi."))
             else:
                 self.stdout.write(self.style.WARNING(f"Webhook o'chirishda xatolik: {webhook_data}"))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Webhook o'chirishda xatolik: {e}"))
+            self.stdout.write(self.style.ERROR(f"Webhook o'chirishda xatolik: {scrub(e)}"))
 
         offset = 0
         url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/getUpdates"
@@ -64,10 +65,10 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('Telegram API ulanish vaqti tugadi. Qayta urinish...'))
                 logger.warning('Telegram API timeout, retrying...')
             except requests.exceptions.ConnectionError as e:
-                self.stdout.write(self.style.WARNING(f'Ulanish xatoligi: {e}. Qayta urinish...'))
-                logger.warning(f'Connection error: {e}, retrying...')
+                self.stdout.write(self.style.WARNING(f'Ulanish xatoligi: {scrub(e)}. Qayta urinish...'))
+                logger.warning(f'Connection error: {scrub(e)}, retrying...')
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Ulanish xatoligi: {e}'))
-                logger.error(f'Ulanish xatoligi: {e}', exc_info=True)
+                self.stdout.write(self.style.ERROR(f'Ulanish xatoligi: {scrub(e)}'))
+                logger.error(f'Ulanish xatoligi: {scrub(e)}')
 
             time.sleep(2)
