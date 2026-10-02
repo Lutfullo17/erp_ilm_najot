@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}O'qituvchilar | Ilm Najot ERP{% endblock %}
+{% block header_title %}O'qituvchilar Boshqaruvi{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 14px; padding: 0.8rem 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-chalkboard-teacher" style="color: var(--primary);"></i>
+            <div>
+                <div style="font-size: 1.25rem; font-weight: 700;">{{ total_teachers }}</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem;">Jami o'qituvchilar</div>
+            </div>
+        </div>
+    </div>
+    <a href="{% url 'users1:teacher_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Yangi O'qituvchi
+    </a>
+</div>
+
+<div class="glass-panel">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>F.I.SH</th>
+                    <th>Username</th>
+                    <th>Telefon</th>
+                    <th>Guruhlar</th>
+                    <th style="text-align: right;">Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for teacher in teachers %}
+                <tr>
+                    <td style="color: var(--text-muted);">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">
+                                {{ teacher.first_name.0 }}{{ teacher.last_name.0 }}
+                            </div>
+                            <div style="font-weight: 600;">{{ teacher.last_name }} {{ teacher.first_name }}</div>
+                        </div>
+                    </td>
+                    <td style="color: var(--text-muted);">@{{ teacher.username }}</td>
+                    <td>{{ teacher.phone|default:"-" }}</td>
+                    <td>
+                        {% for group in teacher.teaching_groups.all %}
+                        <span class="badge badge-success" style="margin-right: 0.3rem;">{{ group.name }}</span>
+                        {% empty %}
+                        <span style="color: var(--text-muted);">—</span>
+                        {% endfor %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                            <a href="{% url 'users1:teacher_edit' teacher.id %}" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" title="Tahrirlash">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{% url 'users1:teacher_delete' teacher.id %}" method="post" style="display: inline;" onsubmit="return confirm('Haqiqatan ham {{ teacher.last_name }} {{ teacher.first_name }} o\'qituvchisini o\'chirmoqchimisiz?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem; color: var(--danger);" title="O'chirish">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fas fa-chalkboard-teacher" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.3;"></i>
+                        O'qituvchilar topilmadi
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

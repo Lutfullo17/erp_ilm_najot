@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}Davomat - {{ group.name }} | Ilm Najot ERP{% endblock %}
+{% block header_title %}Davomat olish: {{ group.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <!-- Dars boshlandi ogohlantirishi -->
+    {% if show_start_alert %}
+    <div style="padding: 1rem 1.25rem; border-radius: 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <i class="fas fa-bell" style="color: var(--success); font-size: 1rem;"></i>
+        </div>
+        <div>
+            <div style="font-weight: 600; font-size: 0.95rem; color: var(--success);">Dars boshlandi!</div>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">Iltimos, davomatni imkon qadar tezroq oling.</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Davomat bloklangan -->
+    {% if is_locked %}
+    <div style="padding: 1.5rem; border-radius: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); margin-bottom: 1.5rem; text-align: center;">
+        <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            <i class="fas fa-lock" style="color: var(--danger); font-size: 1.2rem;"></i>
+        </div>
+        {% if session.records.exists %}
+        <div style="font-weight: 700; font-size: 1.1rem; color: var(--danger); margin-bottom: 0.5rem;">Davomat allaqachon olingan</div>
+        <div style="color: var(--text-muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto;">Davomatni o'zgartirish faqat Admin tomonidan amalga oshirilishi mumkin.</div>
+        {% else %}
+        <div style="font-weight: 700; font-size: 1.1rem; color: var(--danger); margin-bottom: 0.5rem;">Davomat olish muddati tugadi</div>
+        <div style="color: var(--text-muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto;">Siz ushbu dars uchun davomatni vaqtida olmadingiz. Davomatni tiklash uchun Administrator bilan bog'laning.</div>
+        {% endif %}
+        {% if lesson_end %}
+        <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">Dars tugash vaqti: {{ lesson_end|time:"H:i" }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="glass-panel" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Sana:</p>
+                <h3 style="font-size: 1.25rem;">{{ session.date|date:"Y-m-d" }}</h3>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <div style="text-align: center;">
+                    <span class="badge badge-success" id="count-present">0</span>
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">Keldi</p>
+                </div>
+                <div style="text-align: center;">
+                    <span class="badge badge-danger" id="count-absent">0</span>
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">Kelmadi</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" {% if is_locked %}style="pointer-events: none; opacity: 0.7;"{% endif %}>
+        {% if not is_locked %}{% csrf_token %}{% endif %}
+
+        <!-- Dars mavzusi va uyga vazifa -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+            <h3 style="font-size: 0.95rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-chalkboard" style="color: var(--primary);"></i> Dars haqida
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Dars mavzusi</label>
+                    <input type="text" name="lesson_topic" value="{{ session.lesson_topic }}"
+                           placeholder="Mavzu kiriting..." {% if is_locked %}disabled{% endif %}
+                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Uyga vazifa</label>
+                    <input type="text" name="homework" value="{{ session.homework }}"
+                           placeholder="Vazifa kiriting..." {% if is_locked %}disabled{% endif %}
+                           style="width: 100%; padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-size: 0.9rem;">
+                </div>
+            </div>
+        </div>
+
+        <!-- O'quvchilar ro'yxati -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for student in students %}
+            <div class="glass-panel" style="padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; {% if is_locked %}border: 1px solid rgba(16,185,129,0.3);{% endif %}">
+                <div style="display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 200px;">
+                    <div class="avatar" style="width: 35px; height: 35px; font-size: 0.8rem;">{{ student.first_name.0 }}{{ student.last_name.0 }}</div>
+                    <div>
+                        <div style="font-weight: 600;">{{ student.last_name }} {{ student.first_name }}</div>
+                    </div>
+                    {% if is_locked and records|get_item:student.id %}
+                    <span style="padding: 0.2rem 0.6rem; border-radius: 6px; background: rgba(16,185,129,0.15); color: #10b981; font-size: 0.7rem; font-weight: 600; white-space: nowrap;">
+                        <i class="fas fa-lock"></i> Qulflangan
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="attendance-options" style="display: flex; gap: 0.5rem; background: rgba(0,0,0,0.1); padding: 0.4rem; border-radius: 12px;">
+                    {% for status_val, status_label in status_choices %}
+                    <label class="status-btn" style="cursor: {% if is_locked %}not-allowed{% else %}pointer{% endif %}; margin-bottom: 0;">
+                        <input type="radio" name="status_{{ student.id }}" value="{{ status_val }}"
+                               {% if records|get_item:student.id == status_val %}checked{% endif %}
+                               {% if is_locked %}disabled{% endif %} required style="display: none;">
+                        <span class="status-label" style="{% if is_locked and records|get_item:student.id != status_val %}opacity: 0.3;{% endif %}">{{ status_label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if not is_locked %}
+        <div style="margin-top: 3rem; position: sticky; bottom: 2rem; display: flex; justify-content: center;">
+            <button type="submit" class="btn btn-primary" style="padding: 1.25rem 4rem; font-size: 1.1rem; box-shadow: 0 15px 30px rgba(99, 102, 241, 0.4);">
+                <i class="fas fa-save"></i> Saqlash
+            </button>
+        </div>
+        {% endif %}
+    </form>
+
+    {% if is_locked and request.user.is_admin_access %}
+    <div class="glass-panel" style="text-align: center; padding: 2rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 1rem;">Admin Override</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Siz Administrator sifatida ushbu dars uchun davomatni ochishingiz mumkin.</p>
+        <button onclick="openAdminOverride()" class="btn btn-primary" style="padding: 0.8rem 2rem;">
+            <i class="fas fa-unlock"></i> Davomatni ochish
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .status-btn input:checked + .status-label {
+        background: var(--primary);
+        color: white;
+        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+    }
+    
+    .status-label {
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        transition: all 0.2s;
+        display: block;
+    }
+    
+    .status-btn input[value="ABSENT"]:checked + .status-label {
+        background: var(--danger);
+    }
+    .status-btn input[value="EXCUSED"]:checked + .status-label {
+        background: var(--warning);
+    }
+    .status-btn input[value="LATE"]:checked + .status-label {
+        background: #8b5cf6;
+    }
+
+    @media (max-width: 600px) {
+        .attendance-options {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .status-label {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.75rem;
+        }
+    }
+</style>
+
+<script>
+    function updateCounters() {
+        const present = document.querySelectorAll('input:checked[value="PRESENT"]').length;
+        const absent = document.querySelectorAll('input:checked[value="ABSENT"]').length;
+        document.getElementById('count-present').innerText = present;
+        document.getElementById('count-absent').innerText = absent;
+    }
+    
+    document.querySelectorAll('input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', updateCounters);
+    });
+    
+    updateCounters();
+
+    function openAdminOverride() {
+        if (!confirm("Ushbu dars uchun davomatni ochmoqchimisiz?")) return;
+
+        fetch('{% url "attendance:admin_override_attendance" group.id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                date: '{{ session.date|date:"Y-m-d" }}',
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                location.reload();
+            } else {
+                alert(data.detail || 'Xatolik yuz berdi');
+            }
+        })
+        .catch(() => alert('Tarmoq xatoligi'));
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if teacher_obj %}Tahrirlash{% else %}Yangi O'qituvchi{% endif %} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{% if teacher_obj %}O'qituvchini Tahrirlash{% else %}Yangi O'qituvchi Qo'shish{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 650px; margin: 0 auto;">
+    <div class="glass-panel animate-fade-in">
+        <form method="post" autocomplete="off">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="id_full_name"><i class="fas fa-user-tie"></i> Ism Familiya</label>
+                <input type="text" id="id_full_name" name="full_name" required
+                       value="{% if teacher_obj %}{{ teacher_obj.first_name }} {{ teacher_obj.last_name }}{% endif %}"
+                       placeholder="Masalan: Ali Valiyev">
+                {% if form.first_name.errors %}
+                    <div class="error-msg">{{ form.first_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_username"><i class="fas fa-id-badge"></i> Username</label>
+                    <input type="text" id="id_username" name="username" required
+                           value="{{ form.username.value|default:'' }}"
+                           placeholder="Login uchun login">
+                    {% if form.username.errors %}
+                        <div class="error-msg">{{ form.username.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_phone"><i class="fas fa-phone"></i> Telefon Raqami</label>
+                    <input type="tel" id="id_phone" name="phone"
+                           value="{{ form.phone.value|default:'+998' }}"
+                           placeholder="+998 90 123 45 67">
+                    {% if form.phone.errors %}
+                        <div class="error-msg">{{ form.phone.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if not teacher_obj %}
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_password1"><i class="fas fa-lock"></i> Parol</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="id_password1" name="password1" required
+                               placeholder="Kamida 8 ta belgi">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_password1', this)"></i>
+                    </div>
+                    {% if form.password1.errors %}
+                        <div class="error-msg">{{ form.password1.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="id_password2"><i class="fas fa-shield-alt"></i> Parolni tasdiqlash</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="id_password2" name="password2" required
+                               placeholder="Qaytadan kiriting">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_password2', this)"></i>
+                    </div>
+                    {% if form.password2.errors %}
+                        <div class="error-msg">{{ form.password2.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if teacher_obj %}
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_new_password"><i class="fas fa-key"></i> Yangi Parol (ixtiyoriy)</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="id_new_password" name="new_password"
+                               placeholder="Yangi parol (kamida 6 belgi)" autocomplete="new-password">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_new_password', this)"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_new_password2"><i class="fas fa-shield-alt"></i> Parolni tasdiqlash</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="id_new_password2" name="new_password2"
+                               placeholder="Qaytadan kiriting" autocomplete="new-password">
+                        <i class="fas fa-eye toggle-password" onclick="togglePass('id_new_password2', this)"></i>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <a href="{% url 'users1:teacher_list' %}" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Bekor qilish
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Saqlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .grid-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.6rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .form-group label i {
+        color: var(--primary);
+        width: 16px;
+    }
+
+    .error-msg {
+        color: var(--danger);
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .password-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .password-wrapper input {
+        padding-right: 45px !important;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 15px;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s;
+        z-index: 10;
+    }
+
+    .toggle-password:hover {
+        color: var(--primary);
+        transform: scale(1.1);
+    }
+
+    @media (max-width: 480px) {
+        .grid-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePass(id, icon) {
+        const input = document.getElementById(id);
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove("fa-eye");
+            icon.classList.add("fa-eye-slash");
+        } else {
+            input.type = "password";
+            icon.classList.remove("fa-eye-slash");
+            icon.classList.add("fa-eye");
+        }
+    }
+</script>
+{% endblock %}
+

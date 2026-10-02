@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Guruhlarim | Ilm Najot ERP{% endblock %}
+{% block header_title %}Guruhlarim{% endblock %}
+
+{% block content %}
+<div style="padding: 1rem;">
+    <!-- Statistika -->
+    <div style="display: flex; gap: 0.75rem; overflow-x: auto; margin-bottom: 1rem; padding-bottom: 0.5rem;">
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ total_groups }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Guruhlar</div>
+        </div>
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ today_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Bugun</div>
+        </div>
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ total_students }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">O'quvchilar</div>
+        </div>
+    </div>
+
+    <!-- Guruhlar ro'yxati -->
+    <div class="glass-panel">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-users" style="color: var(--primary);"></i> Guruhlar
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {% for item in groups_with_status %}
+            <a href="{% url 'users1:teacher_group_detail' item.group.id %}" style="padding: 1rem; border-radius: 12px; {% if item.is_today %}background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(30, 41, 59, 0.6)); border: 1px solid rgba(99, 102, 241, 0.3);{% else %}background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);{% endif %} text-decoration: none; color: inherit; display: block;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 45px; height: 45px; border-radius: 10px; background: {% if item.is_today %}var(--primary){% else %}rgba(255, 255, 255, 0.08){% endif %}; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; color: {% if item.is_today %}white{% else %}var(--text-muted){% endif %}; flex-shrink: 0;">
+                            {{ item.group.name.0 }}
+                        </div>
+                        <div style="font-weight: 600; font-size: 1rem;">{{ item.group.name }}</div>
+                    </div>
+                    {% if item.is_today %}
+                    <span style="padding: 0.25rem 0.6rem; background: rgba(16, 185, 129, 0.2); color: var(--success); border-radius: 12px; font-size: 0.7rem; font-weight: 600; flex-shrink: 0;">
+                        Bugun
+                    </span>
+                    {% endif %}
+                </div>
+                <div style="display: flex; gap: 1rem; color: var(--text-muted); font-size: 0.85rem;">
+                    <span><i class="fas fa-users"></i> {{ item.group.students.count }}</span>
+                    <span><i class="fas fa-calendar-week"></i> {{ item.group.lesson_days }}</span>
+                    <span><i class="fas fa-clock"></i> {{ item.group.lesson_time|time:"H:i" }}</span>
+                </div>
+            </a>
+            {% empty %}
+            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 0.75rem; display: block; opacity: 0.3;"></i>
+                <div style="font-size: 0.9rem;">Guruhlar yo'q</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    html[data-theme="light"] .glass-panel {
+        background: rgba(255, 255, 255, 0.95);
+    }
+    
+    @media (min-width: 768px) {
+        .glass-panel {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}

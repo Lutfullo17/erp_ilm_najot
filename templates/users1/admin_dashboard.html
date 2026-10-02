@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}Dashboard | Admin{% endblock %}
+{% block header_title %}Boshqaruv Paneli{% endblock %}
+
+{% block content %}
+<div style="padding: 1rem;">
+    <!-- Statistika kartalar -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
+        <a href="{% url 'students:student_list' %}" class="glass-panel" style="padding: 1rem; border-left: 3px solid var(--primary); text-decoration: none; display: block; transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(99, 102, 241, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-users" style="color: var(--primary); font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">{{ total_students }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">O'quvchilar</div>
+                </div>
+            </div>
+        </a>
+        <a href="{% url 'groups_app:group_list' %}" class="glass-panel" style="padding: 1rem; border-left: 3px solid var(--success); text-decoration: none; display: block; transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(16, 185, 129, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-layer-group" style="color: var(--success); font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">{{ active_groups_count }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">Guruhlar</div>
+                </div>
+            </div>
+        </a>
+        <a href="{% url 'payments:payment_list' %}" class="glass-panel" style="padding: 1rem; border-left: 3px solid var(--warning); text-decoration: none; display: block; transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(245, 158, 11, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-money-bill-wave" style="color: var(--warning); font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--text);">{{ monthly_income|money }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">Oylik tushum</div>
+                </div>
+            </div>
+        </a>
+        <a href="{% url 'payments:debtor_list' %}" class="glass-panel" style="padding: 1rem; border-left: 3px solid var(--danger); text-decoration: none; display: block; transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-exclamation-circle" style="color: var(--danger); font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--danger);">{{ debtors_count }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">Qarzdorlar</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- O'rta qatordagi statistika -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
+        <a href="{% url 'reports:today_attendance' %}" class="glass-panel" style="padding: 0.85rem; text-decoration: none; transition: transform 0.2s; color: var(--text); display: flex; align-items: center; gap: 0.6rem;">
+            <div style="width: 36px; height: 36px; background: rgba(99, 102, 241, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-calendar-day" style="color: var(--primary); font-size: 0.9rem;"></i>
+            </div>
+            <div>
+                <div style="font-size: 1.1rem; font-weight: 700;">{{ today_attendance }}</div>
+                <div style="color: var(--text-muted); font-size: 0.7rem;">Bugungi davomat</div>
+            </div>
+        </a>
+        <div class="glass-panel" style="padding: 0.85rem; display: flex; align-items: center; gap: 0.6rem;">
+            <div style="width: 36px; height: 36px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-history" style="color: var(--success); font-size: 0.9rem;"></i>
+            </div>
+            <div>
+                <div style="font-size: 1.1rem; font-weight: 700;">{{ weekly_attendance }}</div>
+                <div style="color: var(--text-muted); font-size: 0.7rem;">Haftalik davomat</div>
+            </div>
+        </div>
+        <div class="glass-panel" style="padding: 0.85rem; display: flex; align-items: center; gap: 0.6rem;">
+            <div style="width: 36px; height: 36px; background: rgba(245, 158, 11, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-star" style="color: var(--warning); font-size: 0.9rem;"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; font-weight: 700;">{{ worst_group_by_debt.name|default:"Hamma to'lagan" }}</div>
+                <div style="color: var(--text-muted); font-size: 0.7rem;">Eng ko'p qarzdor</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Penalty Stats Cards -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 1.5rem;">
+        <a href="{% url 'users1:penalty_list' %}" class="glass-panel" style="padding: 1rem; border-left: 3px solid #ef4444; text-decoration: none; display: block; transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444; font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: #ef4444;">{{ monthly_penalty_total }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">Oylik jarima</div>
+                </div>
+            </div>
+        </a>
+        <a href="{% url 'users1:penalty_list' %}" class="glass-panel" style="padding: 1rem; border-left: 3px solid #f59e0b; text-decoration: none; display: block; transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; background: rgba(245, 158, 11, 0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-bell" style="color: #f59e0b; font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: #f59e0b;">{{ pending_alerts_count }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">Kutayotgan</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Bot holati -->
+    <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fab fa-telegram" style="color: #0088cc;"></i> Bot holati
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+            <a href="{% url 'users1:bot_status' %}?status=connected" style="padding: 0.85rem; border-radius: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); text-align: center; text-decoration: none; color: inherit; display: block;">
+                <div style="font-size: 1.3rem; font-weight: 700; color: #10b981;">{{ bot_connected_count }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Ulangan</div>
+            </a>
+            <a href="{% url 'users1:bot_status' %}?status=not_connected" style="padding: 0.85rem; border-radius: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); text-align: center; text-decoration: none; color: inherit; display: block;">
+                <div style="font-size: 1.3rem; font-weight: 700; color: #f59e0b;">{{ bot_not_connected_count }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Ulanmagan</div>
+            </a>
+            <a href="{% url 'users1:bot_status' %}?status=blocked" style="padding: 0.85rem; border-radius: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); text-align: center; text-decoration: none; color: inherit; display: block;">
+                <div style="font-size: 1.3rem; font-weight: 700; color: #ef4444;">{{ blocked_students_count }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Bloklangan</div>
+            </a>
+            <a href="{% url 'users1:bot_status' %}?status=telegram_blocked" style="padding: 0.85rem; border-radius: 12px; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.2); text-align: center; text-decoration: none; color: inherit; display: block;">
+                <div style="font-size: 1.3rem; font-weight: 700; color: #f97316;">{{ bot_telegram_blocked_count }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Botni blocklagan</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Oxirgi to'lovlar -->
+    <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-money-bill-transfer" style="color: var(--success);"></i> Oxirgi to'lovlar
+            </div>
+            <a href="{% url 'payments:payment_list' %}" style="color: var(--primary); font-size: 0.75rem; text-decoration: none;">Hammasi</a>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+            {% for p in recent_payments %}
+            <div style="padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.85rem;">{{ p.student }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.group.name }}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: var(--success); font-weight: 700; font-size: 0.9rem;">{{ p.amount|money }}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">{{ p.created_by.first_name|default:p.created_by.username }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Xabarlar -->
+    <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-envelope" style="color: var(--primary);"></i> Xabarlar
+                {% if pending_appeals_count > 0 %}
+                <span style="background: var(--danger); font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 6px;">{{ pending_appeals_count }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div style="max-height: 300px; overflow-y: auto;">
+            {% for appeal in pending_appeals %}
+            <div style="padding: 0.75rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.03); border-radius: 10px; margin-bottom: 0.6rem;" id="appeal-{{ appeal.id }}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
+                    <div style="font-weight: 600; font-size: 0.8rem;">{{ appeal.telegram_user.first_name }} <span style="font-weight: normal; color: var(--text-muted); font-size: 0.7rem;">({{ appeal.student.first_name }})</span></div>
+                    <div style="color: var(--text-muted); font-size: 0.65rem;">{{ appeal.created_at|date:"H:i" }}</div>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text); margin-bottom: 0.6rem;">{{ appeal.message|escape }}</div>
+                <div style="display: flex; gap: 0.4rem;">
+                    <button onclick="showReplyInput({{ appeal.id }})" style="background: var(--primary); border: none; color: white; border-radius: 6px; padding: 0.35rem 0.5rem; font-size: 0.7rem; cursor: pointer;">Javob</button>
+                    <button onclick="resolveAppeal({{ appeal.id }})" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 0.35rem 0.5rem; font-size: 0.7rem; cursor: pointer;">OK</button>
+                </div>
+                <div id="replyForm-{{ appeal.id }}" style="display: none; margin-top: 0.6rem;">
+                    <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 40px; font-size: 0.75rem; padding: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: white;"></textarea>
+                    <button onclick="sendReply({{ appeal.id }})" class="btn btn-primary" style="margin-top: 0.4rem; padding: 0.35rem 0.75rem; width: 100%; font-size: 0.75rem;">Yuborish</button>
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem;">Yangi xabarlar yo'q</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Tezkor amallar -->
+    <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;"><i class="fas fa-bolt" style="color: var(--warning);"></i> Tezkor linklar</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem;">
+            <a href="{% url 'users1:teacher_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-plus"></i> O'qituvchi</a>
+            <a href="{% url 'groups_app:group_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-plus"></i> Guruh</a>
+            <a href="{% url 'students:student_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-plus"></i> O'quvchi</a>
+            <a href="{% url 'payments:payment_create' %}" class="btn btn-outline" style="padding: 0.75rem; font-size: 0.8rem; justify-content: center;"><i class="fas fa-hand-holding-dollar"></i> To'lov</a>
+        </div>
+    </div>
+
+    <!-- Guruhga Broadcast -->
+    <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;"><i class="fas fa-broadcast-tower" style="color: var(--secondary);"></i> Guruhga xabar</div>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+            <select id="groupSelect" style="flex: 1; min-width: 150px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 0.85rem;">
+                <option value="">-- Guruh --</option>
+                {% for group in groups %}
+                <option value="{{ group.id }}">{{ group.name }}</option>
+                {% endfor %}
+            </select>
+            <textarea id="broadcastMessage" style="flex: 2; min-width: 150px; min-height: 40px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 0.85rem;" placeholder="Xabar..."></textarea>
+            <button onclick="sendBroadcast()" class="btn btn-primary" style="padding: 0.75rem 1rem; flex-grow: 1; font-size: 0.85rem;"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- Hammaga Broadcast -->
+    <div class="glass-panel" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid rgba(99, 102, 241, 0.3);">
+        <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem;"><i class="fas fa-globe" style="color: var(--primary);"></i> Hammaga xabar</div>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+            <textarea id="broadcastAllMessage" style="flex: 2; min-width: 150px; min-height: 40px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 0.85rem;" placeholder="Barchaga xabar..."></textarea>
+            <button onclick="sendBroadcastAll()" class="btn btn-primary" style="padding: 0.75rem 1rem; flex-grow: 1; font-size: 0.85rem; background: var(--primary);"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+function closeTeacherAlert(teacherId) {
+    const alertElement = document.getElementById('teacher-alert-' + teacherId);
+    if (alertElement) {
+        alertElement.style.display = 'none';
+    }
+}
+
+function showReplyInput(id) {
+    document.getElementById('replyForm-' + id).style.display = 'block';
+}
+
+function hideReplyInput(id) {
+    document.getElementById('replyForm-' + id).style.display = 'none';
+    document.getElementById('replyText-' + id).value = '';
+}
+
+function sendReply(appealId) {
+    const text = document.getElementById('replyText-' + appealId).value.trim();
+    if (!text) { alert('Javob matnini kiriting!'); return; }
+
+    const formData = new FormData();
+    formData.append('reply', text);
+
+    fetch(`/users/api/reply/${appealId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('appeal-' + appealId).style.display = 'none';
+        } else {
+            alert(data.detail || 'Xatolik');
+        }
+    })
+    .catch(() => alert('Tarmoq xatoligi'));
+}
+
+function resolveAppeal(appealId) {
+    fetch(`/users/api/resolve/${appealId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('appeal-' + appealId).style.display = 'none';
+        }
+    })
+    .catch(() => alert('Xatolik'));
+}
+
+function sendBroadcast() {
+    const groupId = document.getElementById('groupSelect').value;
+    const message = document.getElementById('broadcastMessage').value.trim();
+
+    if (!groupId) { alert('Guruhni tanlang!'); return; }
+    if (!message) { alert('Xabar matnini kiriting!'); return; }
+
+    if (!confirm('Xabar tanlangan guruh a\'zolariga yuborilsinmi?')) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch('{% url "users1:broadcast_to_group" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+            group_id: parseInt(groupId),
+            message: message,
+        }),
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        if (ok) {
+            alert(data.message || data.group_name + ' guruhiga xabar yuborildi!');
+            document.getElementById('broadcastMessage').value = '';
+            document.getElementById('groupSelect').value = '';
+        } else {
+            alert(data.detail || 'Xatolik yuz berdi');
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        alert('Tarmoq xatoligi');
+    });
+}
+
+function sendBroadcastAll() {
+    const message = document.getElementById('broadcastAllMessage').value.trim();
+
+    if (!message) { alert('Xabar matnini kiriting!'); return; }
+
+    if (!confirm('Xabar BARCHA foydalanuvchilarga yuborilsinmi?')) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch('{% url "users1:broadcast_all" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({
+            message: message,
+        }),
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        if (ok) {
+            alert(data.message || 'Xabar yuborildi!');
+            document.getElementById('broadcastAllMessage').value = '';
+        } else {
+            alert(data.detail || 'Xatolik yuz berdi');
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        alert('Tarmoq xatoligi');
+    });
+}
+</script>
+{% endblock %}

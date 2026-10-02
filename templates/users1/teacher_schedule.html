@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Dars jadvali | Ilm Najot ERP{% endblock %}
+{% block header_title %}Dars jadvali{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 1rem 1rem 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div>
+            <h2 style="margin: 0; font-size: 1.05rem;">Haftalik dars jadvali</h2>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">{{ week_start|date:"d M" }} - {{ week_end|date:"d M Y" }} oralig‘idagi darslaringiz.</div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-primary" style="padding: 0.45rem 0.85rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+                <i class="fas fa-history"></i> Arizalar tarixi
+            </a>
+            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ prev_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">← Oldingi</a>
+            <a href="{% url 'users1:teacher_schedule' %}?week_offset={{ next_week_offset }}" class="btn btn-outline" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">Keyingi →</a>
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 0.75rem; min-width: 900px;">
+            {% for day in week_days %}
+            <div style="border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.03); min-height: 260px;">
+                <div style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
+                    <div style="font-weight: 700; font-size: 0.9rem;">{{ day.day_name }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{{ day.date|date:"d-M" }}</div>
+                </div>
+                <div style="padding: 0.75rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                    {% if day.lessons %}
+                        {% for lesson in day.lessons %}
+                        <div style="padding: 0.65rem; border-radius: 10px; background: {% if lesson.is_modified %}rgba(59, 130, 246, 0.15){% else %}rgba(99, 102, 241, 0.1){% endif %}; border: 1px solid {% if lesson.is_modified %}rgba(59, 130, 246, 0.3){% else %}rgba(99, 102, 241, 0.16){% endif %};">
+                            <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem;">
+                                <div style="font-weight: 700; font-size: 0.82rem;">{{ lesson.group.name }}</div>
+                                {% if lesson.is_modified %}
+                                <span style="font-size: 0.6rem; padding: 0.15rem 0.4rem; background: rgba(59, 130, 246, 0.2); color: #3b82f6; border-radius: 4px; font-weight: 600;">O'zgartirildi</span>
+                                {% endif %}
+                            </div>
+                            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.2rem;">{{ lesson.time|time:"H:i" }}{% if lesson.end_time %} - {{ lesson.end_time|time:"H:i" }}{% endif %}</div>
+                            {% if lesson.day_date %}
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.18rem;">{{ lesson.day_date|date:"d.m.Y" }}</div>
+                            {% endif %}
+                            {% if lesson.room %}
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Xona: {{ lesson.room }}</div>
+                            {% endif %}
+                            <div style="margin-top: 0.65rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                {% if day.date < today %}
+                                    <span style="padding: 0.35rem 0.6rem; font-size: 0.72rem; opacity: 0.45; pointer-events: none; cursor: not-allowed; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted);">Jadvalni o'zgartirish</span>
+                                {% else %}
+                                    <a href="{% url 'users1:schedule_change_request_create' lesson.group.id %}?day={{ day.day_name }}" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 8px; color: #3b82f6; font-weight: 600; text-decoration: none; transition: all 0.2s;">Jadvalni o'zgartirish</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding: 0.7rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">Bo‘sh</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="glass-panel" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">
+                <i class="fas fa-calendar" style="font-size: 2rem; margin-bottom: 0.75rem; display: block; opacity: 0.3;"></i>
+                <p>Jadval bo‘sh</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

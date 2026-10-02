@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}{{ student.first_name }} {{ student.last_name }} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{{ student.first_name }} {{ student.last_name }}{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
+    <!-- Profile Card -->
+    <div class="glass-panel">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="avatar" style="width: 100px; height: 100px; margin: 0 auto 1rem; font-size: 2rem;">
+                {{ student.first_name.0 }}{{ student.last_name.0 }}
+            </div>
+            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">{{ student.first_name }} {{ student.last_name }}</h2>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">O'quvchi</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <div class="info-row">
+                <i class="fas fa-phone"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Telefon</small>
+                    <span>{{ student.phone|default:"Kiritilmagan" }}</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <i class="fas fa-phone-volume"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Ota-ona telefoni</small>
+                    <span>{{ student.parent_phone|default:"Kiritilmagan" }}</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <i class="fas fa-calendar"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Tug'ilgan sana</small>
+                    <span>{{ student.birth_date|date_format_uz|default:"Kiritilmagan" }}</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <i class="fas fa-layer-group"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Guruhlar</small>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem;">
+                        {% for g in student_groups %}
+                        <span class="badge" style="background: var(--primary); color: white; padding: 0.3rem 0.7rem; font-size: 0.75rem;">{{ g.name }}</span>
+                        {% empty %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Guruh yo'q</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History/Stats -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Davomat tarixi -->
+        <div class="glass-panel">
+            <h3 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-check-double" style="color: var(--success);"></i> Oxirgi davomatlar
+            </h3>
+            <div class="table-container">
+                <table class="mobile-card-table" style="font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Sana</th>
+                            <th>Guruh</th>
+                            <th>Holat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td data-label="Sana">{{ record.session.date|date:"d.m.Y" }}</td>
+                            <td data-label="Guruh">{{ record.session.group.name }}</td>
+                            <td data-label="Holat">
+                                {% if record.status == 'PRESENT' %}
+                                <span class="badge badge-success">Keldi</span>
+                                {% elif record.status == 'ABSENT' %}
+                                <span class="badge badge-danger">Kelmadi</span>
+                                {% elif record.status == 'LATE' %}
+                                <span class="badge badge-warning">Kechikdi</span>
+                                {% elif record.status == 'EXCUSED' %}
+                                <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">Sababli</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Davomat yo'q.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Baholar tarixi -->
+        <div class="glass-panel">
+            <h3 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-star" style="color: var(--warning);"></i> Oxirgi baholar
+            </h3>
+            <div class="table-container">
+                <table class="mobile-card-table" style="font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Sana</th>
+                            <th>Baholash</th>
+                            <th>Baho</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in grade_records %}
+                        <tr>
+                            <td data-label="Sana">{{ record.session.date|date:"d.m.Y" }}</td>
+                            <td data-label="Baholash">{{ record.session.title }}</td>
+                            <td data-label="Baho">
+                                <span style="font-weight: 700; color: {% if record.percentage >= 70 %}var(--success){% elif record.percentage >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                                    {{ record.percentage }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Baholar yo'q.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Yuborilgan xabarlar tarixi -->
+        {% if recent_appeals %}
+        <div class="glass-panel">
+            <h3 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-envelope" style="color: var(--primary);"></i> Oxirgi xabarlar
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                {% for appeal in recent_appeals %}
+                <div style="padding: 0.75rem; border-radius: 10px; background: rgba(255,255,255,0.03); font-size: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.3rem;">
+                        <span style="color: var(--text-muted); font-size: 0.75rem;">{{ appeal.created_at|timesince }} oldin</span>
+                        {% if appeal.is_resolved %}
+                        <span class="badge badge-success" style="font-size: 0.65rem;">Hal qilindi</span>
+                        {% else %}
+                        <span class="badge badge-warning" style="font-size: 0.65rem;">Kutilmoqda</span>
+                        {% endif %}
+                    </div>
+                    <div>{{ appeal.message|escape|truncatechars:100 }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .info-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .info-row i {
+        width: 35px;
+        height: 35px;
+        background: rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        color: var(--primary);
+    }
+    .avatar {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        font-weight: 700;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+        div[style*="grid-template-columns: 1fr 2fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+
+</script>
+{% endblock %}

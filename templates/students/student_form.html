@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Tahrirlash{% else %}Yangi O'quvchi{% endif %} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{% if object %}O'quvchini Tahrirlash{% else %}Yangi O'quvchi Qo'shish{% endif %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 650px; margin: 0 auto;">
+    <div class="glass-panel animate-fade-in">
+        <form method="post" autocomplete="off">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i>
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="id_full_name"><i class="fas fa-user"></i> Ism Familiya</label>
+                <input type="text" id="id_full_name" name="full_name" required
+                       placeholder="Masalan: Ali Valiyev"
+                       value="{% if object %}{{ object.first_name }} {{ object.last_name }}{% elif form.full_name.value %}{{ form.full_name.value }}{% endif %}">
+                {% if form.full_name.errors %}
+                    <div class="error-msg">{{ form.full_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_phone"><i class="fas fa-phone"></i> Telefon Raqami</label>
+                    <input type="tel" id="id_phone" name="phone"
+                           placeholder="+998 90 123 45 67"
+                           value="{{ form.phone.value|default:'+998' }}">
+                    {% if form.phone.errors %}
+                        <div class="error-msg">{{ form.phone.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_parent_phone"><i class="fas fa-hand-holding-heart"></i> Ota-ona Telefon</label>
+                    <input type="tel" id="id_parent_phone" name="parent_phone"
+                           placeholder="+998 90 123 45 67"
+                           value="{{ form.parent_phone.value|default:'+998' }}">
+                    {% if form.parent_phone.errors %}
+                        <div class="error-msg">{{ form.parent_phone.errors.0 }}</div>
+                    {% endif %}
+                    <div id="parentPhoneInfo" class="parent-phone-info" style="display:none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_birth_date"><i class="fas fa-calendar"></i> Tug'ilgan sana</label>
+                    {{ form.birth_date }}
+                    {% if form.birth_date.errors %}
+                        <div class="error-msg">{{ form.birth_date.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid-layout">
+                <div class="form-group">
+                    <label for="id_gender"><i class="fas fa-venus-mars"></i> Jinsi</label>
+                    {{ form.gender }}
+                </div>
+                <div class="form-group">
+                    <label for="id_status"><i class="fas fa-info-circle"></i> Holati</label>
+                    {{ form.status }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="id_group"><i class="fas fa-users"></i> Guruhga biriktirish</label>
+                <select id="id_group" name="group">
+                    <option value="">-- Guruhni tanlang (ixtiyoriy) --</option>
+                    {% for group in groups %}
+                    <option value="{{ group.id }}" 
+                        {% if current_group_id == group.id or group.id == request.POST.group|add:"0" %}selected{% endif %}>
+                        {{ group.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Chegirma bo'limi -->
+            <div class="discount-section glass-panel" style="background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.2); margin-bottom: 1.5rem; padding: 1.25rem;">
+                <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--primary);">
+                    <i class="fas fa-percent"></i> Chegirma
+                </h3>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="margin-bottom: 0.75rem; font-weight: 600; color: var(--text);">Chegirmasi mavjudmi?</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="has_discount" value="false" 
+                                   id="discount_no"
+                                   {% if not form.has_discount.value or form.has_discount.value == 'false' or form.has_discount.value == False %}checked{% endif %}
+                                   onchange="toggleDiscount(false)">
+                            <span class="radio-label">Yo'q</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="has_discount" value="true"
+                                   id="discount_yes"
+                                   {% if form.has_discount.value == 'true' or form.has_discount.value == True or form.has_discount.value == 'on' or object.has_discount %}checked{% endif %}
+                                   onchange="toggleDiscount(true)">
+                            <span class="radio-label">Ha</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="discountFields" style="display: {% if object.has_discount or form.has_discount.value == 'true' or form.has_discount.value == True %}block{% else %}none{% endif %};">
+                    <div class="grid-layout">
+                        <div class="form-group">
+                            <label for="id_discount_type"><i class="fas fa-tag"></i> Chegirma turi</label>
+                            <select id="id_discount_type" name="discount_type" onchange="updateDiscountLabel()">
+                                <option value="PERCENTAGE" {% if not object.discount_type or object.discount_type == 'PERCENTAGE' %}selected{% endif %}>Foiz (%)</option>
+                                <option value="FIXED" {% if object.discount_type == 'FIXED' %}selected{% endif %}>Summa (so'm)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="id_discount_value" id="discountValueLabel"><i class="fas fa-calculator"></i> <span id="discountLabelText">Chegirma (%)</span></label>
+                            <input type="number" id="id_discount_value" name="discount_value"
+                                   step="0.01" min="0" max="100000000"
+                                   placeholder="Masalan: 20"
+                                   value="{{ form.discount_value.value|default:'0' }}">
+                            {% if form.discount_value.errors %}
+                                <div class="error-msg">{{ form.discount_value.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'students:student_list' %}" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Bekor qilish
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Saqlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .grid-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.6rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .form-group label i {
+        color: var(--primary);
+        width: 16px;
+        text-align: center;
+    }
+
+    .error-msg {
+        color: var(--danger);
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+
+    /* Radio group styling */
+    .radio-group {
+        display: flex;
+        gap: 1.5rem;
+    }
+
+    .radio-option {
+        display: flex !important;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-weight: 400 !important;
+        color: var(--text) !important;
+    }
+
+    .radio-option input[type="radio"] {
+        width: auto;
+        accent-color: var(--primary);
+    }
+
+    .parent-phone-info {
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    @media (max-width: 480px) {
+        .grid-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+function toggleDiscount(show) {
+    const fields = document.getElementById('discountFields');
+    fields.style.display = show ? 'block' : 'none';
+    if (!show) {
+        document.getElementById('id_discount_value').value = '0';
+    }
+}
+
+function updateDiscountLabel() {
+    const type = document.getElementById('id_discount_type').value;
+    const label = document.getElementById('discountLabelText');
+    const input = document.getElementById('id_discount_value');
+    if (type === 'PERCENTAGE') {
+        label.textContent = "Chegirma (%)";
+        input.placeholder = "Masalan: 20";
+        input.max = "100";
+    } else {
+        label.textContent = "Chegirma summasi (so'm)";
+        input.placeholder = "Masalan: 100000";
+        input.max = "100000000";
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateDiscountLabel();
+
+    // Parent phone check - show existing siblings
+    const parentPhoneInput = document.getElementById('id_parent_phone');
+    const parentPhoneInfo = document.getElementById('parentPhoneInfo');
+
+    if (parentPhoneInput) {
+        let debounceTimer;
+        parentPhoneInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const phone = this.value.replace(/\D/g, '');
+            if (phone.length >= 9) {
+                debounceTimer = setTimeout(() => {
+                    fetch(`/students/api/check-parent-phone/?phone=${encodeURIComponent(this.value)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.siblings && data.siblings.length > 0) {
+                                parentPhoneInfo.innerHTML = '<i class="fas fa-info-circle"></i> ' +
+                                    'Bu raqam bilan ro\'yxatdan o\'tgan farzandlar: <b>' +
+                                    data.siblings.join(', ') + '</b>';
+                                parentPhoneInfo.style.display = 'block';
+                            } else {
+                                parentPhoneInfo.style.display = 'none';
+                            }
+                        })
+                        .catch(() => { parentPhoneInfo.style.display = 'none'; });
+                }, 500);
+            } else {
+                parentPhoneInfo.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

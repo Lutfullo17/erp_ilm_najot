@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}Qarzdorlar | Ilm Najot ERP{% endblock %}
+{% block header_title %}Qarzdorlar Ro'yxati{% endblock %}
+
+{% block content %}
+<div class="glass-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <p style="color: var(--text-muted);">Jami qarzdorlar: {{ debtors.count }} ta</p>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>O'quvchi</th>
+                    <th>Guruh</th>
+                    <th>Oy</th>
+                    <th>Qarz miqdori</th>
+                    <th style="text-align: right;">Amal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for debtor in debtors %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">{{ debtor.student.get_full_name }}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">{{ debtor.student.phone }}</div>
+                    </td>
+                    <td>{{ debtor.group.name }}</td>
+                    <td>{{ debtor.month|date:"F Y" }}</td>
+                    <td style="color: var(--danger); font-weight: 700;">
+                        {{ debtor.required_amount|subtract:debtor.paid_amount|money }} so'm
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{% url 'payments:payment_create' %}?student={{ debtor.student.id }}&group={{ debtor.group.id }}" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                            To'lov qilish
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">Qarzdorlar yo'q. Baraka toping! 😊</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

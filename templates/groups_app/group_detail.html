@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load bot_tags %}
+
+{% block title %}{{ group.name }} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{{ group.name }} guruh ma'lumotlari{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+    <!-- Guruh statistikasi -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="glass-panel">
+            <h2><i class="fas fa-info-circle"></i> Umumiy</h2>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">O'qituvchi:</span>
+                    <div style="font-weight: 600;">{{ group.teacher.get_full_name }}</div>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Oylik to'lov:</span>
+                    <div style="font-weight: 600;">{{ group.monthly_fee|money }} so'm</div>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Boshlanish sanasi:</span>
+                    <div style="font-weight: 600;">{{ group.start_date|date:"Y-m-d"|default:"Noma'lum" }}</div>
+                </div>
+                {% if group.lesson_days %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Dars kunlari:</span>
+                    <div style="font-weight: 600;">{{ group.lesson_days }}</div>
+                </div>
+                {% endif %}
+                {% if group.lesson_time %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Dars vaqti:</span>
+                    <div style="font-weight: 600;">{{ group.lesson_time|date:"H:i" }}</div>
+                </div>
+                {% endif %}
+                {% if group.room %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Xona:</span>
+                    <div style="font-weight: 600;">{{ group.get_room_display }}</div>
+                </div>
+                {% endif %}
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Holat:</span>
+                    <div>
+                        {% if group.is_paused %}
+                        <span class="badge badge-warning">Vaqtincha to'xtatilgan</span>
+                        {% elif group.is_active %}
+                        <span class="badge badge-success">Faol</span>
+                        {% else %}
+                        <span class="badge badge-danger">Nofaol</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <a href="{% url 'groups_app:group_edit' group.id %}" class="btn btn-outline" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-edit"></i> Tahrirlash
+                </a>
+                <form action="{% url 'groups_app:group_toggle_pause' group.id %}" method="post" style="width: 100%;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline" style="width: 100%; justify-content: center;">
+                        {% if group.is_paused %}
+                        <i class="fas fa-play"></i> Faollashtirish
+                        {% else %}
+                        <i class="fas fa-pause"></i> Vaqtincha to'xtatish
+                        {% endif %}
+                    </button>
+                </form>
+                <form action="{% url 'groups_app:group_delete' group.id %}" method="post" style="width: 100%;"
+                      onsubmit="return confirm('Haqiqatan ham bu guruhni o\'chirmoqchimisiz? Bu amal qaytarib bo\'lmaydi!');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="width: 100%; justify-content: center; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3);">
+                        <i class="fas fa-trash"></i> Guruhni o'chirish
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="glass-panel">
+            <h2><i class="fas fa-user-plus"></i> O'quvchi qo'shish</h2>
+            <form action="{% url 'groups_app:add_student' group.id %}" method="post" style="margin-top: 1rem;">
+                {% csrf_token %}
+                <div class="form-group">
+                    <select name="student_id" required>
+                        <option value="">O'quvchini tanlang</option>
+                        {% for s in all_students %}
+                        <option value="{{ s.id }}">{{ s.last_name }} {{ s.first_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-plus"></i> Qo'shish
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- O'quvchilar ro'yxati -->
+    <div class="glass-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+            <h2><i class="fas fa-users"></i> O'quvchilar ({{ group_students.count }})</h2>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <input type="text" id="studentSearch" placeholder="O'quvchi izlash..." style="padding: 0.5rem; width: 200px;">
+                <select id="paymentFilter" style="padding: 0.5rem; width: 150px;">
+                    <option value="all">Hammasi</option>
+                    <option value="paid">To'lov qilganlar</option>
+                    <option value="debtor">Qarzdorlar</option>
+                </select>
+                <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="padding: 0.6rem 1rem; border-radius: 12px; font-size: 0.85rem;">
+                    <i class="fas fa-check-double"></i> Davomat olish
+                </a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="studentsTable">
+                <thead>
+                    <tr>
+                        <th>O'quvchi</th>
+                        <th>Telefon</th>
+                        <th>Holati</th>
+                        <th style="text-align: right;">Amal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for gs in group_students %}
+                    <tr class="student-row" data-status="{% if gs.student.has_debt %}debtor{% else %}paid{% endif %}">
+                        <td>
+                            <div style="font-weight: 600;">{{ gs.student.last_name }} {{ gs.student.first_name }}</div>
+                        </td>
+                        <td>{{ gs.student.phone }}</td>
+                        <td>
+                            {% if gs.student.has_debt %}
+                            <span class="badge badge-danger">Qarzdor</span>
+                            {% else %}
+                            <span class="badge badge-success">To'lov qilgan</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <a href="{% url 'students:student_detail' gs.student.id %}" class="btn btn-outline" style="padding: 0.4rem; border-radius: 8px;">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Guruhda o'quvchilar yo'q.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const searchInput = document.getElementById('studentSearch');
+    const filterSelect = document.getElementById('paymentFilter');
+    const tableRows = document.querySelectorAll('.student-row');
+
+    function filterStudents() {
+        const query = searchInput.value.toLowerCase();
+        const filter = filterSelect.value;
+        
+        tableRows.forEach(row => {
+            const name = row.querySelector('td').textContent.toLowerCase();
+            const status = row.getAttribute('data-status');
+            
+            const matchesSearch = name.includes(query);
+            const matchesFilter = (filter === 'all' || status === filter);
+            
+            row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+        });
+    }
+
+    searchInput.addEventListener('input', filterStudents);
+    filterSelect.addEventListener('change', filterStudents);
+</script>
+{% endblock %}

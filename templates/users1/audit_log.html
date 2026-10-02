@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log - Ilm Najot ERP{% endblock %}
+{% block header_title %}Xavfsizlik Audit Loglari{% endblock %}
+
+{% block extra_css %}
+<style>
+.audit-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+.audit-stat-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.25rem; text-align: center;
+    backdrop-filter: blur(12px);
+}
+.audit-stat-card .val { font-size: 2rem; font-weight: 800; }
+.audit-stat-card .lbl { font-size: 0.78rem; color: var(--text-muted); }
+.action-badge {
+    display: inline-block; padding: 0.2rem 0.6rem; border-radius: 8px;
+    font-size: 0.75rem; font-weight: 600; max-width: 300px; white-space: normal;
+}
+.action-login { background: rgba(16,185,129,0.1); color: #10b981; }
+.action-password { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.action-block { background: rgba(239,68,68,0.1); color: #ef4444; }
+.action-create { background: rgba(99,102,241,0.1); color: #818cf8; }
+.action-default { background: rgba(148,163,184,0.1); color: #94a3b8; }
+.filter-bar {
+    display: flex; gap: 0.75rem; flex-wrap: wrap;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+}
+.filter-bar select, .filter-bar input {
+    flex: 1; min-width: 150px;
+}
+@media (max-width: 768px) {
+    .audit-stats { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+    .audit-stats { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="audit-stats">
+    <div class="audit-stat-card" style="border-bottom: 3px solid #6366f1;">
+        <div class="val" style="color:#818cf8;">{{ logs|length }}</div>
+        <div class="lbl">Ochilgan loglar</div>
+    </div>
+    <div class="audit-stat-card" style="border-bottom: 3px solid #10b981;">
+        <div class="val" style="color:#10b981;">{{ logs|length }}</div>
+        <div class="lbl">Jami amallar</div>
+    </div>
+    <div class="audit-stat-card" style="border-bottom: 3px solid #f59e0b;">
+        <div class="val" style="color:#f59e0b;">🔒</div>
+        <div class="lbl">Barcha yozuvlar himoyali</div>
+    </div>
+    <div class="audit-stat-card" style="border-bottom: 3px solid #ef4444;">
+        <div class="val" style="color:#ef4444;">📋</div>
+        <div class="lbl">O'chirmay saqlanadi</div>
+    </div>
+</div>
+
+<!-- Info Banner -->
+<div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:14px; padding:1rem 1.25rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.75rem;">
+    <i class="fas fa-shield-alt" style="color:#818cf8; font-size:1.2rem;"></i>
+    <div style="font-size:0.9rem; color:var(--text);">
+        Barcha xavfsizlik amallari (login o'zgartirish, parol tiklash, bloklash) shu yerda qayd etiladi.
+        <strong>Hech qanday yozuv o'chirilmaydi.</strong>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.75rem;">
+    <h2 style="font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+        <i class="fas fa-history" style="color:var(--primary);"></i>
+        So'nggi {{ logs|length }} ta log
+    </h2>
+    <a href="{% url 'users1:admin_dashboard' %}" class="btn btn-outline" style="font-size:0.85rem;">
+        <i class="fas fa-arrow-left"></i> Bosh sahifaga
+    </a>
+</div>
+
+<!-- Logs Table -->
+<div class="glass-panel">
+    <div class="table-container">
+        <table class="mobile-card-table">
+            <thead>
+                <tr>
+                    <th>Sana va Vaqt</th>
+                    <th>Kim bajardi</th>
+                    <th>Rol</th>
+                    <th>Kimning haqida</th>
+                    <th>Amal</th>
+                    <th>IP Manzil</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td data-label="Sana">
+                        <div style="font-size:0.85rem; font-weight:600;">{{ log.created_at|date:"d.m.Y" }}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">{{ log.created_at|date:"H:i:s" }}</div>
+                    </td>
+                    <td data-label="Kim bajardi">
+                        <div style="font-weight:600; font-size:0.9rem;">
+                            {{ log.user.get_full_name|default:log.user.username|default:"Tizim" }}
+                        </div>
+                    </td>
+                    <td data-label="Rol">
+                        {% if log.user %}
+                            {% if log.user.role == 'DIRECTOR' %}
+                            <span style="background:rgba(99,102,241,0.15);color:#818cf8;padding:0.2rem 0.6rem;border-radius:8px;font-size:0.75rem;font-weight:600;">
+                                <i class="fas fa-crown"></i> Director
+                            </span>
+                            {% elif log.user.role == 'ADMINISTRATOR' %}
+                            <span style="background:rgba(16,185,129,0.15);color:#10b981;padding:0.2rem 0.6rem;border-radius:8px;font-size:0.75rem;font-weight:600;">
+                                <i class="fas fa-user-shield"></i> Admin
+                            </span>
+                            {% elif log.user.role == 'TEACHER' %}
+                            <span style="background:rgba(245,158,11,0.15);color:#f59e0b;padding:0.2rem 0.6rem;border-radius:8px;font-size:0.75rem;font-weight:600;">
+                                <i class="fas fa-chalkboard-teacher"></i> O'qituvchi
+                            </span>
+                            {% endif %}
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Kimning haqida">
+                        {% if log.target_user %}
+                        <div style="font-size:0.85rem;">
+                            {{ log.target_user.get_full_name|default:log.target_user.username }}
+                        </div>
+                        {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+                    </td>
+                    <td data-label="Amal">
+                        <span class="action-badge {% if 'Login' in log.action or 'login' in log.action %}action-login{% elif 'parol' in log.action|lower %}action-password{% elif 'bloklandi' in log.action or 'bloklash' in log.action %}action-block{% elif 'yaratildi' in log.action or 'qoshildi' in log.action|lower %}action-create{% else %}action-default{% endif %}">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td data-label="IP">
+                        <span style="font-family:monospace; font-size:0.8rem; color:var(--text-muted);">
+                            {{ log.ip_address|default:"—" }}
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                        <i class="fas fa-history" style="font-size:2.5rem; display:block; margin-bottom:0.75rem; opacity:0.3;"></i>
+                        Hali hech qanday log yo'q
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

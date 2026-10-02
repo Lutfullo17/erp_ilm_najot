@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% load bot_tags l10n %}
+
+{% block title %}Tushum Hisoboti | Director{% endblock %}
+{% block header_title %}Moliyaviy Hisobotlar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .fin-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+    .fin-section-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin: 1.5rem 0 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .stat-card {
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card > i {
+        position: absolute;
+        right: -10px;
+        bottom: -10px;
+        font-size: 5rem;
+        opacity: 0.05;
+        transform: rotate(-15deg);
+    }
+    .stat-label { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; }
+    .stat-hint { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; line-height: 1.5; }
+    .split-row { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.8rem; margin-top: 0.35rem; }
+    .split-row span:first-child { color: var(--text-muted); }
+    .split-row span:last-child { font-weight: 600; white-space: nowrap; }
+    .month-selector {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--card-bg);
+        padding: 0.75rem 1.5rem;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+    }
+    .month-selector input {
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0.5rem;
+        width: auto;
+    }
+    .fin-note {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 0.85rem 1.1rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 1.25rem;
+        line-height: 1.6;
+    }
+    .bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; width: 110px; max-width: 100%; }
+    .bar-fill { height: 100%; }
+    @media (max-width: 600px) {
+        .fin-header { flex-direction: column; align-items: stretch !important; gap: 1rem; }
+        .month-selector { padding: 0.5rem 1rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="fin-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h2 style="font-size: 1.5rem; font-weight: 700;">
+        <i class="fas fa-calendar-check" style="color: var(--primary);"></i>
+        {{ selected_month|date:"F Y" }} uchun hisobot
+    </h2>
+    <form method="get" class="month-selector">
+        <label for="month" style="margin: 0; color: var(--text-muted);">Oyni tanlang:</label>
+        <input type="month" name="month" id="month" value="{{ selected_month|date:'Y-m' }}" onchange="this.form.submit()">
+    </form>
+</div>
+
+{% if is_future_month %}
+<div class="fin-note">
+    <i class="fas fa-info-circle"></i> Bu oy hali boshlanmagan. Quyida faqat shu oy uchun oldindan qilingan to'lovlar ko'rinadi.
+</div>
+{% endif %}
+
+<!-- 1. KASSA -->
+<div class="fin-section-title"><i class="fas fa-cash-register"></i> Kassa — shu oyda qabul qilingan pul</div>
+<div class="fin-cards">
+    <div class="glass-panel stat-card">
+        <i class="fas fa-money-bill-wave"></i>
+        <div class="stat-label">Kassaga tushgan</div>
+        <div class="stat-value" style="color: var(--success);">{{ cash.total|money }}</div>
+        <div class="stat-hint">{{ cash.count }} ta to'lov, to'lov sanasi bo'yicha</div>
+        <div class="split-row"><span>Naqd</span><span>{{ cash.cash|money }}</span></div>
+        <div class="split-row"><span>Karta</span><span>{{ cash.card|money }}</span></div>
+        <div class="split-row"><span>O'tkazma</span><span>{{ cash.transfer|money }}</span></div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-random"></i>
+        <div class="stat-label">Bu pul qaysi oylar uchun keldi</div>
+        <div class="split-row"><span>Shu oy uchun</span><span style="color: var(--success);">{{ cash.for_this_month|money }}</span></div>
+        <div class="split-row"><span>O'tgan oylar qarzi uchun</span><span style="color: var(--warning);">{{ cash.for_past_months|money }}</span></div>
+        <div class="split-row"><span>Kelgusi oylar uchun (avans)</span><span style="color: var(--primary);">{{ cash.for_future_months|money }}</span></div>
+        <div class="stat-hint">To'lov avval eng eski qarzni yopadi, qolgani keyingi oylarga o'tadi.</div>
+    </div>
+</div>
+
+<!-- 2. SHU OY UCHUN HISOB -->
+<div class="fin-section-title"><i class="fas fa-file-invoice-dollar"></i> Shu oy uchun hisoblangan to'lovlar</div>
+<div class="fin-cards">
+    <div class="glass-panel stat-card">
+        <i class="fas fa-hand-holding-usd"></i>
+        <div class="stat-label">Kutilayotgan tushum</div>
+        <div class="stat-value" style="color: var(--primary);">{{ month_stats.expected|money }}</div>
+        <div class="stat-hint">{{ month_stats.total_students }} ta o'quvchi uchun, chegirmalar hisobga olingan</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-check-circle"></i>
+        <div class="stat-label">Shu oy uchun to'langan</div>
+        <div class="stat-value" style="color: var(--success);">{{ month_stats.collected|money }}</div>
+        <div class="stat-hint">{{ month_stats.percent|unlocalize }}% — qachon to'langanidan qat'i nazar</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-exclamation-circle"></i>
+        <div class="stat-label">Shu oy qarzi</div>
+        <div class="stat-value" style="color: var(--danger);">{{ month_stats.debt|money }}</div>
+        <div class="stat-hint">Faqat shu oy bo'yicha to'lanmagan qism</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-users"></i>
+        <div class="stat-label">To'lagan o'quvchilar</div>
+        <div class="stat-value" style="color: var(--warning);">{{ month_stats.paid_students }} / {{ month_stats.total_students }}</div>
+        <div class="stat-hint">Qisman: {{ month_stats.partial_students }} · To'lamagan: {{ month_stats.unpaid_students }}</div>
+    </div>
+</div>
+{% if not_due.count %}
+<div class="fin-note">
+    <i class="fas fa-clock"></i> Yana {{ not_due.count }} ta o'quvchining shu oy uchun to'lov muddati hali kelmagan
+    (guruh oyning keyingi kunlarida boshlangan yoki oy hali boshlanmagan). Ular shu oy uchun oldindan {{ not_due.paid|money }} so'm to'lagan.
+</div>
+{% endif %}
+
+<!-- 3. UMUMIY HOLAT -->
+<div class="fin-section-title"><i class="fas fa-balance-scale"></i> Umumiy holat — bugun, {{ today|date:"d.m.Y" }}</div>
+<div class="fin-cards">
+    <div class="glass-panel stat-card">
+        <i class="fas fa-file-invoice"></i>
+        <div class="stat-label">Jami qarz (barcha oylar)</div>
+        <div class="stat-value" style="color: var(--danger);">{{ overall.debt|money }}</div>
+        <div class="stat-hint">{{ overall.debtors }} ta hozir o'qiyotgan o'quvchi</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-user-slash"></i>
+        <div class="stat-label">Ketgan o'quvchilar qarzi</div>
+        <div class="stat-value" style="color: var(--text-muted);">{{ overall.former_debt|money }}</div>
+        <div class="stat-hint">{{ overall.former_debtors }} ta ketgan, o'chirilgan yoki guruhdan chiqqan o'quvchi</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-piggy-bank"></i>
+        <div class="stat-label">Oldindan to'lovlar (avans)</div>
+        <div class="stat-value" style="color: var(--primary);">{{ overall.advance|money }}</div>
+        <div class="stat-hint">Muddati hali kelmagan oylar uchun olingan pul</div>
+    </div>
+    <div class="glass-panel stat-card">
+        <i class="fas fa-coins"></i>
+        <div class="stat-label">Jami tushum (umumiy)</div>
+        <div class="stat-value" style="color: var(--success);">{{ overall.total_income|money }}</div>
+        <div class="stat-hint">{{ overall.active_students }} faol o'quvchi · {{ overall.active_groups }} faol guruh</div>
+    </div>
+</div>
+
+<div class="grid-3 animate-fade-in" style="margin-top: 1.5rem;">
+    <!-- Guruhlar -->
+    <div class="glass-panel" style="grid-column: span 2;">
+        <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-users-cog" style="color: var(--primary);"></i> Guruhlar bo'yicha tahlil ({{ selected_month|date:"F" }})
+        </h3>
+        <div class="table-container">
+            <table class="mobile-card-table">
+                <thead>
+                    <tr>
+                        <th>Guruh</th>
+                        <th>O'quvchilar</th>
+                        <th>To'lov holati</th>
+                        <th>To'langan / Kutilgan</th>
+                        <th>Qarz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in group_stats %}
+                    <tr>
+                        <td data-label="Guruh">
+                            <a href="{% url 'payments:group_debtor_list' stat.group.id %}" style="font-weight: 700; color: var(--text); text-decoration: none;">{{ stat.group.name }}</a>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ stat.group.teacher|default:"O'qituvchi biriktirilmagan" }}</div>
+                        </td>
+                        <td data-label="O'quvchilar">
+                            <div style="font-weight: 600;">{{ stat.total_students }} ta</div>
+                        </td>
+                        <td data-label="To'lov holati">
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.4rem;">
+                                <span class="badge badge-success" title="To'liq to'lagan">{{ stat.paid }}</span>
+                                <span class="badge badge-warning" title="Qisman to'lagan">{{ stat.partial }}</span>
+                                <span class="badge badge-danger" title="To'lamagan">{{ stat.unpaid }}</span>
+                            </div>
+                            <div class="bar-track" title="{{ stat.percent|unlocalize }}%">
+                                <div class="bar-fill" style="width: {{ stat.percent|unlocalize }}%; background: {% if stat.percent < 50 %}var(--danger){% elif stat.percent < 90 %}var(--warning){% else %}var(--success){% endif %};"></div>
+                            </div>
+                        </td>
+                        <td data-label="To'langan / Kutilgan">
+                            <div style="font-weight: 600; color: var(--success);">{{ stat.collected|money }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ stat.expected|money }} dan</div>
+                        </td>
+                        <td data-label="Qarz">
+                            <div style="font-weight: 700; color: {% if stat.debt > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                                {{ stat.debt|money }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">Bu oy uchun hisoblangan to'lovlar yo'q.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 12 oylik kassa -->
+    <div class="glass-panel">
+        <h3 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-chart-line" style="color: var(--secondary);"></i> Oxirgi 12 oy kassasi
+        </h3>
+        <div class="stat-hint" style="margin-bottom: 1.25rem;">Har oyda qabul qilingan pul</div>
+        <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+            {% for item in monthly_income %}
+            <div style="display: flex; align-items: center; gap: 0.75rem;{% if item.is_selected %} font-weight: 700;{% endif %}">
+                <div style="width: 70px; flex-shrink: 0; font-size: 0.85rem; color: {% if item.is_selected %}var(--text){% else %}var(--text-muted){% endif %};">{{ item.month|date:"M Y" }}</div>
+                <div style="flex-grow: 1; min-width: 0;">
+                    <div style="height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden;">
+                        <div style="width: {{ item.width|unlocalize }}%; background: linear-gradient(to right, var(--primary), var(--secondary)); height: 100%;"></div>
+                    </div>
+                </div>
+                <div style="width: 95px; flex-shrink: 0; text-align: right; font-size: 0.85rem;">{{ item.total|money }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

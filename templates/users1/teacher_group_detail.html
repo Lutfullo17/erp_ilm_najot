@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ group.name }} | Ilm Najot ERP{% endblock %}
+{% block header_title %}{{ group.name }}{% endblock %}
+
+{% block content %}
+<!-- Action buttons -->
+<div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+    {% if is_lesson_active %}
+    <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-primary" style="flex: 1; justify-content: center; padding: 1rem; font-size: 1rem;">
+        <i class="fas fa-check-double"></i> Davomat
+    </a>
+    <a href="{% url 'grades:grade_input' %}?group={{ group.id }}" class="btn btn-primary" style="flex: 1; justify-content: center; padding: 1rem; font-size: 1rem;">
+        <i class="fas fa-star"></i> Baholash
+    </a>
+    {% else %}
+    <div class="btn btn-outline" style="flex: 1; justify-content: center; padding: 1rem; font-size: 1rem; opacity: 0.4; pointer-events: none;">
+        <i class="fas fa-check-double"></i> Davomat
+    </div>
+    <div class="btn btn-outline" style="flex: 1; justify-content: center; padding: 1rem; font-size: 1rem; opacity: 0.4; pointer-events: none;">
+        <i class="fas fa-star"></i> Baholash
+    </div>
+    {% endif %}
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
+    <!-- Group Info Card -->
+    <div class="glass-panel">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="avatar" style="width: 80px; height: 80px; margin: 0 auto 1rem; font-size: 1.8rem;">
+                {{ group.name.0 }}
+            </div>
+            <h2 style="font-size: 1.4rem; margin-bottom: 0.3rem;">{{ group.name }}</h2>
+            <div style="color: var(--text-muted); font-size: 0.85rem;">{{ student_count }} o'quvchi</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <div class="info-row">
+                <i class="fas fa-calendar-days"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Dars kunlari</small>
+                    <span>{{ group.lesson_days|default:"Kiritilmagan" }}</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <i class="fas fa-clock"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Dars vaqti</small>
+                    <span>{{ group.lesson_time|time:"H:i"|default:"Kiritilmagan" }}</span>
+                </div>
+            </div>
+            {% if group.duration %}
+            <div class="info-row">
+                <i class="fas fa-hourglass-half"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Davomiyligi</small>
+                    <span>{{ group.duration }} soat</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if group.room %}
+            <div class="info-row">
+                <i class="fas fa-door-open"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Xona</small>
+                    <span>{{ group.room }}</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if group.monthly_fee %}
+            <div class="info-row">
+                <i class="fas fa-money-bill-wave"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Oylik to'lov</small>
+                    <span>{{ group.monthly_fee|floatformat:0 }} so'm</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if group.start_date %}
+            <div class="info-row">
+                <i class="fas fa-calendar-check"></i>
+                <div>
+                    <small style="color: var(--text-muted); display: block;">Boshlanish sanasi</small>
+                    <span>{{ group.start_date|date:"d.m.Y" }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Students List -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="glass-panel">
+            <h3 style="font-size: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-users" style="color: var(--primary);"></i> O'quvchilar
+            </h3>
+            <div class="table-container">
+                <table class="mobile-card-table" style="font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Ism</th>
+                            <th>Telefon</th>
+                            <th>Oxirgi davomat</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in students_with_status %}
+                        <tr>
+                            <td data-label="Ism">
+                                <a href="{% url 'users1:teacher_student_detail' item.student.pk %}" style="font-weight: 600; color: var(--text); text-decoration: none;">{{ item.student.first_name }} {{ item.student.last_name }}</a>
+                            </td>
+                            <td data-label="Telefon">{{ item.student.phone|default:"-" }}</td>
+                            <td data-label="Davomat">
+                                {% if item.last_status %}
+                                    {% if item.last_status == 'PRESENT' %}
+                                    <span class="badge badge-success">Keldi</span>
+                                    {% elif item.last_status == 'ABSENT' %}
+                                    <span class="badge badge-danger">Kelmadi</span>
+                                    {% elif item.last_status == 'LATE' %}
+                                    <span class="badge badge-warning">Kechikdi</span>
+                                    {% elif item.last_status == 'EXCUSED' %}
+                                    <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">Sababli</span>
+                                    {% endif %}
+                                    <div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 0.2rem;">{{ item.last_date|date:"d.m" }}</div>
+                                {% else %}
+                                    <span style="color: var(--text-muted);">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">O'quvchilar yo'q</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .info-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .info-row i {
+        width: 35px;
+        height: 35px;
+        background: rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        color: var(--primary);
+    }
+    .avatar {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        font-weight: 700;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+        div[style*="grid-template-columns: 1fr 2fr"] {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+
+<script>
+</script>
+{% endblock %}

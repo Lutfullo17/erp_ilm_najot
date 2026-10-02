@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Xabarlar | Ilm Najot ERP{% endblock %}
+{% block header_title %}Xabarlar{% endblock %}
+
+{% block content %}
+<div class="glass-panel">
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        {% for appeal in pending_appeals %}
+        <div style="padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.03);" id="appeal-{{ appeal.id }}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.95rem;">{{ appeal.student.last_name }} {{ appeal.student.first_name }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">{{ appeal.created_at|timesince }} oldin</div>
+                </div>
+            </div>
+            <div style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text); line-height: 1.4;">{{ appeal.message|escape }}</div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button onclick="showReplyInput({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                    <i class="fas fa-reply"></i> Javob berish
+                </button>
+                <button onclick="resolveAppeal({{ appeal.id }})" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                    <i class="fas fa-check"></i> Hal qilish
+                </button>
+            </div>
+            <div id="replyForm-{{ appeal.id }}" style="display: none; margin-top: 0.75rem;">
+                <textarea id="replyText-{{ appeal.id }}" style="width: 100%; min-height: 60px; padding: 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: white; resize: vertical;" placeholder="Javob matni..."></textarea>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button onclick="sendReply({{ appeal.id }})" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.8rem;">
+                        <i class="fas fa-paper-plane"></i> Yuborish
+                    </button>
+                    <button onclick="hideReplyInput({{ appeal.id }})" class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.8rem;">Bekor</button>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fas fa-inbox" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: 0.3;"></i>
+            <p>Yangi xabarlar yo'q</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function showReplyInput(id) {
+    document.getElementById('replyForm-' + id).style.display = 'block';
+}
+
+function hideReplyInput(id) {
+    document.getElementById('replyForm-' + id).style.display = 'none';
+    document.getElementById('replyText-' + id).value = '';
+}
+
+function sendReply(appealId) {
+    const text = document.getElementById('replyText-' + appealId).value.trim();
+    if (!text) { alert('Javob matnini kiriting!'); return; }
+
+    const formData = new FormData();
+    formData.append('reply', text);
+
+    fetch(`/users/api/reply/${appealId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('appeal-' + appealId).style.display = 'none';
+        } else {
+            alert(data.detail || 'Xatolik');
+        }
+    })
+    .catch(() => alert('Tarmoq xatoligi'));
+}
+
+function resolveAppeal(appealId) {
+    fetch(`/users/api/resolve/${appealId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('appeal-' + appealId).style.display = 'none';
+        }
+    })
+    .catch(() => alert('Xatolik'));
+}
+</script>
+{% endblock %}

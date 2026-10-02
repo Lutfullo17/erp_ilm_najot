@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Ilm Najot ERP{% endblock %}
+{% block header_title %}O'qituvchi Dashboard{% endblock %}
+
+{% block content %}
+<div style="padding: 1rem;">
+    <!-- Hozirgi dars -->
+    {% if current_lesson %}
+    <div class="glass-panel" style="margin-bottom: 1rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(30, 41, 59, 0.7)); border: 1px solid rgba(99, 102, 241, 0.3);">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <span style="width: 10px; height: 10px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span>
+            <span style="color: var(--success); font-size: 0.9rem; font-weight: 600;">HOZIR DARS BOR</span>
+        </div>
+        <h2 style="font-size: 1.3rem; margin-bottom: 0.5rem;">{{ current_lesson.name }}</h2>
+        <div style="display: flex; gap: 1rem; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+            <span><i class="fas fa-clock"></i> {{ current_lesson.lesson_time|time:"H:i" }} – {{ current_lesson.end_time|time:"H:i" }}</span>
+            <span><i class="fas fa-users"></i> {{ current_lesson.students.count }} o'quvchi</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="{% url 'users1:teacher_current_lesson_action' 'attendance' %}" class="btn btn-primary" style="flex: 1; text-align: center;">
+                <i class="fas fa-check-double"></i> Davomat
+            </a>
+            <a href="{% url 'users1:teacher_current_lesson_action' 'grades' %}" class="btn btn-outline" style="flex: 1; text-align: center;">
+                <i class="fas fa-star"></i> Baholash
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Statistika -->
+    <div style="display: flex; gap: 0.75rem; overflow-x: auto; margin-bottom: 1rem; padding-bottom: 0.5rem;">
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ total_students }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">O'quvchilar</div>
+        </div>
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ today_attendance }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Bugun davomat</div>
+        </div>
+        <div class="glass-panel" style="padding: 1rem; min-width: 120px; flex: 1;">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text);">{{ groups.count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.8rem;">Guruhlar</div>
+        </div>
+    </div>
+
+    <!-- Eslatmalar -->
+    {% if overdue_groups or groups_without_attendance %}
+    <div class="glass-panel" style="margin-bottom: 1rem; border-left: 3px solid var(--warning);">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-bell" style="color: var(--warning);"></i> Eslatmalar
+        </h3>
+        {% if overdue_groups %}
+        <div style="padding: 0.75rem; border-radius: 6px; background: rgba(239, 68, 68, 0.1); margin-bottom: 0.5rem;">
+            <div style="font-weight: 600; color: var(--danger); font-size: 0.85rem;">
+                <i class="fas fa-exclamation-triangle"></i> Davomati o'tkazib yuborilgan
+            </div>
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                {% for g in overdue_groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if groups_without_attendance %}
+        <div style="padding: 0.75rem; border-radius: 6px; background: rgba(245, 158, 11, 0.1);">
+            <div style="font-weight: 600; color: var(--warning); font-size: 0.85rem;">
+                <i class="fas fa-clock"></i> Davomat olinmagan
+            </div>
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                {% for g in groups_without_attendance %}
+                <a href="{% url 'attendance:attendance_mark' g.id %}" style="color: var(--warning); text-decoration: underline;">{{ g.name }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Bugungi darslar -->
+    <div class="glass-panel" style="margin-bottom: 1rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-calendar-day" style="color: var(--primary);"></i> Bugungi darslar
+            <span style="margin-left: auto; padding: 0.2rem 0.6rem; background: rgba(99, 102, 241, 0.15); color: var(--primary); border-radius: 12px; font-size: 0.75rem; font-weight: 600;">{{ today_lesson_count }}</span>
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            {% for lesson in today_lessons %}
+            {% if lesson.lesson_status == 'active' %}
+            <a href="{% url 'attendance:attendance_mark' lesson.group.id %}" style="padding: 0.875rem; border-radius: 10px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-book" style="color: white; font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.95rem;">{{ lesson.group.name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem;">{{ lesson.group.students.count }} o'quvchi · {{ lesson.time_remaining }} qoldi</div>
+                    </div>
+                </div>
+                <div style="text-align: right; flex-shrink: 0;">
+                    <div style="color: var(--primary); font-weight: 600; font-size: 0.95rem;">{{ lesson.time|time:"H:i" }}</div>
+                    <span style="display: inline-block; margin-top: 0.2rem; padding: 0.2rem 0.6rem; background: var(--primary); color: white; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">
+                        Davomat
+                    </span>
+                </div>
+            </a>
+            {% else %}
+            <div style="padding: 0.875rem; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; opacity: 0.6;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fas fa-book" style="color: var(--text-muted); font-size: 0.9rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.95rem;">{{ lesson.group.name }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem;">
+                            {% if lesson.lesson_status == 'upcoming' %}Boshlanishiga {{ lesson.time_remaining }} qoldi{% else %}Tugadi{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: right; flex-shrink: 0;">
+                    <div style="color: var(--text-muted); font-weight: 600; font-size: 0.95rem;">{{ lesson.time|time:"H:i" }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% empty %}
+            <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                <i class="fas fa-calendar-check" style="font-size: 1.5rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>
+                <div style="font-size: 0.9rem;">Bugun dars yo'q</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Kelgusi darslar -->
+    <div class="glass-panel">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-calendar-alt" style="color: var(--warning);"></i> Kelgusi darslar
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            {% for lesson in upcoming_lessons %}
+            <div style="padding: 0.875rem; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.95rem;">{{ lesson.group.name }}</div>
+                    <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem;">{{ lesson.days }}</div>
+                </div>
+                <div style="color: var(--primary); font-weight: 600; font-size: 0.95rem;">{{ lesson.time|time:"H:i" }}</div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                <i class="fas fa-calendar" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block; opacity: 0.5;"></i>
+                <div style="font-size: 0.9rem;">Jadval bo'sh</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    html[data-theme="light"] .glass-panel {
+        background: rgba(255, 255, 255, 0.95);
+    }
+    
+    @media (min-width: 768px) {
+        .glass-panel {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}

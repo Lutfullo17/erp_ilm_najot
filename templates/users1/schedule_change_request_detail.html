@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Ariza tafsilotlari{% endblock %}
+{% block header_title %}Jadval o'zgartirish arizasi{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 1.5rem; max-width: 900px; margin: 0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:start; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+        <div>
+            <h2 style="margin:0;">{{ schedule_request.group.name }}</h2>
+            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem;">Yuborilgan: {{ schedule_request.submitted_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+            <a href="{% url 'users1:teacher_schedule_request_history' %}" class="btn btn-outline" style="padding:0.65rem 1rem;">Ariza tarixiga qaytish</a>
+            <a href="{% url 'users1:teacher_schedule' %}" class="btn btn-outline" style="padding:0.65rem 1rem;">Dars jadvaliga qaytish</a>
+        </div>
+    </div>
+
+    <div style="display:grid; gap:1rem;">
+        <div class="glass-panel" style="padding:1rem; background: rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:14px;">
+            <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                <div>
+                    <div style="font-weight:700;">Hozirgi jadval</div>
+                    <div style="color: var(--text-muted); margin-top:0.35rem;">{{ schedule_request.old_day }} {{ schedule_request.old_start_time|time:"H:i" }} - {{ schedule_request.old_end_time|time:"H:i" }}</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;">Talab qilingan jadval</div>
+                    <div style="color: var(--text-muted); margin-top:0.35rem;">{{ schedule_request.new_day }} {{ schedule_request.new_start_time|time:"H:i" }} - {{ schedule_request.new_end_time|time:"H:i" }}</div>
+                </div>
+                <div>
+                    <div style="font-weight:700;">Holat</div>
+                    <span style="display:inline-block; padding:0.4rem 0.9rem; border-radius:999px; background: {% if schedule_request.status == schedule_request.Status.APPROVED %}rgba(16, 185, 129, 0.12){% elif schedule_request.status == schedule_request.Status.REJECTED %}rgba(239, 68, 68, 0.12){% else %}rgba(245, 158, 11, 0.12){% endif %}; color: {% if schedule_request.status == schedule_request.Status.APPROVED %}#10b981{% elif schedule_request.status == schedule_request.Status.REJECTED %}#ef4444{% else %}#f59e0b{% endif %}; font-weight:700;">
+                        {{ schedule_request.get_status_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-panel" style="padding:1rem; background: rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:14px;">
+            <h3 style="margin-bottom:0.75rem; font-size:1rem;">Sabab</h3>
+            <p style="color: var(--text-muted);">{{ schedule_request.reason|default:'Sabab ko‘rsatilmagan.' }}</p>
+        </div>
+
+        <div class="glass-panel" style="padding:1rem; background: rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:14px;">
+            <h3 style="margin-bottom:0.75rem; font-size:1rem;">Ko'rib chiqqan</h3>
+            {% if schedule_request.reviewed_by %}
+            <div style="color: var(--text-muted);">{{ schedule_request.reviewed_by.get_full_name|default:schedule_request.reviewed_by.username }}</div>
+            {% else %}
+            <div style="color: var(--text-muted);">Hali ko‘rilmagan</div>
+            {% endif %}
+            <div style="margin-top:0.35rem; color: var(--text-muted);">{{ schedule_request.reviewed_at|date:"d.m.Y H:i"|default:'—' }}</div>
+            {% if schedule_request.review_comment %}
+            <div style="margin-top:0.75rem; color: var(--text-muted);">Izoh: {{ schedule_request.review_comment }}</div>
+            {% endif %}
+        </div>
+
+        {% if schedule_request.status == schedule_request.Status.PENDING and user.is_admin_access %}
+        <form method="post" action="{% url 'users1:schedule_change_request_review' schedule_request.pk %}" style="display:grid; gap:1rem;">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="review_comment" style="font-weight:600;">Ko'rib chiqish izohi</label>
+                <textarea name="review_comment" id="review_comment" rows="4" style="width:100%; padding:0.85rem; background: rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:12px; color:inherit;"></textarea>
+            </div>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                <button type="submit" name="decision" value="approve" class="btn btn-primary" style="padding:0.85rem 1.25rem;">Tasdiqlash</button>
+                <button type="submit" name="decision" value="reject" class="btn btn-danger" style="padding:0.85rem 1.25rem;">Rad etish</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

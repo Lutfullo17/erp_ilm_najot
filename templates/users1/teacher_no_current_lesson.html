@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}Hozir dars yo'q | Ilm Najot ERP{% endblock %}
+{% block header_title %}Dars holati{% endblock %}
+
+{% block content %}
+<div class="no-lesson-panel animate-fade-in">
+    <div class="no-lesson-icon"><i class="fas fa-calendar-times"></i></div>
+    <h2>Hozirgi vaqtda dars mavjud emas</h2>
+    <p>{% if action == 'attendance' %}Davomatni faqat davom etayotgan dars vaqtida olishingiz mumkin.{% else %}Baholashni faqat davom etayotgan dars uchun ochishingiz mumkin.{% endif %}</p>
+    <a class="btn btn-primary" href="{% url 'users1:teacher_dashboard' %}"><i class="fas fa-arrow-left"></i> Dashboardga qaytish</a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .no-lesson-panel { max-width: 720px; margin: 9vh auto; text-align: center; padding: 4.5rem 2rem; }
+    .no-lesson-icon { width: 92px; height: 92px; margin: 0 auto 1.5rem; display: grid; place-items: center; border-radius: 28px; color: var(--warning); background: rgba(245, 158, 11, .15); font-size: 2.6rem; }
+    .no-lesson-panel h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); margin-bottom: .8rem; }
+    .no-lesson-panel p { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 2rem; }
+</style>
+{% endblock %}

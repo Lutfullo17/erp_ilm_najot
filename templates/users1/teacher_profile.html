@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block title %}Mening Profilim - O'qituvchi{% endblock %}
+{% block header_title %}Mening Profilim{% endblock %}
+
+{% block extra_css %}
+<style>
+.readonly-notice {
+    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(236,72,153,0.1));
+    border: 1px solid rgba(99,102,241,0.35);
+    border-radius: 18px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 10px;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+}
+.profile-hero {
+    background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(99,102,241,0.08) 100%);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: 2.5rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    position: relative;
+    overflow: hidden;
+}
+.profile-hero::before {
+    content:'';
+    position:absolute;
+    top:-40px;right:-40px;
+    width:160px;height:160px;
+    background: radial-gradient(circle, rgba(16,185,129,0.15), transparent);
+    border-radius:50%;
+}
+.profile-avatar {
+    width: 100px; height: 100px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #10b981, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; font-weight: 800; color: white;
+    border: 3px solid rgba(255,255,255,0.2);
+    flex-shrink: 0;
+}
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.info-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    backdrop-filter: blur(12px);
+}
+.info-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.info-value { font-size: 1rem; font-weight: 600; color: var(--text); }
+.penalty-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.penalty-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.75rem;
+    text-align: center;
+    backdrop-filter: blur(12px);
+}
+.penalty-val {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+.penalty-lbl { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.penalty-item-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.85rem 0; border-bottom: 1px solid var(--border);
+}
+.penalty-item-row:last-child { border-bottom: none; }
+.pts-chip { background: rgba(239,68,68,0.15); color: #ef4444; padding: 0.25rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+.security-lock {
+    background: rgba(239,68,68,0.05);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 18px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+@media (max-width: 600px) {
+    .info-grid { grid-template-columns: 1fr; }
+    .penalty-summary { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Always-visible Read-Only Notice -->
+<div class="readonly-notice">
+    <div style="width:44px;height:44px;background:rgba(99,102,241,0.18);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fas fa-info-circle" style="color:#818cf8;font-size:1.25rem;"></i>
+    </div>
+    <div>
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.25rem;">Faqat ko'rish uchun</div>
+        <p style="color:var(--text-muted);font-size:0.87rem;line-height:1.5;margin:0;">
+            Shaxsiy ma'lumotlaringizni o'zgartirish yoki login/parolni tiklash uchun <strong style="color:var(--text);">Director bilan bog'laning.</strong>
+        </p>
+    </div>
+</div>
+
+<!-- Profile Hero -->
+<div class="profile-hero">
+    <div class="profile-avatar">
+        {% if user.photo %}
+        <img src="{{ user.photo.url }}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">
+        {% else %}
+        {{ user.first_name.0|upper|default:user.username.0|upper }}
+        {% endif %}
+    </div>
+    <div>
+        <h2 style="font-size:1.8rem;font-weight:700;margin-bottom:0.4rem;">
+            {{ user.get_full_name|default:user.username }}
+        </h2>
+        <span style="background:rgba(16,185,129,0.15);color:#10b981;padding:0.3rem 0.9rem;border-radius:20px;font-size:0.85rem;font-weight:600;display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:0.75rem;">
+            <i class="fas fa-chalkboard-teacher"></i> O'qituvchi
+        </span>
+        <div style="font-size:0.85rem;color:var(--text-muted);">
+            <i class="fas fa-calendar-alt" style="margin-right:0.4rem;color:var(--success);"></i>
+            Ro'yxatdan o'tgan: {{ user.date_joined|date:"d.m.Y" }}
+        </div>
+    </div>
+</div>
+
+<!-- Info Grid (without login shown for security) -->
+<div class="info-grid">
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-user" style="margin-right:0.4rem;"></i>Ism</div>
+        <div class="info-value">{{ user.first_name|default:"—" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-user" style="margin-right:0.4rem;"></i>Familiya</div>
+        <div class="info-value">{{ user.last_name|default:"—" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-phone" style="margin-right:0.4rem;"></i>Telefon</div>
+        <div class="info-value">{{ user.phone|default:"—" }}</div>
+    </div>
+    <div class="info-card">
+        <div class="info-label"><i class="fas fa-clock" style="margin-right:0.4rem;"></i>Akkount yaratilgan</div>
+        <div class="info-value">{{ user.date_joined|date:"d.m.Y" }}</div>
+    </div>
+</div>
+
+<!-- Penalty Summary -->
+<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;">
+    <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Jarima Holati
+</h3>
+<div class="penalty-summary">
+    <div class="penalty-card" style="border: 1px solid {% if total_penalty_points < -10 %}rgba(239,68,68,0.3){% else %}rgba(16,185,129,0.2){% endif %};">
+        <div class="penalty-val" style="color:{% if total_penalty_points < -10 %}#ef4444{% else %}#10b981{% endif %};">
+            {{ total_penalty_points }}
+        </div>
+        <div class="penalty-lbl">Jami Minus Ball</div>
+    </div>
+    <div class="penalty-card" style="border: 1px solid {% if monthly_penalty < -5 %}rgba(245,158,11,0.3){% else %}rgba(16,185,129,0.2){% endif %};">
+        <div class="penalty-val" style="color:{% if monthly_penalty < -5 %}#f59e0b{% else %}#10b981{% endif %};">
+            {{ monthly_penalty }}
+        </div>
+        <div class="penalty-lbl">Shu Oyda</div>
+    </div>
+</div>
+
+<!-- Recent Penalties -->
+{% if penalties %}
+<div class="glass-panel" style="margin-bottom:1.5rem;">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;display:flex;align-items:center;gap:0.6rem;">
+        <i class="fas fa-history" style="color:#ef4444;"></i> So'nggi Jarimalar
+    </h3>
+    {% for penalty in penalties %}
+    <div class="penalty-item-row">
+        <div>
+            <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;">{{ penalty.reason }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">
+                {{ penalty.date|date:"d.m.Y" }}
+                {% if penalty.group %} · {{ penalty.group.name }}{% endif %} ·
+                {% if penalty.is_manual %}
+                <span style="color:#f59e0b;font-weight:600;">Qo'lda berildi</span>
+                {% else %}
+                <span style="color:#818cf8;font-weight:600;">Avtomatik</span>
+                {% endif %}
+            </div>
+        </div>
+        <span class="pts-chip">{{ penalty.points }} ball</span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="glass-panel" style="text-align:center;padding:2rem;margin-bottom:1.5rem;color:var(--text-muted);">
+    <i class="fas fa-check-circle" style="font-size:2rem;color:#10b981;display:block;margin-bottom:0.75rem;"></i>
+    Hali jarima yo'q — ajoyib!
+</div>
+{% endif %}
+
+<!-- Groups -->
+{% with groups=request.user.teaching_groups.all %}
+{% if groups %}
+<div class="glass-panel" style="margin-bottom:1.5rem;">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;display:flex;align-items:center;gap:0.6rem;">
+        <i class="fas fa-users" style="color:var(--success);"></i> Mening Guruhlarim
+    </h3>
+    {% for group in groups %}
+    {% if group.is_active %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 0;border-bottom:1px solid var(--border);">
+        <div>
+            <div style="font-weight:600;font-size:0.9rem;">{{ group.name }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">
+                {{ group.lesson_days }} ·
+                {% if group.lesson_time %}{{ group.lesson_time|time:"H:i" }}{% endif %}
+                {% if group.end_time %} - {{ group.end_time|time:"H:i" }}{% endif %}
+            </div>
+        </div>
+        <a href="{% url 'attendance:attendance_mark' group.id %}" class="btn btn-outline" style="padding:0.4rem 0.9rem;font-size:0.8rem;">
+            <i class="fas fa-clipboard-check"></i> Davomat
+        </a>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- Security Lock -->
+<div class="security-lock">
+    <div style="width:44px;height:44px;background:rgba(239,68,68,0.12);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fas fa-lock" style="color:#ef4444;font-size:1.1rem;"></i>
+    </div>
+    <div>
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.4rem;">Login va Parol ko'rsatilmaydi</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.6;">
+            Xavfsizlik siyosatimizga ko'ra, O'qituvchi o'z loginini yoki parolini mustaqil o'zgartira olmaydi.
+            Bu ma'lumotlar faqat <strong style="color:var(--text);">Director</strong> tomonidan boshqariladi.
+        </div>
+    </div>
+</div>
+{% endblock %}
