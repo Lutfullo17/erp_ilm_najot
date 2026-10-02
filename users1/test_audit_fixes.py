@@ -192,3 +192,40 @@ class AttendanceGradeTests(AuditBase):
             'group_id': self.g1.pk, 'grade_date': str(self.today), 'title': 'T',
             'percentage_%d' % self.s_other.pk: '50'})
         self.assertFalse(GradeRecord.objects.exists())
+
+
+class PaymentIntegrityTests(AuditBase):
+    def _pay(self, user=None, **extra):
+        body = {'student_id': self.s1.pk, 'group_id': self.g1.pk, 'amount': 50000,
+                'payment_date': str(self.today)}
+        body.update(extra)
+        return self.jpost(self.login(user or self.admin), '/payments/api/create/', body)
+
+    def test_same_idempotency_key_creates_one_payment(self):  # Y-8
+        key = '3f2b8a52-6a3e-4b7c-9d5e-0c1d2e3f4a5b'
+        r1, r2 = self._pay(idempotency_key=key), self._pay(idempotency_key=key)
+        self.assertEqual((r1.status_code, r2.status_code), (201, 200))
+        self.assertTrue(r2.json()['duplicate'])
+        self.assertEqual(PaymentTransaction.objects.count(), 1)
+
+    def test_identical_payment_without_key_rejected_within_a_minute(self):  # Y-8
+        self._pay()
+        self.assertEqual(self._pay().status_code, 400)
+        self.assertEqual(PaymentTransaction.objects.count(), 1)
+
+    def test_payment_create_and_delete_are_audited(self):  # Y-8 / O-16
+        from users1.models import AuditLog
+        r = self._pay()
+        pid = r.json()['payment']['id']
+        self.login(self.director).post('/payments/delete/%d/' % pid)
+        self.assertTrue(AuditLog.objects.filter(action="To'lov qabul qilindi").exists())
+        deleted = AuditLog.objects.get(action="To'lov o'chirildi")
+        self.assertEqual(deleted.old_data['amount'], '50000.00')
+
+    def test_admin_cannot_backdate_beyond_limit(self):  # Y-9
+        old = str(self.today - datetime.timedelta(days=30))
+        self.assertEqual(self._pay(payment_date=old).status_code, 400)
+
+    def test_director_can_backdate(self):  # Y-9
+        old = str(self.today - datetime.timedelta(days=30))
+        self.assertEqual(self._pay(user=self.director, payment_date=old).status_code, 201)

@@ -3,7 +3,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from groups_app.models import Group, GroupStudent
 from payments.models import StudentMonthBalance, MonthBalanceStatus
@@ -13,6 +13,7 @@ from students.models import Student
 User = get_user_model()
 
 
+@override_settings(PAYMENT_BACKDATE_DAYS=3650)  # testlar qat'iy o'tgan sanalar bilan ishlaydi
 class PaymentBusinessLogicTestCase(TestCase):
     TODAY = date(2026, 8, 20)
 

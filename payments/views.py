@@ -221,8 +221,9 @@ def create_payment(request):
             payload.get('payment_date'),
             payload.get('method', 'CASH'),
             payload.get('note', ''),
+            idempotency_key=payload.get('idempotency_key'),
         )
-        return JsonResponse(data, status=201)
+        return JsonResponse(data, status=200 if data.get('duplicate') else 201)
     except Exception as e:
         return JsonResponse({'detail': str(e)}, status=400)
 

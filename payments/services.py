@@ -1,8 +1,10 @@
-from datetime import date
+import uuid
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
+from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -181,9 +183,67 @@ def get_student_payment_state(student_id, group_id, from_month=None, months=6):
     }
 
 
+def _audit(user, action, old_data=None, new_data=None, target_user=None):
+    from users1.models import AuditLog
+    AuditLog.objects.create(
+        user=user, role=getattr(user, 'role', ''), action=action,
+        old_data=old_data, new_data=new_data, target_user=target_user,
+    )
+
+
+def _payment_snapshot(payment):
+    return {
+        'payment_id': payment.pk,
+        'student_id': payment.student_id,
+        'group_id': payment.group_id,
+        'amount': str(payment.amount),
+        'payment_date': payment.payment_date.isoformat(),
+        'method': payment.method,
+        'created_by_id': payment.created_by_id,
+        'note': payment.note,
+    }
+
+
+def _parse_key(value):
+    if not value:
+        return None
+    try:
+        return uuid.UUID(str(value))
+    except (ValueError, AttributeError):
+        raise PaymentInputError("idempotency_key noto'g'ri.")
+
+
+def _payment_result(payment, student, group, duplicate=False):
+    allocations = list(payment.allocations.select_related('balance').order_by('balance__month'))
+    balances = [a.balance for a in allocations]
+    return {
+        'payment': {
+            'id': payment.id,
+            'amount': serialize_money(payment.amount),
+            'payment_date': payment.payment_date.isoformat(),
+            'method': payment.method,
+        },
+        'student': {'id': student.id, 'full_name': str(student)},
+        'group': {'id': group.id, 'name': group.name, 'monthly_fee': serialize_money(group.monthly_fee or 0)},
+        'allocations': [
+            dict(serialize_balance(a.balance), allocated_amount=serialize_money(a.amount)) for a in allocations
+        ],
+        'summary': build_payment_summary(balances, first_day_of_month(payment.payment_date)),
+        'remaining': '0',
+        'duplicate': duplicate,
+    }
+
+
 @transaction.atomic
-def apply_payment(user, student_id, group_id, amount, payment_date=None, method=PaymentMethod.CASH, note=''):
+def apply_payment(user, student_id, group_id, amount, payment_date=None, method=PaymentMethod.CASH, note='',
+                  idempotency_key=None):
     assert_admin_user(user)
+
+    key = _parse_key(idempotency_key)
+    if key:
+        existing = PaymentTransaction.objects.select_related('student', 'group').filter(idempotency_key=key).first()
+        if existing:
+            return _payment_result(existing, existing.student, existing.group, duplicate=True)
 
     group = get_payment_group(group_id)
     student = get_payment_student(student_id, group)
@@ -196,6 +256,11 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
     today = timezone.localdate()
     if payment_date > today:
         raise PaymentInputError("To'lov sanasi kelajakda bo'lishi mumkin emas.")
+    max_back = getattr(settings, 'PAYMENT_BACKDATE_DAYS', 7)
+    if not user.is_director and payment_date < today - timedelta(days=max_back):
+        raise PaymentInputError(
+            f"To'lov sanasi {max_back} kundan ortiq orqaga qo'yilishi mumkin emas. Director bilan bog'laning."
+        )
 
     amount = parse_money(amount)
     if amount <= 0:
@@ -217,6 +282,12 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
     if len(note_str) > 255:
         raise PaymentInputError("Izoh 255 belgidan oshmasligi kerak.")
 
+    if key is None and PaymentTransaction.objects.filter(
+        created_by=user, student=student, group=group, amount=amount, payment_date=payment_date,
+        method=method, created_at__gte=timezone.now() - timedelta(seconds=60),
+    ).exists():
+        raise PaymentInputError("Xuddi shu to'lov hozirgina qabul qilingan. Takroriy to'lov yaratilmadi.")
+
     payment = PaymentTransaction(
         student=student,
         group=group,
@@ -225,14 +296,20 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
         method=method,
         created_by=user,
         note=note_str,
+        idempotency_key=key,
     )
     payment._skip_sync = True  # quyida o'zimiz sync qilamiz
-    payment.save()
+    try:
+        with transaction.atomic():
+            payment.save()
+    except IntegrityError:
+        existing = PaymentTransaction.objects.select_related('student', 'group').filter(idempotency_key=key).first()
+        if existing is None:
+            raise
+        return _payment_result(existing, existing.student, existing.group, duplicate=True)
 
     sync_pair(student, group, as_of=today)
-
-    allocations = list(payment.allocations.select_related('balance').order_by('balance__month'))
-    balances = [a.balance for a in allocations]
+    _audit(user, "To'lov qabul qilindi", new_data=_payment_snapshot(payment))
 
     def _notify():
         try:
@@ -241,21 +318,7 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
             pass
     transaction.on_commit(_notify)
 
-    return {
-        'payment': {
-            'id': payment.id,
-            'amount': serialize_money(payment.amount),
-            'payment_date': payment.payment_date.isoformat(),
-            'method': payment.method,
-        },
-        'student': {'id': student.id, 'full_name': str(student)},
-        'group': {'id': group.id, 'name': group.name, 'monthly_fee': serialize_money(group.monthly_fee)},
-        'allocations': [
-            dict(serialize_balance(a.balance), allocated_amount=serialize_money(a.amount)) for a in allocations
-        ],
-        'summary': build_payment_summary(balances, first_day_of_month(payment_date)),
-        'remaining': '0',
-    }
+    return _payment_result(payment, student, group)
 
 
 @transaction.atomic
@@ -269,6 +332,7 @@ def delete_payment(user, payment_id):
         pk=payment.pk, student=student, group=group, amount=payment.amount,
         payment_date=payment.payment_date, method=payment.method,
     )
+    _audit(user, "To'lov o'chirildi", old_data=_payment_snapshot(payment), target_user=payment.created_by)
 
     payment._skip_sync = True
     payment.delete()  # taqsimotlar CASCADE bilan o'chadi

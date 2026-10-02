@@ -530,6 +530,9 @@ function resetAll() {
 function goBack() { resetAll(); }
 
 /* ─── To'lov yuborish ─── */
+window.PAYMENT_KEY = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+
 function submitPayment() {
     hideError();
     const isOther  = document.getElementById('btnOtherDate').classList.contains('active');
@@ -557,7 +560,8 @@ function submitPayment() {
             amount:       finalAmount,
             payment_date: dateVal,
             method:       method,
-            note:         ''
+            note:         '',
+            idempotency_key: window.PAYMENT_KEY
         })
     })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))

@@ -159,6 +159,8 @@ class PaymentTransaction(models.Model):
         blank=True,
     )
     note = models.CharField(max_length=255, blank=True)
+    # Bir xil so'rov takrorlansa (qayta urinish, ikki marta bosish) ikkinchi to'lov yaratilmasligi uchun.
+    idempotency_key = models.UUIDField(null=True, blank=True, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
