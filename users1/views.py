@@ -14,6 +14,7 @@ from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
 
@@ -222,8 +223,10 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         if self.group is None or self.teacher is None:
             return cleaned_data
 
-        if new_day == self.old_day:
-            raise ValidationError('Yangi kun hozirgi kun bilan bir xil. Iltimos, boshqa kun tanlang.')
+        time_changed = bool(new_start and new_start != self.old_start_time)
+        room_changed = bool(new_room and str(new_room) != str(self.group.room or ''))
+        if new_day == self.old_day and not time_changed and not room_changed:
+            raise ValidationError("Hech narsa o'zgarmagan: kunni, vaqtni yoki xonani o'zgartiring.")
 
         # Calculate new end time if start time is changed
         new_end = None
@@ -238,6 +241,18 @@ class ScheduleChangeRequestForm(forms.ModelForm):
             else:
                 new_end = self.old_end_time
             cleaned_data['new_end_time'] = new_end
+
+        # Ariza yuborilganda to'qnashuvlarni (xona/o'qituvchi) darhol tekshirish
+        eff_start = new_start or self.old_start_time
+        eff_end = new_end or self.old_end_time
+        if eff_start and eff_end:
+            from users1.services import validate_schedule_change
+            conflicts = validate_schedule_change(
+                self.group, new_day or self.old_day, eff_start, eff_end,
+                new_room=int(new_room) if str(new_room or '').isdigit() else None,
+            )
+            if conflicts:
+                raise ValidationError(conflicts)
 
         return cleaned_data
 
@@ -264,6 +279,11 @@ class ScheduleChangeRequestForm(forms.ModelForm):
         if not instance.new_end_time:
             instance.new_end_time = self.old_end_time
             
+        # Model xona ustuniga ega emas: so'ralgan xona arizada yo'qolib ketmasligi uchun sababga yoziladi.
+        requested_room = self.cleaned_data.get('room')
+        if requested_room and str(requested_room) != str(self.group.room or ''):
+            instance.reason = f"[Xona: {requested_room}] {instance.reason}"
+
         instance.change_date = timezone.localdate()
         instance.change_type = ScheduleChangeRequest.ChangeType.TEACHER_REQUEST
         instance.status = ScheduleChangeRequest.Status.PENDING
@@ -1283,10 +1303,11 @@ class ScheduleChangeRequestDetailView(LoginRequiredMixin, AdminAccessRequiredMix
 
 @login_required
 @require_http_methods(['POST'])
+@transaction.atomic
 def review_schedule_change_request(request, request_pk):
     if not request.user.is_admin_access:
         raise PermissionDenied
-    schedule_request = get_object_or_404(ScheduleChangeRequest, pk=request_pk)
+    schedule_request = get_object_or_404(ScheduleChangeRequest.objects.select_for_update(), pk=request_pk)
     if schedule_request.status != ScheduleChangeRequest.Status.PENDING:
         messages.error(request, 'Ushbu ariza allaqachon ko‘rib chiqilgan.')
         return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
@@ -1303,6 +1324,14 @@ def review_schedule_change_request(request, request_pk):
         return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
 
     if decision == 'approve':
+        from users1.services import validate_schedule_change
+        conflicts = validate_schedule_change(
+            schedule_request.group, schedule_request.new_day,
+            schedule_request.new_start_time, schedule_request.new_end_time,
+        )
+        if conflicts:
+            messages.error(request, "Tasdiqlab bo'lmaydi: " + ' | '.join(conflicts))
+            return redirect('users1:schedule_change_request_detail', request_pk=request_pk)
         schedule_request.status = ScheduleChangeRequest.Status.APPROVED
         schedule_request.effective_week_start = _start_of_week(timezone.localdate())
         if not schedule_request.change_date:
@@ -1316,7 +1345,7 @@ def review_schedule_change_request(request, request_pk):
 
         # Xabarnomalar yuborish
         from users1.services import send_schedule_change_notifications
-        send_schedule_change_notifications(schedule_request)
+        transaction.on_commit(lambda: send_schedule_change_notifications(schedule_request))
 
         messages.success(request, "Ariza tasdiqlandi. O'zgartirish qo'llanildi va xabarlar yuborildi.")
     else:

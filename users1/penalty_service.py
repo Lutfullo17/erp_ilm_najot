@@ -13,6 +13,7 @@ import datetime
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from groups_app.models import Group
@@ -151,7 +152,7 @@ def apply_auto_penalty(alert):
             date=alert.lesson_date,
             reason="Dars davomatini o'z vaqtida kiritmadi.",
             points=-10,
-            penalty_type=TeacherPenalty.PenaltyType.CONSECUTIVE_MISSED,
+            penalty_type=TeacherPenalty.PenaltyType.ATTENDANCE_MISSED,
             is_manual=False,
         )
 
@@ -185,10 +186,23 @@ def check_and_create_missed_alerts():
     }
     today_name = days_map[today.weekday()]
 
+    # To'xtatilgan yoki hali boshlanmagan guruhlar uchun o'qituvchi jarimalanmaydi.
     groups = Group.objects.filter(
         is_active=True,
+        is_paused=False,
         teacher__isnull=False,
-    ).select_related('teacher')
+    ).filter(Q(start_date__isnull=True) | Q(start_date__lte=today)).select_related('teacher')
+
+    # Shu hafta tasdiqlangan jadval o'zgarishi bugungi darsni boshqa kunga ko'chirgan bo'lsa — jarima yo'q.
+    from users1.models import ScheduleChangeRequest
+    week_start = today - datetime.timedelta(days=today.weekday())
+    moved_away = set(
+        ScheduleChangeRequest.objects.filter(
+            status=ScheduleChangeRequest.Status.APPROVED,
+            effective_week_start=week_start,
+            old_day=today_name,
+        ).exclude(new_day=today_name).values_list('group_id', flat=True)
+    )
 
     alerts_created = 0
     reminders_sent = 0
@@ -196,7 +210,7 @@ def check_and_create_missed_alerts():
 
     for group in groups:
         # Bugun dars kuni ekanligini tekshirish
-        if not _is_today_lesson_day(group, today_name):
+        if not _is_today_lesson_day(group, today_name) or group.pk in moved_away:
             continue
 
         end_time = _get_group_end_time(group)
@@ -256,14 +270,27 @@ def check_and_create_missed_alerts():
 # Qo'lda hal qilish (Director/Dashboard)
 # ---------------------------------------------------------------------------
 def get_teacher_consecutive_missed_count(teacher):
-    """Ketma-ket necha marta darsga kelmaganini sanaydi (faqat NOT_CAME)."""
-    recent = MissedAttendanceAlert.objects.filter(
-        teacher=teacher,
-        penalty_applied=True,
-        status=MissedAttendanceAlert.Status.NOT_CAME,
-    ).order_by('-lesson_date')[:5]
+    """Oxirgi ketma-ket "kelmadi" jarimalari soni.
 
-    return recent.count()
+    Zanjir o'qituvchi oradagi sanalarda davomat olgan bo'lsa (muvaffaqiyatli dars) uziladi.
+    """
+    alerts = list(
+        MissedAttendanceAlert.objects.filter(
+            teacher=teacher,
+            penalty_applied=True,
+            status=MissedAttendanceAlert.Status.NOT_CAME,
+        ).order_by('-lesson_date')[:10]
+    )
+    chain = 0
+    previous = None
+    for alert in alerts:
+        if previous is not None and AttendanceSession.objects.filter(
+            teacher=teacher, date__gt=alert.lesson_date, date__lt=previous.lesson_date,
+        ).exists():
+            break
+        chain += 1
+        previous = alert
+    return chain
 
 
 def apply_penalty_for_alert(alert, decision, resolved_by):
@@ -311,12 +338,12 @@ def apply_penalty_for_alert(alert, decision, resolved_by):
 
     # Ketma-ket tekshiruvi
     consecutive = get_teacher_consecutive_missed_count(alert.teacher)
-    if consecutive >= 2:
+    if decision == 'not_came' and consecutive == 3:  # zanjirning har safar emas, aynan 3-bo'g'inida bir marta
         TeacherPenalty.objects.create(
             teacher=alert.teacher,
             group=alert.group,
             date=alert.lesson_date,
-            reason=f"Ketma-ket {consecutive + 1} ta darsda davomat olinmadi",
+            reason=f"Ketma-ket {consecutive} ta darsda davomat olinmadi",
             points=-10,
             penalty_type=TeacherPenalty.PenaltyType.CONSECUTIVE_MISSED,
             is_manual=False,

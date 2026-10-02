@@ -378,6 +378,9 @@ def admin_edit_lesson(request, group_pk, target_day):
     if not new_day and not new_room and not new_start_time_str:
         return JsonResponse({'error': "Kamida bitta o'zgarish tanlang"}, status=400)
 
+    if group.teacher_id is None or group.lesson_time is None:
+        return JsonResponse({'error': "Guruhga o'qituvchi va dars vaqti belgilanmagan"}, status=400)
+
     # Eski qiymatlarni saqlash (audit log uchun)
     old_room = group.room
     old_lesson_time = group.lesson_time

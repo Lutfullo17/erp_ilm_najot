@@ -155,7 +155,6 @@ def send_schedule_change_notifications(schedule_request):
         telegram_users = TelegramUser.objects.filter(is_verified=True).filter(
             Q(student__in=students) | q_phone
         ).distinct()
-        telegram_users = telegram_users.exclude(student__isnull=True, user__isnull=False)
 
         sent_count = 0
         for tu in telegram_users:

@@ -272,3 +272,67 @@ class MembershipTests(AuditBase):
         r = self.login(self.admin).get('/groups/')
         g1 = [g for g in r.context['groups'] if g.pk == self.g1.pk][0]
         self.assertEqual(g1.active_students, 1)
+
+
+class PenaltyScheduleTests(AuditBase):
+    def _run_check(self):
+        from users1 import penalty_service as ps
+        now = timezone.make_aware(datetime.datetime.combine(self.today, datetime.time(23, 55)))
+        self.g1.end_time = datetime.time(10, 0)
+        self.g1.save()
+        with mock.patch.object(ps.timezone, 'localtime', return_value=now), \
+                mock.patch.object(ps, '_send_telegram_message', return_value=None):
+            return ps.check_and_create_missed_alerts()
+
+    def test_active_group_is_penalised(self):
+        self.assertEqual(self._run_check()['penalties_applied'], 1)
+
+    def test_paused_group_not_penalised(self):  # Y-12
+        self.g1.is_paused = True
+        self.g1.save()
+        self.assertEqual(self._run_check()['penalties_applied'], 0)
+
+    def test_not_yet_started_group_not_penalised(self):  # Y-12
+        self.g1.start_date = self.today + datetime.timedelta(days=3)
+        self.g1.save()
+        self.assertEqual(self._run_check()['penalties_applied'], 0)
+
+    def test_consecutive_chain_breaks_on_successful_lesson(self):  # O-11
+        from users1.models import MissedAttendanceAlert
+        from users1.penalty_service import get_teacher_consecutive_missed_count
+        for i, d in enumerate([10, 8, 6, 2]):
+            MissedAttendanceAlert.objects.create(
+                teacher=self.t1, group=self.g1, lesson_date=self.today - datetime.timedelta(days=d),
+                status='NOT_CAME', penalty_applied=True)
+        # 7-kuni muvaffaqiyatli dars bo'lgan: zanjir 6-kundan keyin uziladi
+        AttendanceSession.objects.create(group=self.g1, teacher=self.t1, date=self.today - datetime.timedelta(days=7))
+        self.assertEqual(get_teacher_consecutive_missed_count(self.t1), 2)
+
+    def test_schedule_notification_reaches_parents(self):  # Y-13
+        from bot.models import TelegramUser
+        from users1 import services
+        from users1.models import ScheduleChangeRequest
+        TelegramUser.objects.create(telegram_id=5, student=self.s1, is_verified=True)
+        req = ScheduleChangeRequest.objects.create(
+            teacher=self.t1, group=self.g1, old_day='Dushanba', old_start_time=datetime.time(9),
+            old_end_time=datetime.time(10), new_day='Juma', new_start_time=datetime.time(9),
+            new_end_time=datetime.time(10), reason='x')
+        with mock.patch('bot.services.send_telegram_message', return_value={'ok': True}) as sm:
+            services.send_schedule_change_notifications(req)
+        self.assertEqual(sm.call_count, 1)
+
+    def test_admin_edit_lesson_without_teacher_is_400_not_500(self):  # O-3
+        self.g1.teacher = None
+        self.g1.save()
+        r = self.jpost(self.login(self.admin),
+                       '/groups/%d/edit-lesson/%s/save/' % (self.g1.pk, DAYS[self.today.weekday()]),
+                       {'start_time': '09:00', 'reason': 'x'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_teacher_can_request_time_change_on_same_day(self):  # O-3
+        from users1.views import ScheduleChangeRequestForm
+        day = DAYS[self.today.weekday()]
+        form = ScheduleChangeRequestForm(
+            {'new_day': day, 'new_start_time': '14:00', 'reason': 'x'}, group=self.g1, teacher=self.t1,
+            old_day=day, old_start_time=datetime.time(0, 0), old_end_time=datetime.time(23, 59))
+        self.assertTrue(form.is_valid(), form.errors)

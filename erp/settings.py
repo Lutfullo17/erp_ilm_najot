@@ -3,6 +3,7 @@ Django settings for erp project.
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -137,7 +138,11 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STORAGES = {
     'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        # Testlarda `collectstatic` manifesti bo'lmaydi.
+        'BACKEND': (
+            'django.contrib.staticfiles.storage.StaticFilesStorage' if 'test' in sys.argv
+            else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+        ),
     },
 }
 
