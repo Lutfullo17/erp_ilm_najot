@@ -6,6 +6,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,12 +15,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-@8m57)+n&@@e9$6*2(6s9kowrwr5&r@&6c!d^f#31+^0a41q$b')
+# DEBUG standarti endi False: env berilmasa ham production xavfsiz holatda qoladi.
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
+if not SECRET_KEY:
+    if DEBUG or 'test' in sys.argv:
+        SECRET_KEY = 'django-insecure-dev-only-key-do-not-use-in-production'
+    else:
+        raise ImproperlyConfigured("SECRET_KEY muhit o'zgaruvchisi o'rnatilmagan.")
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+if os.environ.get('USE_PROXY_SSL_HEADER') == 'True':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Faqat ishonchli proksi ortida True qiling, aks holda audit IP si soxtalashtirilishi mumkin.
+TRUST_X_FORWARDED_FOR = os.environ.get('TRUST_X_FORWARDED_FOR') == 'True'
+# Administrator to'lov sanasini ko'pi bilan shuncha kun orqaga qo'yishi mumkin (director cheklanmagan).
+PAYMENT_BACKDATE_DAYS = int(os.environ.get('PAYMENT_BACKDATE_DAYS', '7'))
 
 
 # Application definition
@@ -173,6 +186,7 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
 
 # Logging configuration
+(BASE_DIR / 'logs').mkdir(exist_ok=True)  # toza klonda FileHandler yiqilmasligi uchun
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

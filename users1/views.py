@@ -36,11 +36,10 @@ from .models import (
 # ---------------------------------------------------------------------------
 # Helper: IP address
 # ---------------------------------------------------------------------------
-def get_client_ip(request):
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0]
-    return request.META.get('REMOTE_ADDR')
+from .security import (  # noqa: E402
+    check_new_password, clean_profile_photo, get_client_ip,
+    login_failed, login_locked, login_succeeded,
+)
 
 
 def create_audit_log(request, action, target_user=None):
@@ -371,11 +370,23 @@ class RoleLoginView(LoginView):
     template_name = 'users1/login.html'
     redirect_authenticated_user = True
 
+    def post(self, request, *args, **kwargs):
+        username = request.POST.get('username', '')
+        if login_locked(request, username):
+            messages.error(request, "Juda ko'p muvaffaqiyatsiz urinish. 15 daqiqadan keyin qayta urinib ko'ring.")
+            return self.get(request, *args, **kwargs)
+        return super().post(request, *args, **kwargs)
+
+    def form_invalid(self, form):
+        login_failed(self.request, self.request.POST.get('username', ''))
+        return super().form_invalid(form)
+
     def form_valid(self, form):
         user = form.get_user()
         if user.is_blocked:
             messages.error(self.request, "Sizning akkauntingiz bloklangan. Director bilan bog'laning.")
             return self.form_invalid(form)
+        login_succeeded(self.request, self.request.POST.get('username', ''))
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -474,11 +485,11 @@ def director_change_password(request):
     if not request.user.check_password(old_password):
         return JsonResponse({'error': 'Eski parol noto\'g\'ri'}, status=400)
 
-    if len(new_password) < 6:
-        return JsonResponse({'error': 'Yangi parol kamida 6 belgidan iborat bo\'lishi kerak'}, status=400)
-
     if new_password != confirm_password:
         return JsonResponse({'error': 'Yangi parollar mos kelmaydi'}, status=400)
+    password_error = check_new_password(new_password, request.user)
+    if password_error:
+        return JsonResponse({'error': password_error}, status=400)
 
     request.user.set_password(new_password)
     request.user.save()
@@ -496,6 +507,11 @@ def director_change_photo(request):
     photo = request.FILES.get('photo')
     if not photo:
         return JsonResponse({'error': 'Rasm tanlanmagan'}, status=400)
+
+    try:
+        photo = clean_profile_photo(photo)
+    except ValidationError as exc:
+        return JsonResponse({'error': ' '.join(exc.messages)}, status=400)
 
     # Old photo sil
     if request.user.photo:
@@ -540,6 +556,10 @@ class AdministratorCreateView(LoginRequiredMixin, DirectorRequiredMixin, Templat
 
         if not username or not password:
             messages.error(request, "Login va parol majburiy.")
+            return redirect('users1:administrator_list')
+        password_error = check_new_password(password)
+        if password_error:
+            messages.error(request, password_error)
             return redirect('users1:administrator_list')
 
         if User.objects.filter(username=username).exists():
@@ -601,8 +621,9 @@ def director_reset_admin_password(request, pk):
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
     new_password = data.get('new_password', '').strip()
-    if len(new_password) < 6:
-        return JsonResponse({'error': 'Parol kamida 6 belgidan iborat bo\'lishi kerak'}, status=400)
+    password_error = check_new_password(new_password, admin_user)
+    if password_error:
+        return JsonResponse({'error': password_error}, status=400)
 
     admin_user.set_password(new_password)
     admin_user.save()
@@ -697,8 +718,9 @@ class TeacherUpdateView(LoginRequiredMixin, DirectorRequiredMixin, UpdateView):
         new_password = self.request.POST.get('new_password', '').strip()
         new_password2 = self.request.POST.get('new_password2', '').strip()
         if new_password:
-            if len(new_password) < 6:
-                form.add_error(None, "Parol kamida 6 belgidan iborat bo'lishi kerak.")
+            password_error = check_new_password(new_password, self.object)
+            if password_error:
+                form.add_error(None, password_error)
                 return self.form_invalid(form)
             if new_password != new_password2:
                 form.add_error(None, "Parollar mos kelmaydi.")
@@ -779,8 +801,9 @@ def director_reset_teacher_password(request, pk):
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
     new_password = data.get('new_password', '').strip()
-    if len(new_password) < 6:
-        return JsonResponse({'error': 'Parol kamida 6 belgidan iborat bo\'lishi kerak'}, status=400)
+    password_error = check_new_password(new_password, teacher)
+    if password_error:
+        return JsonResponse({'error': password_error}, status=400)
 
     teacher.set_password(new_password)
     teacher.save()

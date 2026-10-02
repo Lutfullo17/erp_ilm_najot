@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (data.siblings && data.siblings.length > 0) {
                                 parentPhoneInfo.innerHTML = '<i class="fas fa-info-circle"></i> ' +
                                     'Bu raqam bilan ro\'yxatdan o\'tgan farzandlar: <b>' +
-                                    data.siblings.join(', ') + '</b>';
+                                    data.siblings.map(n => String(n).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';')).join(', ') + '</b>';
                                 parentPhoneInfo.style.display = 'block';
                             } else {
                                 parentPhoneInfo.style.display = 'none';

@@ -338,6 +338,11 @@ function showError(msg) {
 function hideError() { document.getElementById('errorBox').style.display = 'none'; }
 
 /* ─── Qidiruv ─── */
+function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => (
+        {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch]));
+}
+
 function onSearch() {
     hideError();
     const query = document.getElementById('searchInput').value.trim();
@@ -356,8 +361,8 @@ function onSearch() {
                 } else {
                     container.innerHTML = data.students.map(s => `
                         <div class="student-item" onclick="selectStudent(${JSON.stringify(s).replace(/"/g, '&quot;')})">
-                            <div class="name">${s.full_name}</div>
-                            <div class="meta">${s.phone || 'Tel kiritilmagan'} &bull; ${s.groups.map(g => g.name).join(', ') || 'Guruhsiz'}</div>
+                            <div class="name">${esc(s.full_name)}</div>
+                            <div class="meta">${esc(s.phone) || 'Tel kiritilmagan'} &bull; ${esc(s.groups.map(g => g.name).join(', ')) || 'Guruhsiz'}</div>
                         </div>
                     `).join('');
                 }
@@ -390,7 +395,7 @@ function selectStudent(student) {
         picker.style.display = 'block';
         document.getElementById('groupPickerList').innerHTML = student.groups.map(g => `
             <div class="student-item" onclick="pickGroup(${JSON.stringify(g).replace(/"/g, '&quot;')})">
-                <div class="name"><i class="fas fa-users" style="color:var(--primary);margin-right:6px;font-size:0.85rem;"></i>${g.name}</div>
+                <div class="name"><i class="fas fa-users" style="color:var(--primary);margin-right:6px;font-size:0.85rem;"></i>${esc(g.name)}</div>
                 <div class="meta">Oylik: ${formatUZS(g.monthly_fee)} so'm</div>
             </div>
         `).join('');
@@ -457,7 +462,7 @@ function loadDebt() {
                             const list = document.getElementById('suggestionList');
                             list.innerHTML = others.map(d => `
                                 <button type="button" class="btn btn-outline" style="width:100%; justify-content: space-between; padding: 0.75rem 1rem; border-color: rgba(245, 158, 11, 0.3);" onclick="pickGroup(${JSON.stringify(d).replace(/"/g, '&quot;')})">
-                                    <span>${d.name}</span>
+                                    <span>${esc(d.name)}</span>
                                     <span style="font-weight:700; color: var(--danger);">${formatUZS(d.debt)} so'm</span>
                                 </button>
                             `).join('');

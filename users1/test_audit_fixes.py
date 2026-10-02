@@ -336,3 +336,71 @@ class PenaltyScheduleTests(AuditBase):
             {'new_day': day, 'new_start_time': '14:00', 'reason': 'x'}, group=self.g1, teacher=self.t1,
             old_day=day, old_start_time=datetime.time(0, 0), old_end_time=datetime.time(23, 59))
         self.assertTrue(form.is_valid(), form.errors)
+
+
+class HardeningTests(AuditBase):
+    def _png(self):
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new('RGB', (4, 4), 'red').save(buf, 'PNG')
+        return buf.getvalue()
+
+    def test_profile_photo_rejects_non_image(self):  # Y-10
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        with tempfile.TemporaryDirectory() as d, override_settings(MEDIA_ROOT=d):
+            f = SimpleUploadedFile('evil.html', b'<script>alert(1)</script>', content_type='text/html')
+            r = self.login(self.director).post('/users/admin/profile/change-photo/', {'photo': f})
+        self.assertEqual(r.status_code, 400)
+
+    def test_profile_photo_accepts_real_png_with_random_name(self):  # Y-10
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        with tempfile.TemporaryDirectory() as d, override_settings(MEDIA_ROOT=d):
+            f = SimpleUploadedFile('../../x.html', self._png(), content_type='image/png')
+            r = self.login(self.director).post('/users/admin/profile/change-photo/', {'photo': f})
+            self.assertEqual(r.status_code, 200)
+            self.assertTrue(r.json()['photo_url'].endswith('.png'))
+            self.assertNotIn('x.html', r.json()['photo_url'])
+
+    def test_weak_password_rejected_on_reset(self):  # O-7
+        r = self.jpost(self.login(self.director), '/users/teachers/%d/reset-password/' % self.t1.pk,
+                       {'new_password': '123456'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_strong_password_accepted_on_reset(self):
+        r = self.jpost(self.login(self.director), '/users/teachers/%d/reset-password/' % self.t1.pk,
+                       {'new_password': 'Qiyin-Parol-2026!'})
+        self.assertEqual(r.status_code, 200)
+
+    def test_login_locks_after_repeated_failures(self):  # O-7
+        from django.core.cache import cache
+        cache.clear()
+        c = Client()
+        for _ in range(5):
+            c.post('/users/login/', {'username': 't1', 'password': 'wrong'})
+        r = c.post('/users/login/', {'username': 't1', 'password': 'pw-12345'})
+        self.assertNotIn('_auth_user_id', c.session)
+        cache.clear()
+
+    def test_correct_login_still_works(self):
+        from django.core.cache import cache
+        cache.clear()
+        c = Client()
+        c.post('/users/login/', {'username': 't1', 'password': 'pw-12345'})
+        self.assertIn('_auth_user_id', c.session)
+
+    @override_settings(TRUST_X_FORWARDED_FOR=False)
+    def test_client_ip_ignores_spoofed_forwarded_header(self):  # O-7
+        from django.test import RequestFactory
+        from users1.security import get_client_ip
+        req = RequestFactory().get('/', HTTP_X_FORWARDED_FOR='6.6.6.6', REMOTE_ADDR='10.0.0.1')
+        self.assertEqual(get_client_ip(req), '10.0.0.1')
+
+    def test_payment_form_escapes_names(self):  # Y-14
+        html = open('templates/payments/payment_form.html', encoding='utf-8').read()
+        self.assertIn('esc(s.full_name)', html)
+        self.assertNotIn('${s.full_name}', html)
+        self.assertNotIn('${g.name}', html)
+        self.assertNotIn('${d.name}', html)
