@@ -323,3 +323,10 @@ th[data-sortable] { cursor: pointer; user-select: none; }
 th[data-sortable]::after { content: " \2195"; color: var(--text-muted); font-size: .75em; }
 th[aria-sort="ascending"]::after { content: " \2191"; color: var(--primary); }
 th[aria-sort="descending"]::after { content: " \2193"; color: var(--primary); }
+
+/* ---------------------------------------------------------- Mobil: inline gridlar ustunlarga bo'linmasin */
+.glass-panel, .card, .grid-2 > *, .grid-3 > *, .grid-4 > *, .grid-5 > * { min-width: 0; }
+@media (max-width: 700px) {
+    main [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+    main input[style*="width: 200px"], main input[style*="width:200px"] { width: 100% !important; }
+}
