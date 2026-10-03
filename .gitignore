@@ -49,3 +49,6 @@ server_error.txt
 # Tool artifacts
 .mimocode/
 check_db.py
+
+.coverage
+htmlcov/

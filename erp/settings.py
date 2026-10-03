@@ -154,6 +154,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+if 'test' in sys.argv:
+    # Testlarni tezlashtirish uchun (parol xeshlash sekin). Productionga ta'sir qilmaydi.
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
 STORAGES = {
     'staticfiles': {
         # Testlarda `collectstatic` manifesti bo'lmaydi.
