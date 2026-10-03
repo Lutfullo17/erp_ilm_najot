@@ -1,0 +1,61 @@
+{% extends 'new/base.html' %}
+{% load static ux_tags %}
+{% block title %}Davomat — {{ group.name }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ group.name }}</h1>
+    <div class="muted">{{ date|date:"d.m.Y" }}{% if group.lesson_time %} · {{ group.lesson_time|hm }}{% endif %} · {{ students|length }} ta o'quvchi</div></div></div>
+
+{% if reason %}<div class="alert {% if editable %}info{% else %}warn{% endif %}"><i class="fa-solid fa-circle-info"></i><span>{{ reason }}</span></div>{% endif %}
+
+<div id="attApp" data-url="{% url 'new:api_attendance' group.pk %}" data-date="{{ date|date:'Y-m-d' }}" data-editable="{{ editable|yesno:'1,0' }}" data-after="{% url 'new:attendance' %}">
+    {% if students %}
+    {% if editable %}
+    <div class="row between" style="margin-bottom:.75rem">
+        <div class="muted">Hamma "Keldi" deb belgilangan. <b>Kelmaganlarni bosing.</b></div>
+        <div class="row"><button type="button" class="btn btn-secondary btn-sm" id="allPresent">Hammasi keldi</button></div>
+    </div>
+    {% endif %}
+    <div class="list" id="attList">
+        {% for s in students %}
+        <div class="stack-sm" data-id="{{ s.id }}">
+            <div class="row" style="flex-wrap:nowrap">
+                <button type="button" class="att-row grow" data-s="{{ s.status }}" {% if not editable %}disabled{% endif %} aria-label="{{ s.name }}">
+                    <span class="avatar" style="width:36px;height:36px;font-size:.9rem" aria-hidden="true">{{ s.name|slice:":1" }}</span>
+                    <span class="a-name" style="font-weight:700">{{ s.name }}</span>
+                    <span class="a-state"><i class="fa-solid" aria-hidden="true"></i><span class="a-text"></span></span>
+                </button>
+                {% if editable %}<button type="button" class="btn btn-secondary btn-sm more" aria-label="{{ s.name }}: boshqa holat tanlash" title="Kechikdi yoki sababli"><i class="fa-solid fa-ellipsis"></i></button>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card stack" style="margin-top:1rem">
+        <div class="field" style="margin:0"><label for="aTopic">Dars mavzusi (ixtiyoriy)</label><input type="text" id="aTopic" maxlength="255" value="{{ topic }}" placeholder="Masalan: Present Simple" {% if not editable %}disabled{% endif %}></div>
+        <div class="field" style="margin:0"><label for="aHw">Uyga vazifa (ixtiyoriy)</label><input type="text" id="aHw" maxlength="2000" value="{{ homework }}" placeholder="Masalan: 5-mashq" {% if not editable %}disabled{% endif %}></div>
+    </div>
+    <div class="err" id="aErr" role="alert" style="margin-top:.5rem"></div>
+    {% if editable %}<div class="sticky-action"><button type="button" class="btn btn-primary btn-lg btn-block" id="aSave">Saqlash</button></div>
+    {% else %}<div style="margin-top:1rem"><a class="btn btn-secondary btn-block" href="{% url 'new:attendance' %}">Davomat ro'yxatiga qaytish</a></div>{% endif %}
+    {% else %}
+    <div class="empty"><i class="fa-solid fa-user-group"></i><p>Bu guruhda hali o'quvchi yo'q.</p>
+        {% if role != 'teacher' %}<a class="btn btn-primary" href="{% url 'new:group' group.pk %}">O'quvchi qo'shish</a>{% endif %}</div>
+    {% endif %}
+</div>
+
+<dialog class="sheet" id="dlg-status"><div class="dlg">
+    <div class="dlg-head"><h2 id="stName">Holatni tanlang</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="qa" id="stChoices">
+        <a href="#" data-v="PRESENT"><i class="fa-solid fa-check"></i>Keldi</a>
+        <a href="#" data-v="ABSENT"><i class="fa-solid fa-xmark"></i>Kelmadi</a>
+        <a href="#" data-v="LATE"><i class="fa-solid fa-clock"></i>Kechikdi</a>
+        <a href="#" data-v="EXCUSED"><i class="fa-solid fa-file-medical"></i>Sababli (uzrli)</a>
+    </div>
+</div></dialog>
+{% endblock %}
+{% block scripts %}<script src="{% static 'new/att.js' %}?v=1" defer></script>{% endblock %}
+{% block help %}
+<p>Bu yerda <b>o'quvchilar davomatini</b> belgilaysiz.</p>
+<ol><li>Hamma avtomatik <b>Keldi</b> (yashil).</li><li>Kelmagan o'quvchini bir marta bosing — <b>Kelmadi</b> (qizil) bo'ladi.</li><li>Kechikkan yoki uzrli bo'lsa, qator yonidagi <b>⋯</b> ni bosing.</li><li>Pastdagi <b>Saqlash</b> ni bosing.</li></ol>
+<p class="muted">Saqlangan davomatni o'qituvchi o'zgartira olmaydi — administratorga yozing.</p>
+{% endblock %}

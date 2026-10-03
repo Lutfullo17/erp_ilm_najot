@@ -1,0 +1,107 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}{{ student }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ student.first_name }} {{ student.last_name }}</h1>
+    <div class="muted">{{ student.phone|phone|default:"Telefon yo'q" }}{% if student.status == 'FROZEN' %} · <span class="badge warn">Pauzada</span>{% endif %}</div></div>
+    <a class="btn btn-secondary" href="{% url 'new:student_edit' student.pk %}"><i class="fa-solid fa-pen"></i> Tahrirlash</a></div>
+
+{% if is_new %}
+<div class="alert ok"><i class="fa-solid fa-circle-check"></i><span>O'quvchi qo'shildi. Keyingi qadam:</span></div>
+<div class="row" style="margin-bottom:1rem">
+    <a class="btn btn-primary" href="{% url 'new:pay' %}?student={{ student.pk }}"><i class="fa-solid fa-wallet"></i> To'lov qabul qilish</a>
+    <a class="btn btn-secondary" href="{% url 'new:student_new' %}"><i class="fa-solid fa-plus"></i> Yana o'quvchi qo'shish</a>
+</div>
+{% endif %}
+
+<div class="stack">
+    <div class="task {% if total_debt %}t-danger{% else %}t-success{% endif %}">
+        <div class="t-ic"><i class="fa-solid fa-{% if total_debt %}circle-exclamation{% else %}circle-check{% endif %}"></i></div>
+        <div class="t-body"><div class="t-big">{% if total_debt %}{{ total_debt|som }} so'm{% else %}Qarzi yo'q{% endif %}</div><div>{% if total_debt %}jami qarz{% else %}hisob to'liq{% endif %}</div></div>
+        <div class="t-act"><a class="btn btn-primary" href="{% url 'new:pay' %}?student={{ student.pk }}&group={{ main_group }}">To'lov qabul qilish</a></div>
+    </div>
+
+    <div class="card">
+        <h2>Guruhlari</h2>
+        {% if memberships %}
+        <div class="list" id="gList">
+            {% for m in memberships %}
+            <div class="item" data-gid="{{ m.group_id }}">
+                <a class="i-main" href="{% url 'new:group' m.group_id %}" style="text-decoration:none;color:inherit"><div class="i-title">{{ m.group.name }}</div>
+                    <div class="i-sub">{{ m.group.lesson_days }} {% if m.group.lesson_time %}· {{ m.group.lesson_time|hm }}{% endif %} · {{ m.group.monthly_fee|som }} so'm/oy</div></a>
+                {% if m.debt %}<span class="badge bad">Qarzi: {{ m.debt|som }} ({{ m.months }} oy)</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> To'langan</span>{% endif %}
+                <div class="i-act"><button type="button" class="btn btn-danger btn-sm js-remove" data-name="{{ m.group.name }}">Guruhdan chiqarish</button></div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><i class="fa-solid fa-people-group"></i><p>Bu o'quvchi hali hech qaysi guruhda emas.</p></div>
+        {% endif %}
+        {% if free_groups %}
+        <form id="addGroup" class="row" style="margin-top:1rem">
+            <div class="grow"><label class="sr-only" for="agSel">Guruh</label><select id="agSel"><option value="">Guruhga qo'shish — tanlang</option>
+                {% for g in free_groups %}<option value="{{ g.pk }}">{{ g.name }}</option>{% endfor %}</select></div>
+            <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-plus"></i> Guruhga qo'shish</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="grid-2">
+        <div class="card"><h2>Oxirgi to'lovlar</h2>
+            {% for p in payments %}<div class="row between" style="padding:.4rem 0;border-bottom:1px solid var(--border)"><span>{{ p.payment_date|date:"d.m.Y" }} · {{ p.group.name }}</span><b>{{ p.amount|som }}</b></div>
+            {% empty %}<p class="muted">Hali to'lov yo'q.</p>{% endfor %}</div>
+        <div class="card"><h2>Oxirgi davomat</h2>
+            {% for a in attendance %}<div class="row between" style="padding:.4rem 0;border-bottom:1px solid var(--border)"><span>{{ a.session.date|date:"d.m" }} · {{ a.session.group.name }}</span>
+                <span class="badge {% if a.status == 'PRESENT' %}ok{% elif a.status == 'ABSENT' %}bad{% else %}warn{% endif %}">{{ a.get_status_display }}</span></div>
+            {% empty %}<p class="muted">Davomat hali yo'q.</p>{% endfor %}</div>
+    </div>
+
+    <div class="card"><h2>Ma'lumotlari</h2>
+        <dl class="kv">
+            <dt>Ota-ona telefoni</dt><dd>{{ student.parent_phone|phone|default:"—" }}</dd>
+            <dt>Tug'ilgan sana</dt><dd>{{ student.birth_date|date:"d.m.Y"|default:"—" }}</dd>
+            <dt>Chegirma</dt><dd>{{ student.discount_display|default:"Yo'q" }}</dd>
+            <dt>Telegram</dt><dd>{% if telegram %}<span class="badge ok"><i class="fa-brands fa-telegram"></i> Ulangan</span>{% else %}<span class="badge">Ulanmagan</span>{% endif %}</dd>
+        </dl>
+    </div>
+
+    {% if role == 'director' %}
+    <form method="post" action="{% url 'new:student_delete' student.pk %}">{% csrf_token %}
+        <button class="btn btn-danger" type="submit" data-confirm-title="{{ student.first_name }} o'chirilsinmi?" data-confirm-text="O'quvchi ro'yxatdan olib tashlanadi va barcha guruhlardan chiqariladi. To'lov tarixi saqlanib qoladi." data-confirm-ok="Ha, o'chirish" data-danger><i class="fa-solid fa-trash"></i> O'quvchini o'chirish</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var UX = window.UX, url = "{% url 'new:api_student_group' student.pk %}";
+    function call(action, gid) { return UX.api(url, { body: { action: action, group_id: gid } }); }
+    document.querySelectorAll('.js-remove').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var row = b.closest('[data-gid]'), gid = row.getAttribute('data-gid'), name = b.getAttribute('data-name');
+            UX.confirm({ title: name + ' guruhidan chiqarilsinmi?', text: "Shu sanadan keyin to'lov hisoblanmaydi. Oldingi to'lovlar saqlanadi.", ok: 'Ha, chiqarish', danger: true }, function () {
+                call('remove', gid).then(function () {
+                    row.remove();
+                    UX.toast(name + ' guruhidan chiqarildi', { action: 'Qaytarish', onAction: function () {
+                        call('add', gid).then(function () { location.reload(); }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+                    } });
+                    setTimeout(function () { location.reload(); }, 10500);
+                }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+            });
+        });
+    });
+    var f = document.getElementById('addGroup');
+    if (f) f.addEventListener('submit', function (e) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        var gid = document.getElementById('agSel').value;
+        if (!gid) { UX.toast('Avval guruhni tanlang', { kind: 'bad' }); return; }
+        call('add', gid).then(function () { location.reload(); }).catch(function (err) { UX.toast(err.message, { kind: 'bad' }); });
+    }, true);
+})();
+</script>
+{% endblock %}
+{% block help %}
+<p>Bu <b>o'quvchi kartochkasi</b>: qarzi, guruhlari, oxirgi to'lov va davomat.</p>
+<ol><li>Qarz bo'lsa, katta tugma bilan to'lovni qabul qiling.</li><li>Guruhga qo'shish yoki chiqarish — "Guruhlari" bo'limida.</li><li>Ma'lumotni o'zgartirish uchun "Tahrirlash".</li></ol>
+{% endblock %}

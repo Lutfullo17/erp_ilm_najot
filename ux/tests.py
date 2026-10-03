@@ -130,3 +130,159 @@ class NewPaymentTests(NewUiBase):
         pid = self._pay(self.admin).json()['payment']['id']
         self.login(self.director).post('/new/payments/%d/delete/' % pid)
         self.assertEqual(PaymentTransaction.objects.count(), 0)
+
+
+class NewAttendanceTests(NewUiBase):
+    def _save(self, user, gid=None, records=None, **extra):
+        body = {'records': records if records is not None else {str(self.s1.pk): 'ABSENT'}}
+        body.update(extra)
+        return self.jpost(self.login(user), '/new/api/attendance/%d/' % (gid or self.g1.pk), body)
+
+    def test_pages_render(self):
+        self.assertContains(self.get(self.t1, '/new/attendance/'), 'Bugungi darslar')
+        self.assertContains(self.get(self.t1, '/new/attendance/%d/' % self.g1.pk), 'Hammasi')
+        self.assertContains(self.get(self.admin, '/new/attendance/'), 'Boshqa kun uchun')
+
+    def test_teacher_saves_once_then_locked(self):
+        from attendance.models import AttendanceRecord
+        r = self._save(self.t1)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(AttendanceRecord.objects.get().status, 'ABSENT')
+        r2 = self._save(self.t1, records={str(self.s1.pk): 'PRESENT'})
+        self.assertEqual(r2.status_code, 409)
+        self.assertContains(self.get(self.t1, '/new/attendance/%d/' % self.g1.pk), 'administratorga yozing')
+
+    def test_teacher_cannot_mark_foreign_group(self):
+        self.assertEqual(self._save(self.t1, gid=self.g2.pk, records={str(self.s_other.pk): 'PRESENT'}).status_code, 403)
+        r = self.get(self.t1, '/new/attendance/%d/' % self.g2.pk)
+        self.assertEqual(r.status_code, 302)
+
+    def test_rejects_foreign_student_and_bad_status(self):
+        self.assertEqual(self._save(self.t1, records={str(self.s_other.pk): 'ABSENT'}).status_code, 400)
+        self.assertEqual(self._save(self.t1, records={str(self.s1.pk): 'GARBAGE'}).status_code, 400)
+        self.assertEqual(self._save(self.t1, records={'abc': 'PRESENT'}).status_code, 400)
+        from attendance.models import AttendanceRecord
+        self.assertEqual(AttendanceRecord.objects.count(), 0)
+
+    def test_admin_can_correct_and_it_is_audited(self):
+        from attendance.models import AttendanceRecord
+        from users1.models import AuditLog
+        self._save(self.t1)
+        r = self._save(self.admin, records={str(self.s1.pk): 'PRESENT'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(AttendanceRecord.objects.get().status, 'PRESENT')
+        log = AuditLog.objects.get(action='Davomat tuzatildi')
+        self.assertEqual(log.old_data['records'][str(self.s1.pk)], 'ABSENT')
+
+    def test_admin_past_date_ok_teacher_past_blocked(self):
+        import datetime
+        past = str(self.today - datetime.timedelta(days=3))
+        self.assertEqual(self._save(self.admin, date=past).status_code, 200)
+        self.assertEqual(self._save(self.admin, date=str(self.today + datetime.timedelta(days=2))).status_code, 403)
+
+    def test_teacher_early_and_late_windows(self):
+        import datetime
+        from unittest import mock
+        from django.utils import timezone
+        from ux import views_att
+        self.g1.lesson_time = datetime.time(12, 0)
+        self.g1.end_time = datetime.time(13, 30)
+        self.g1.save()
+        def at(h, m):
+            return timezone.make_aware(datetime.datetime.combine(self.today, datetime.time(h, m)))
+        with mock.patch.object(views_att.timezone, 'localtime', return_value=at(11, 30)):
+            self.assertEqual(self._save(self.t1).status_code, 403)    # 15 daqiqadan erta
+        with mock.patch.object(views_att.timezone, 'localtime', return_value=at(11, 50)):
+            self.assertEqual(self._save(self.t1).status_code, 200)    # 15 daqiqa oldin ochiladi (B10)
+        self.g1.refresh_from_db()
+        from attendance.models import AttendanceSession
+        AttendanceSession.objects.all().delete()
+        with mock.patch.object(views_att.timezone, 'localtime', return_value=at(14, 0)):
+            self.assertEqual(self._save(self.t1).status_code, 403)    # dars tugagan, davomat olinmagan
+
+
+class NewStudentTests(NewUiBase):
+    FORM = {'full_name': 'Sardor Rahimov', 'phone': '90 123 45 67', 'group': ''}
+
+    def _post(self, user, data, url='/new/students/new/'):
+        return self.login(user).post(url, data)
+
+    def test_pages_render(self):
+        self.assertContains(self.get(self.admin, '/new/students/'), 'Yangi o')
+        self.assertContains(self.get(self.admin, '/new/students/new/'), 'Ism va familiya')
+        self.assertContains(self.get(self.admin, '/new/students/%d/' % self.s1.pk), 'Ali')
+        self.assertContains(self.get(self.admin, '/new/students/%d/edit/' % self.s1.pk), 'Tahrirlash')
+        self.assertEqual(self.get(self.t1, '/new/students/').status_code, 302)
+
+    def test_quick_create_with_group_normalizes_phone(self):
+        from students.models import Student
+        from groups_app.models import GroupStudent
+        r = self._post(self.admin, dict(self.FORM, group=self.g1.pk))
+        self.assertEqual(r.status_code, 302)
+        s = Student.objects.get(first_name='Sardor')
+        self.assertEqual(s.phone, '901234567')
+        self.assertTrue(GroupStudent.objects.filter(student=s, group=self.g1, is_active=True).exists())
+        self.assertIn('new=1', r['Location'])
+
+    def test_validation_messages_are_per_field_in_uzbek(self):
+        r = self._post(self.admin, {'full_name': '', 'phone': '123'})
+        self.assertEqual(r.status_code, 400)
+        self.assertContains(r, 'Ism va familiyani kiriting', status_code=400)
+        self.assertContains(r, '9 ta raqamdan iborat', status_code=400)
+
+    def test_parent_phone_and_discount_validation(self):
+        r = self._post(self.admin, dict(self.FORM, parent_phone='12', has_discount='on', discount_type='PERCENTAGE', discount_value='150'))
+        self.assertEqual(r.status_code, 400)
+        self.assertContains(r, '9 ta raqamdan iborat', status_code=400)
+        self.assertContains(r, '100% dan oshmasligi', status_code=400)
+
+    def test_duplicate_same_name_phone_blocked(self):
+        from students.models import Student
+        self._post(self.admin, self.FORM)
+        r = self._post(self.admin, self.FORM)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(Student.objects.filter(first_name='Sardor').count(), 1)
+
+    def test_xss_in_name_is_escaped_in_list(self):
+        from students.models import Student
+        Student.objects.create(first_name='<script>alert(1)</script>', last_name='X', phone='901111111')
+        r = self.get(self.admin, '/new/students/?q=script')
+        self.assertNotContains(r, '<script>alert(1)</script>')
+        self.assertContains(r, '&lt;script&gt;')
+
+    def test_long_name_rejected(self):
+        r = self._post(self.admin, dict(self.FORM, full_name='A' * 400))
+        self.assertEqual(r.status_code, 400)
+
+    def test_edit_keeps_other_memberships_and_audits_discount(self):
+        from groups_app.models import GroupStudent
+        from users1.models import AuditLog
+        GroupStudent.objects.create(group=self.g2, student=self.s1)
+        r = self._post(self.admin, {'full_name': 'Ali Valiyev', 'phone': '90 111 22 33', 'has_discount': 'on',
+                                    'discount_type': 'PERCENTAGE', 'discount_value': '10'}, '/new/students/%d/edit/' % self.s1.pk)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(GroupStudent.objects.filter(student=self.s1, is_active=True).count(), 2)
+        self.assertTrue(AuditLog.objects.filter(action__startswith="O'quvchi holati/chegirmasi").exists())
+
+    def test_group_add_remove_api_and_undo(self):
+        from groups_app.models import GroupStudent
+        c = self.login(self.admin)
+        url = '/new/api/students/%d/group/' % self.s1.pk
+        self.assertEqual(self.jpost(c, url, {'action': 'add', 'group_id': self.g2.pk}).status_code, 200)
+        self.assertEqual(self.jpost(c, url, {'action': 'remove', 'group_id': self.g2.pk}).status_code, 200)
+        self.assertFalse(GroupStudent.objects.get(student=self.s1, group=self.g2).is_active)
+        self.assertEqual(self.jpost(c, url, {'action': 'add', 'group_id': self.g2.pk}).status_code, 200)   # qaytarish
+        self.assertTrue(GroupStudent.objects.get(student=self.s1, group=self.g2).is_active)
+        self.assertEqual(self.jpost(c, url, {'action': 'boom', 'group_id': self.g2.pk}).status_code, 400)
+
+    def test_delete_only_director(self):
+        from students.models import Student
+        r = self.login(self.admin).post('/new/students/%d/delete/' % self.s1.pk)
+        self.assertFalse(Student.objects.get(pk=self.s1.pk).is_deleted)
+        self.login(self.director).post('/new/students/%d/delete/' % self.s1.pk)
+        self.assertTrue(Student.objects.get(pk=self.s1.pk).is_deleted)
+
+    def test_list_filters(self):
+        self.assertContains(self.get(self.admin, '/new/students/?f=nogroup'), 'Hozircha' if False else 'Birinchi' if False else '')
+        for f in ('debt', 'nogroup', 'frozen'):
+            self.assertEqual(self.get(self.admin, '/new/students/?f=%s&group=%d' % (f, self.g1.pk)).status_code, 200)

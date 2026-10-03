@@ -1,0 +1,84 @@
+{% extends 'new/base.html' %}
+{% load static ux_tags %}
+{% block title %}{% if edit %}Tahrirlash{% else %}Yangi o'quvchi{% endif %}{% endblock %}
+{% block content %}
+<div class="page-title"><h1>{% if edit %}{{ student }} — tahrirlash{% else %}Yangi o'quvchi{% endif %}</h1></div>
+
+<form method="post" id="sForm" novalidate class="stack" data-open-step="{{ open_step|default:1 }}" data-edit="{{ edit|yesno:'1,0' }}">
+    {% csrf_token %}
+    {% if dup %}<div class="alert warn"><i class="fa-solid fa-triangle-exclamation"></i><span>Shu ism va telefon bilan o'quvchi bor: <a href="{% url 'new:student' dup.pk %}">{{ dup }}</a>. Takror qo'shmang.</span></div>{% endif %}
+
+    <div class="stepper" id="sStepper" {% if edit %}hidden{% endif %}><span id="sStepTxt">Qadam 1/3</span><div class="bar"><i id="sBar" style="width:33%"></i></div></div>
+
+    <!-- 1-qadam -->
+    <section class="card stack" data-step="1">
+        <h2>{% if edit %}Asosiy ma'lumot{% else %}Kim qo'shilmoqda?{% endif %}</h2>
+        <div class="field"><label for="id_full_name" class="req">Ism va familiya</label>
+            <input type="text" name="full_name" id="id_full_name" value="{{ form.full_name.value|default:'' }}" maxlength="300" autocomplete="off" {% if not edit %}autofocus{% endif %} {% if form.full_name.errors %}aria-invalid="true"{% endif %} aria-describedby="h_name e_name">
+            <div class="hint" id="h_name">Masalan: Ali Valiyev</div><div class="err" id="e_name" role="alert">{{ form.full_name.errors.0 }}</div></div>
+        <div class="field"><label for="id_phone">O'quvchining telefoni</label>
+            <input type="tel" name="phone" id="id_phone" inputmode="numeric" data-phone value="{{ form.phone.value|default:''|phone }}" placeholder="90 123 45 67" {% if form.phone.errors %}aria-invalid="true"{% endif %} aria-describedby="h_phone e_phone">
+            <div class="hint" id="h_phone">9 ta raqam: 90 123 45 67 (+998 yozish shart emas)</div><div class="err" id="e_phone" role="alert">{{ form.phone.errors.0 }}</div></div>
+        {% if not edit %}
+        <div class="field"><label for="id_group">Qaysi guruhga qo'shamiz?</label>
+            <select name="group" id="id_group"><option value="">Hozircha guruhsiz (keyinroq qo'shaman)</option>
+                {% for g in groups %}<option value="{{ g.pk }}" {% if pre_group == g.pk|stringformat:'s' %}selected{% endif %}>{{ g.name }} — {{ g.monthly_fee|som }} so'm</option>{% endfor %}</select>
+            <div class="hint">Guruh tanlasangiz, hisob avtomatik boshlanadi.</div></div>
+        {% endif %}
+    </section>
+
+    <!-- 2-qadam -->
+    <section class="card stack" data-step="2" {% if not edit %}hidden{% endif %}>
+        <h2>Ota-ona va qo'shimcha</h2>
+        <div class="field"><label for="id_parent_phone">Ota-onaning telefoni</label>
+            <input type="tel" name="parent_phone" id="id_parent_phone" inputmode="numeric" data-phone value="{{ form.parent_phone.value|default:''|phone }}" placeholder="91 123 45 67" {% if form.parent_phone.errors %}aria-invalid="true"{% endif %} aria-describedby="h_pp e_pp">
+            <div class="hint" id="h_pp">Telegram bot va xabarlar shu raqam bo'yicha ulanadi.</div><div class="err" id="e_pp" role="alert">{{ form.parent_phone.errors.0 }}</div>
+            <div class="hint" id="siblings" hidden></div></div>
+        <div class="field"><label for="id_birth_date">Tug'ilgan sana</label>
+            <input type="date" name="birth_date" id="id_birth_date" value="{{ form.birth_date.value|default:''|stringformat:'s' }}" {% if form.birth_date.errors %}aria-invalid="true"{% endif %}>
+            <div class="err" role="alert">{{ form.birth_date.errors.0 }}</div></div>
+        <div class="field"><div class="field-label">Jinsi</div><div class="choices" style="grid-template-columns:1fr 1fr">
+            <label class="choice"><input type="radio" name="gender" value="MALE" {% if form.gender.value != 'FEMALE' %}checked{% endif %}> Erkak</label>
+            <label class="choice"><input type="radio" name="gender" value="FEMALE" {% if form.gender.value == 'FEMALE' %}checked{% endif %}> Ayol</label></div></div>
+        {% if edit %}
+        <div class="field"><label for="id_status">Holati</label>
+            <select name="status" id="id_status"><option value="ACTIVE" {% if form.status.value == 'ACTIVE' %}selected{% endif %}>Faol</option>
+                <option value="FROZEN" {% if form.status.value == 'FROZEN' %}selected{% endif %}>Pauzada (hisob to'xtatiladi)</option>
+                <option value="LEFT" {% if form.status.value == 'LEFT' %}selected{% endif %}>Ketgan (barcha guruhdan chiqariladi)</option></select>
+            <div class="hint">"Ketgan" tanlansa, o'quvchi guruhlardan chiqariladi va keyingi oylar hisoblanmaydi.</div></div>
+        {% endif %}
+    </section>
+
+    <!-- 3-qadam -->
+    <section class="card stack" data-step="3" {% if not edit %}hidden{% endif %}>
+        <h2>Chegirma</h2>
+        <label class="choice"><input type="checkbox" name="has_discount" id="id_has_discount" {% if form.has_discount.value %}checked{% endif %}> Bu o'quvchiga chegirma bor</label>
+        <div id="discBox" {% if not form.has_discount.value %}hidden{% endif %} class="stack-sm">
+            <div class="field"><div class="field-label">Chegirma turi</div><div class="choices" style="grid-template-columns:1fr 1fr">
+                <label class="choice"><input type="radio" name="discount_type" value="PERCENTAGE" {% if form.discount_type.value != 'FIXED' %}checked{% endif %}> Foiz (%)</label>
+                <label class="choice"><input type="radio" name="discount_type" value="FIXED" {% if form.discount_type.value == 'FIXED' %}checked{% endif %}> Summa (so'm)</label></div></div>
+            <div class="field"><label for="id_discount_value" class="req">Chegirma qiymati</label>
+                <input type="number" name="discount_value" id="id_discount_value" min="0" step="any" value="{{ form.discount_value.value|default:'' }}" placeholder="Masalan: 20" {% if form.discount_value.errors %}aria-invalid="true"{% endif %}>
+                <div class="hint">Foiz bo'lsa 1–100, summa bo'lsa so'mda (masalan 50000).</div><div class="err" role="alert">{{ form.discount_value.errors.0 }}</div></div>
+        </div>
+    </section>
+
+    <div class="err" id="sTopErr" role="alert"></div>
+    <div class="sticky-action stack-sm">
+        {% if edit %}
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Saqlash</button>
+        <a class="btn btn-secondary btn-block" href="{% url 'new:student' student.pk %}">Bekor qilish</a>
+        {% else %}
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="sSave">Saqlash</button>
+        <div class="row"><button type="button" class="btn btn-secondary grow" id="sBack" hidden>Orqaga</button>
+            <button type="button" class="btn btn-secondary grow" id="sNext">Qo'shimcha ma'lumot kiritish <i class="fa-solid fa-arrow-right"></i></button></div>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{% static 'new/student.js' %}?v=1" defer></script>{% endblock %}
+{% block help %}
+<p>Yangi o'quvchini <b>2 ta maydon</b> bilan qo'shish mumkin: ism-familiya va telefon. Guruhni ham shu yerda tanlang.</p>
+<ol><li>Ism va telefonni yozing.</li><li>Guruhni tanlang (yoki keyinroq).</li><li><b>Saqlash</b> ni bosing — keyin to'lov qabul qilishni taklif qilamiz.</li></ol>
+<p class="muted">Ota-ona telefoni va chegirma kerak bo'lsa, "Qo'shimcha ma'lumot kiritish" ni bosing.</p>
+{% endblock %}

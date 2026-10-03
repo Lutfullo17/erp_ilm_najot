@@ -1,0 +1,48 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Davomat{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Davomat</h1></div>
+
+{% if lessons %}
+<p class="muted" style="margin:-.5rem 0 1rem">Bugungi darslar. Guruhni tanlang:</p>
+<div class="list">
+    {% for l in lessons %}
+    <a class="item" href="{% url 'new:attendance_mark' l.group.pk %}">
+        <div class="i-main"><div class="i-title">{{ l.start|hm }}–{{ l.end|hm }} · {{ l.group.name }}</div>
+            <div class="i-sub">{% if role != 'teacher' %}{{ l.group.teacher.get_full_name|default:"O'qituvchi belgilanmagan" }} · {% endif %}{{ l.students }} ta o'quvchi</div></div>
+        {% if l.taken %}<span class="badge ok"><i class="fa-solid fa-check"></i> Davomat olingan</span>
+        {% elif l.state == 'upcoming' %}<span class="badge info"><i class="fa-regular fa-clock"></i> Hali boshlanmagan</span>
+        {% elif l.state == 'now' %}<span class="badge warn"><i class="fa-solid fa-circle-play"></i> Hozir dars — davomat kerak</span>
+        {% else %}<span class="badge bad"><i class="fa-solid fa-triangle-exclamation"></i> Davomat olinmagan</span>{% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty"><i class="fa-regular fa-calendar-check"></i><p>Bugun dars yo'q.</p>
+    {% if role == 'teacher' %}<a class="btn btn-secondary" href="{% url 'new:my_schedule' %}">Haftalik jadvalni ko'rish</a>{% endif %}</div>
+{% endif %}
+
+{% if role != 'teacher' %}
+<div class="card" style="margin-top:1.5rem">
+    <h2>Boshqa kun uchun davomat kiritish yoki tuzatish</h2>
+    <form method="get" id="otherAtt" class="row" style="margin-top:.75rem">
+        <div class="grow"><label class="sr-only" for="oaG">Guruh</label><select id="oaG" required><option value="">Guruhni tanlang</option>
+            {% for g in groups %}<option value="{{ g.pk }}">{{ g.name }}</option>{% endfor %}</select></div>
+        <div><label class="sr-only" for="oaD">Sana</label><input type="date" id="oaD" value="{{ today }}" max="{{ today }}" required></div>
+        <button class="btn btn-secondary" type="submit">Ochish</button>
+    </form>
+</div>
+<script>
+document.getElementById('otherAtt').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var g = document.getElementById('oaG').value, d = document.getElementById('oaD').value;
+    if (g && d) location.href = "{% url 'new:attendance' %}" + g + '/?date=' + d;
+});
+</script>
+{% endif %}
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>bugungi darslar</b> va ularning davomat holati ko'rinadi.</p>
+<ol><li>Guruhni bosing.</li><li>Kelmagan o'quvchilarni belgilang (hammasi avtomatik "Keldi").</li><li>"Saqlash" ni bosing.</li></ol>
+{% endblock %}
