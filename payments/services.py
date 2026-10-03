@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from groups_app.models import Group
+from users1.jsonutil import to_id
 from students.models import Student
 
 from bot.notifications import notify_payment_received, notify_payment_deleted
@@ -57,20 +58,25 @@ def next_month(value):
 
 
 def parse_money(value, field_name='amount'):
+    if isinstance(value, bool) or not isinstance(value, (str, int, float, Decimal)):
+        raise PaymentInputError(f"{field_name} noto'g'ri son bo'lishi kerak.")
+    text = str(value).strip()
+    if 'e' in text.lower():
+        raise PaymentInputError(f"{field_name} oddiy son bo'lishi kerak (masalan: 300000).")
     try:
-        amount = Decimal(str(value))
+        amount = Decimal(text)
     except (InvalidOperation, TypeError, ValueError):
         raise PaymentInputError(
             f"{field_name} noto'g'ri son bo'lishi kerak."
         )
     if not amount.is_finite():
         raise PaymentInputError(f"{field_name} noto'g'ri son bo'lishi kerak.")
+    if abs(amount) > Decimal('1000000000'):
+        raise PaymentInputError(f'{field_name} juda katta qiymat.')
 
     amount = amount.quantize(Decimal('0.01'))
     if amount < 0:
-        raise PaymentInputError(f'{field_name} 0 dan kichik bo\'lishi mumkin emas.')
-    if amount > Decimal('1000000000'):
-        raise PaymentInputError(f'{field_name} juda katta qiymat.')
+        raise PaymentInputError(f"{field_name} 0 dan kichik bo'lishi mumkin emas.")
     return amount
 
 
@@ -242,6 +248,9 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
                   idempotency_key=None):
     assert_admin_user(user)
 
+    student_id, group_id = to_id(student_id), to_id(group_id)
+    if student_id is None or group_id is None:
+        raise PaymentInputError("O'quvchi yoki guruh noto'g'ri tanlangan.")
     key = _parse_key(idempotency_key)
     if key:
         existing = PaymentTransaction.objects.select_related('student', 'group').filter(idempotency_key=key).first()

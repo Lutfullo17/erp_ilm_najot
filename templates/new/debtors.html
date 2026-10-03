@@ -14,7 +14,7 @@
     <div class="row">
         <div class="grow"><label class="sr-only" for="dq">Qidirish</label><input type="search" id="dq" name="q" value="{{ q }}" placeholder="Ism yoki telefon bo'yicha qidirish"></div>
         <div><label class="sr-only" for="dg">Guruh</label><select id="dg" name="group"><option value="">Barcha guruhlar</option>
-            {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk|stringformat:'s' == group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
+            {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk == group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
         <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Qidirish</button>
     </div>
     <div class="chips">

@@ -16,7 +16,7 @@ button{width:100%;min-height:48px;font-size:1rem;font-weight:700;border-radius:1
 <tr><td>O'quvchi</td><td>{{ pay.student.first_name }} {{ pay.student.last_name }}</td></tr>
 <tr><td>Guruh</td><td>{{ pay.group.name }}</td></tr>
 <tr><td>To'lov usuli</td><td>{{ pay.get_method_display }}</td></tr>
-<tr><td>Qabul qildi</td><td>{{ pay.created_by.get_full_name|default:pay.created_by.username }}</td></tr>
+<tr><td>Qabul qildi</td><td>{% if pay.created_by %}{{ pay.created_by.get_full_name|default:pay.created_by.username }}{% else %}—{% endif %}</td></tr>
 </table>
 <div class="big">{{ pay.amount|som }} so'm</div>
 <div class="c">Rahmat!</div>

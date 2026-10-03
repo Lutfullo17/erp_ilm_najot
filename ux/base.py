@@ -56,6 +56,7 @@ class UxView(View):
 
 def json_body(request):
     try:
-        return json.loads(request.body.decode('utf-8') or '{}')
+        data = json.loads(request.body.decode('utf-8') or '{}')
     except (ValueError, UnicodeDecodeError):
         return None
+    return data if isinstance(data, dict) else None

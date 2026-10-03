@@ -11,6 +11,7 @@ from django.shortcuts import redirect, get_object_or_404, render
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
+from .jsonutil import loads_dict
 from django.urls import reverse_lazy, reverse
 from django import forms
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -447,7 +448,7 @@ def director_change_login(request):
         return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -472,7 +473,7 @@ def director_update_info(request):
         return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -499,7 +500,7 @@ def director_change_password(request):
         return JsonResponse({'error': 'Ruxsat yo\'q'}, status=403)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -572,6 +573,10 @@ class AdministratorListView(LoginRequiredMixin, DirectorRequiredMixin, ListView)
 class AdministratorCreateView(LoginRequiredMixin, DirectorRequiredMixin, TemplateView):
     template_name = 'users1/administrator_form.html'
 
+    def get(self, request, *args, **kwargs):
+        # Forma modal oynada; shablon yo'q edi (500). Ro'yxatga qaytaramiz.
+        return redirect('users1:administrator_list')
+
     def post(self, request):
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
@@ -614,7 +619,7 @@ def director_change_admin_login(request, pk):
     admin_user = get_object_or_404(User, pk=pk, role=User.Role.ADMINISTRATOR)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -641,7 +646,7 @@ def director_reset_admin_password(request, pk):
     admin_user = get_object_or_404(User, pk=pk, role=User.Role.ADMINISTRATOR)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -794,7 +799,7 @@ def director_change_teacher_login(request, pk):
     teacher = get_object_or_404(User, pk=pk, role=User.Role.TEACHER)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -821,7 +826,7 @@ def director_reset_teacher_password(request, pk):
     teacher = get_object_or_404(User, pk=pk, role=User.Role.TEACHER)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -938,7 +943,7 @@ def director_add_penalty(request, teacher_pk):
     teacher = get_object_or_404(User, pk=teacher_pk, role=User.Role.TEACHER)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -975,7 +980,7 @@ def resolve_missed_alert(request, alert_pk):
     alert = get_object_or_404(MissedAttendanceAlert, pk=alert_pk, status=MissedAttendanceAlert.Status.PENDING)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -1001,7 +1006,7 @@ def edit_penalty(request, penalty_pk):
     penalty = get_object_or_404(TeacherPenalty, pk=penalty_pk)
 
     try:
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': 'Noto\'g\'ri ma\'lumot'}, status=400)
 
@@ -1904,7 +1909,7 @@ def broadcast_to_group(request):
     if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     try:
-        payload = json_module.loads(request.body.decode('utf-8'))
+        payload = loads_dict(request.body)
     except Exception:
         return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
 
@@ -1978,7 +1983,7 @@ def broadcast_all(request):
     if not request.user.is_authenticated or not request.user.is_director:
         return JsonResponse({'detail': "Faqat Director uchun ruxsat bor."}, status=403)
     try:
-        payload = json_module.loads(request.body.decode('utf-8'))
+        payload = loads_dict(request.body)
     except Exception:
         return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
 

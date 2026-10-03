@@ -179,6 +179,19 @@ LOGIN_URL = 'users1:login'
 LOGIN_REDIRECT_URL = 'users1:index'
 LOGOUT_REDIRECT_URL = 'users1:login'
 
+# Sessiya: bo'sh turganda 12 soatdan keyin tugaydi (umumiy kassa kompyuteri uchun). Har so'rovda yangilanadi.
+SESSION_COOKIE_AGE = int(os.environ.get('SESSION_AGE_HOURS', '12')) * 3600
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Kesh (login urinishlari limiti): jarayonlar o'rtasida umumiy bo'lishi uchun fayl keshi (bitta serverdagi barcha gunicorn workerlari).
+if 'test' in sys.argv:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+else:
+    CACHES = {'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.environ.get('CACHE_DIR', str(BASE_DIR / '.cache')),
+    }}
+
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
 

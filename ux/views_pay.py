@@ -19,6 +19,8 @@ from payments.views import _payable_students
 from students.models import Student
 
 from .base import UxView, json_body, ux_login
+from users1.jsonutil import to_id
+
 from .utils import paginate, safe_next
 
 ADMIN = {'administrator', 'director'}
@@ -62,9 +64,9 @@ class PayView(UxView):
         today = timezone.localdate()
         max_back = 36500 if request.user.is_director else getattr(settings, 'PAYMENT_BACKDATE_DAYS', 7)
         pre = None
-        sid = request.GET.get('student')
-        if sid and sid.isdigit():
-            st = _payable_students().filter(pk=int(sid)).first()
+        sid = to_id(request.GET.get('student'))
+        if sid:
+            st = _payable_students().filter(pk=sid).first()
             if st:
                 pre = student_pay_info(st)
         return self.render(request, {
@@ -153,7 +155,7 @@ class DebtorsView(UxView):
 
     def get(self, request):
         qs = StudentMonthBalance.objects.debts().current_members()
-        group_id = request.GET.get('group') if (request.GET.get('group') or '').isdigit() else None
+        group_id = to_id(request.GET.get('group'))
         if group_id:
             qs = qs.filter(group_id=group_id)
         q = request.GET.get('q', '').strip()

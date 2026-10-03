@@ -58,7 +58,7 @@ class PersonForm(forms.Form):
                 self.add_error('password2', "Parollar mos kelmadi.")
             else:
                 try:
-                    validate_password(p1, user=self.instance)
+                    validate_password(p1, user=self.instance or User(username=data.get('username', ''), first_name=data.get('full_name', '')))
                 except ValidationError as exc:
                     self.add_error('password1', ' '.join(exc.messages))
         return data

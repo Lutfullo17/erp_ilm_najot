@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.contrib import messages
+from users1.jsonutil import loads_dict
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_http_methods
@@ -362,7 +363,7 @@ def admin_edit_lesson(request, group_pk, target_day):
 
     try:
         import json as json_module
-        data = json_module.loads(request.body)
+        data = loads_dict(request.body)
     except Exception:
         return JsonResponse({'error': "Noto'g'ri ma'lumot"}, status=400)
 
@@ -395,7 +396,7 @@ def admin_edit_lesson(request, group_pk, target_day):
     final_new_day = new_day if new_day else target_day
 
     # Xona validatsiyasi
-    if new_room is not None:
+    if new_room not in (None, ''):
         try:
             new_room = int(new_room)
         except (TypeError, ValueError):

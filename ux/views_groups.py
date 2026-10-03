@@ -16,6 +16,8 @@ from users1.models import AuditLog, User
 
 from . import services
 from .base import UxView, ux_login
+from users1.jsonutil import to_id
+
 from .utils import paginate
 
 ADMIN = {'administrator', 'director'}
@@ -200,19 +202,18 @@ def api_check_slot(request):
         return JsonResponse({'rooms': [{'id': v, 'label': l, 'free': True} for v, l in Room.choices], 'teacher_busy': ''})
     if not days or duration <= 0:
         return JsonResponse({'rooms': [{'id': v, 'label': l, 'free': True} for v, l in Room.choices], 'teacher_busy': ''})
-    exclude = request.GET.get('exclude')
-    exclude = int(exclude) if exclude and exclude.isdigit() else None
+    exclude = to_id(request.GET.get('exclude'))
     end = services.end_from(start, duration)
     clashes = services.slot_conflicts(days, start, end, exclude)
     busy = {}
     for g in clashes:
         if g.room:
             busy.setdefault(g.room, g.name)
-    teacher_id = request.GET.get('teacher')
+    teacher_id = to_id(request.GET.get('teacher'))
     teacher_busy = ''
-    if teacher_id and teacher_id.isdigit():
+    if teacher_id:
         for g in clashes:
-            if g.teacher_id == int(teacher_id):
+            if g.teacher_id == teacher_id:
                 teacher_busy = f"Bu o'qituvchi shu vaqtda '{g.name}' guruhida dars beradi."
                 break
     return JsonResponse({

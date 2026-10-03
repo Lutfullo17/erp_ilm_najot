@@ -1,4 +1,4 @@
-from django.core.paginator import EmptyPage, Paginator
+from django.core.paginator import InvalidPage, Paginator
 from django.http import QueryDict
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -7,7 +7,7 @@ def paginate(request, items, per_page=20):
     paginator = Paginator(items, per_page)
     try:
         page = paginator.page(request.GET.get('page') or 1)
-    except (EmptyPage, ValueError):
+    except (InvalidPage, ValueError, TypeError):
         page = paginator.page(paginator.num_pages or 1)
     params = request.GET.copy()
     params.pop('page', None)

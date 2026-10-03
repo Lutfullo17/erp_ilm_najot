@@ -113,7 +113,7 @@
                 </div>
                 <div style="text-align: right;">
                     <div style="color: var(--success); font-weight: 700; font-size: 0.9rem;">{{ p.amount|money }}</div>
-                    <div style="font-size: 0.7rem; color: var(--text-muted);">{{ p.created_by.first_name|default:p.created_by.username }}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">{% if p.created_by %}{{ p.created_by.first_name|default:p.created_by.username }}{% else %}—{% endif %}</div>
                 </div>
             </div>
             {% endfor %}

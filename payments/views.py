@@ -1,4 +1,6 @@
 import json
+
+from users1.jsonutil import loads_dict
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
@@ -229,7 +231,7 @@ def create_payment(request):
     if not request.user.is_authenticated or not request.user.is_admin_access:
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
     try:
-        payload = json.loads(request.body.decode('utf-8'))
+        payload = loads_dict(request.body, stringify=False)
         data = apply_payment(
             request.user,
             payload.get('student_id'),

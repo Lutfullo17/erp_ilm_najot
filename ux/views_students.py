@@ -20,6 +20,8 @@ from users1.models import AuditLog
 
 from .base import UxView, ux_login
 from .forms import UxStudentForm
+from users1.jsonutil import to_id
+
 from .utils import paginate
 
 ADMIN = {'administrator', 'director'}
@@ -54,7 +56,7 @@ class StudentsView(UxView):
             qs = qs.exclude(pk__in=GroupStudent.objects.filter(is_active=True, group__is_active=True).values('student_id'))
         elif flt == 'frozen':
             qs = qs.filter(status=Student.Status.FROZEN)
-        gid = request.GET.get('group') if (request.GET.get('group') or '').isdigit() else None
+        gid = to_id(request.GET.get('group'))
         if gid:
             qs = qs.filter(groupstudent__group_id=gid, groupstudent__is_active=True)
         qs = qs.order_by('last_name', 'first_name').distinct()
@@ -92,8 +94,8 @@ class StudentNewView(UxView):
         form = UxStudentForm(request.POST)
         group = None
         gid = request.POST.get('group')
-        if gid and gid.isdigit():
-            group = Group.objects.filter(pk=int(gid), is_active=True).first()
+        if to_id(gid):
+            group = Group.objects.filter(pk=to_id(gid), is_active=True).first()
         if not form.is_valid():
             messages.error(request, "Ba'zi maydonlar noto'g'ri to'ldirilgan. Qizil yozuvlarni tuzating.")
             return self.render(request, {**self._ctx(form), 'pre_group': gid or '', 'open_step': _first_error_step(form)}, status=400)
@@ -176,7 +178,7 @@ def api_student_group(request, pk):
     from .base import json_body
     student = get_object_or_404(Student, pk=pk, is_deleted=False)
     data = json_body(request) or {}
-    group = Group.objects.filter(pk=data.get('group_id')).first()
+    group = Group.objects.filter(pk=to_id(data.get('group_id'))).first() if to_id(data.get('group_id')) else None
     if group is None:
         return JsonResponse({'detail': 'Guruh topilmadi.'}, status=404)
     try:

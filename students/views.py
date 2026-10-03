@@ -230,7 +230,7 @@ def delete_student(request, pk):
 def check_parent_phone(request):
     """Ota-ona telefon raqami bilan bog'langan boshqa farzandlarni tekshirish."""
     if not request.user.is_authenticated or not request.user.is_admin_access:
-        return JsonResponse({'siblings': []})
+        return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
 
     phone = request.GET.get('phone', '').strip()
     if not phone:

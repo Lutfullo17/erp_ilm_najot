@@ -66,9 +66,10 @@ class AmountParsingTests(MoneyBase):
         self.assertEqual(parse_money('100.555'), Decimal('100.56'))
         self.assertEqual(parse_money('100.565'), Decimal('100.56'))      # banker yaxlitlash (ROUND_HALF_EVEN)
 
-    def test_scientific_notation_accepted(self):
-        # QA-B-07 (Past): '1e3' qabul qilinadi (1000.00). Kutilgan: rad etilishi yoki aniq xabar.
-        self.assertEqual(parse_money('1e3'), Decimal('1000.00'))
+    def test_scientific_notation_rejected(self):
+        # QA-B-07: '1e3' endi aniq xabar bilan rad etiladi.
+        with self.assertRaises(PaymentInputError):
+            parse_money('1e3')
 
 
 class DiscountRoundingTests(MoneyBase):

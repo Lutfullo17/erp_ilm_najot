@@ -21,7 +21,7 @@
     {% for p in page.object_list %}
     <div class="item">
         <div class="i-main"><div class="i-title">{{ p.student.first_name }} {{ p.student.last_name }}</div>
-            <div class="i-sub">{{ p.group.name }} · {{ p.payment_date|date:"d.m.Y" }} · {{ p.get_method_display }}{% if role == 'director' %} · {{ p.created_by.get_full_name|default:p.created_by.username }}{% endif %}</div></div>
+            <div class="i-sub">{{ p.group.name }} · {{ p.payment_date|date:"d.m.Y" }} · {{ p.get_method_display }}{% if role == 'director' %} · {% if p.created_by %}{{ p.created_by.get_full_name|default:p.created_by.username }}{% else %}—{% endif %}{% endif %}</div></div>
         <span class="badge ok"><i class="fa-solid fa-check"></i> {{ p.amount|som }} so'm</span>
         <div class="i-act">
             <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="{% url 'new:receipt' p.pk %}"><i class="fa-solid fa-print"></i> Kvitansiya</a>

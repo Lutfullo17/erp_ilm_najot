@@ -1,7 +1,6 @@
 """QA: yolg'on/zararli kiritish. Hech bir endpoint 500 bermasligi va ma'lumotni buzmasligi kerak."""
 import json
 import os
-import unittest
 
 from django.test import Client
 
@@ -55,7 +54,6 @@ class FuzzTests(AuditBase):
     def _ids(self):
         return {'g': self.g1.pk, 's': self.s1.pk, 't': self.t1.pk}
 
-    @unittest.expectedFailure   # QA-B-03 / QA-N-01..03: tuzatilgach olib tashlanadi
     def test_json_endpoints_never_500(self):
         failures = []
         for role_name, user in (('teacher', self.t1), ('administrator', self.admin), ('director', self.director)):
@@ -80,7 +78,6 @@ class FuzzTests(AuditBase):
         _dump('json', failures)
         self.assertEqual(failures, [], f'{len(failures)} ta 500: ' + '; '.join(map(str, failures[:12])))
 
-    @unittest.expectedFailure   # QA-B-03 / QA-N-01..03: tuzatilgach olib tashlanadi
     def test_non_json_and_broken_bodies(self):
         c = self.login(self.admin)
         c.raise_request_exception = False
@@ -92,7 +89,6 @@ class FuzzTests(AuditBase):
                 r = c.post(url, body, content_type=ctype)
                 self.assertLess(r.status_code, 500, (url, body))
 
-    @unittest.expectedFailure   # QA-B-03 / QA-N-01..03: tuzatilgach olib tashlanadi
     def test_get_params_never_500(self):
         failures = []
         for user in (self.t1, self.admin, self.director):

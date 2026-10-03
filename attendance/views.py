@@ -3,6 +3,7 @@ from datetime import datetime, date, timedelta
 
 from django.db import transaction
 from django.utils import timezone
+from users1.jsonutil import loads_dict, to_id
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views import View
@@ -180,9 +181,8 @@ def admin_override_attendance(request, group_id):
 
     group = get_object_or_404(Group, pk=group_id, is_active=True)
 
-    import json
     try:
-        payload = json.loads(request.body.decode('utf-8'))
+        payload = loads_dict(request.body)
     except Exception:
         return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
 
@@ -192,7 +192,7 @@ def admin_override_attendance(request, group_id):
 
     try:
         override_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
+    except (ValueError, TypeError):
         return JsonResponse({'detail': "Noto'g'ri sana formati."}, status=400)
 
     session, created = AttendanceSession.objects.get_or_create(
@@ -233,16 +233,15 @@ def save_lesson_plan(request):
     if not user.is_authenticated or not (user.is_admin_access or user.is_teacher):
         return JsonResponse({'detail': "Ruxsat yo'q."}, status=403)
 
-    import json
     try:
-        payload = json.loads(request.body.decode('utf-8'))
+        payload = loads_dict(request.body)
     except Exception:
         return JsonResponse({'detail': "Noto'g'ri ma'lumot"}, status=400)
 
-    group_id = payload.get('group_id')
+    group_id = to_id(payload.get('group_id'))
     date_str = payload.get('date')
-    topic = payload.get('topic', '').strip()
-    is_exam = payload.get('is_exam', False)
+    topic = payload.get('topic', '').strip()[:255]
+    is_exam = str(payload.get('is_exam', '')).lower() in ('true', '1')
 
     if not group_id or not date_str:
         return JsonResponse({'detail': 'Guruh va sana talab qilinadi'}, status=400)

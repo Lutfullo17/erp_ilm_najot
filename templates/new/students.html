@@ -9,7 +9,7 @@
     <div class="row">
         <div class="grow"><label class="sr-only" for="sq">Qidirish</label><input type="search" id="sq" name="q" value="{{ q }}" placeholder="Ism, familiya yoki telefon"></div>
         <div><label class="sr-only" for="sg">Guruh</label><select id="sg" name="group"><option value="">Barcha guruhlar</option>
-            {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk|stringformat:'s' == group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
+            {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk == group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
         {% if flt %}<input type="hidden" name="f" value="{{ flt }}">{% endif %}
         <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Qidirish</button>
     </div>

@@ -3,6 +3,7 @@ import logging
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import redirect
 from django.views.decorators.http import require_http_methods
@@ -135,9 +136,12 @@ def get_json_body(request):
         return {}
 
     try:
-        return json.loads(request.body.decode('utf-8'))
+        data = json.loads(request.body.decode('utf-8'))
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise GradeInputError("JSON ma'lumot noto'g'ri yoki UTF-8 formatda emas.")
+    if not isinstance(data, dict):
+        raise GradeInputError("JSON obyekt bo'lishi kerak.")
+    return data
 
 
 @require_http_methods(['GET'])
@@ -171,6 +175,8 @@ def group_grades(request, group_id):
             return json_error(error)
         except PermissionDenied as error:
             return json_error(error, status=403)
+        except Http404:
+            return json_error("Guruh topilmadi.", status=404)
         except Exception:
             logger.exception('Baholarni olishda xatolik')
             return json_error("Server xatosi.", status=500)
@@ -190,6 +196,8 @@ def group_grades(request, group_id):
         return json_error(error)
     except PermissionDenied as error:
         return json_error(error, status=403)
+    except Http404:
+        return json_error("Guruh topilmadi.", status=404)
     except Exception:
         logger.exception('Baholarni saqlashda xatolik')
         return json_error("Server xatosi.", status=500)

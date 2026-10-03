@@ -17,8 +17,8 @@ from users1.test_audit_fixes import AuditBase
 
 PUBLIC = {'/users/login/', '/bot/telegram/webhook/', '/bot/', '/grades/', '/favicon.ico', '/'}
 # Ma'lum kamchiliklar (BACKEND_TEST_REPORT.md): 5-bosqichda tuzatilgach bu ro'yxat bo'shatiladi
-KNOWN_500 = {('director', 'GET', '/users/administrators/new/')}           # QA-B-01: shablon yo'q
-KNOWN_OPEN = {'/students/api/check-parent-phone/'}                          # QA-B-02: ruxsatsizga 403 emas, bo'sh 200
+KNOWN_500 = set()
+KNOWN_OPEN = set()
 SKIP_PREFIX = ('/admin/', '/static/', '/media/')
 ARG_VALUES = {'which': 'new', 'action': 'attendance', 'target_day': 'Dushanba', 'day': 'Dushanba'}
 
