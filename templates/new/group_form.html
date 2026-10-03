@@ -1,0 +1,80 @@
+{% extends 'new/base.html' %}
+{% load static ux_tags %}
+{% block title %}{% if group %}Guruhni tahrirlash{% else %}Yangi guruh{% endif %}{% endblock %}
+{% block content %}
+<div class="page-title"><h1>{% if group %}{{ group.name }} — tahrirlash{% else %}Yangi guruh ochish{% endif %}</h1></div>
+
+<form method="post" id="gForm" novalidate class="stack" data-edit="{{ group|yesno:'1,0' }}" data-open-step="{{ open_step|default:1 }}"
+      data-check="{% url 'new:api_check_slot' %}" data-exclude="{{ group.pk|default:'' }}">
+    {% csrf_token %}
+    <div class="stepper" id="gStepper" {% if group %}hidden{% endif %}><span id="gStepTxt">Qadam 1/4</span><div class="bar"><i id="gBar" style="width:25%"></i></div></div>
+
+    <section class="card stack" data-step="1">
+        <h2>1. Guruh nomi va narxi</h2>
+        <div class="field"><label for="id_name" class="req">Guruh nomi</label>
+            <input type="text" name="name" id="id_name" maxlength="150" value="{{ form.name.value|default:'' }}" {% if form.name.errors %}aria-invalid="true"{% endif %} aria-describedby="e_name" autocomplete="off">
+            <div class="hint">Masalan: Ingliz tili A1</div><div class="err" id="e_name" role="alert">{{ form.name.errors.0 }}</div></div>
+        <div class="field"><label for="id_monthly_fee" class="req">Oylik to'lov (so'm)</label>
+            <input type="text" name="monthly_fee" id="id_monthly_fee" inputmode="numeric" data-money value="{{ form.monthly_fee.value|plain }}" {% if form.monthly_fee.errors %}aria-invalid="true"{% endif %} aria-describedby="e_fee">
+            <div class="hint">Masalan: 300 000. Tekin guruh bo'lsa 0 yozing.</div><div class="err" id="e_fee" role="alert">{{ form.monthly_fee.errors.0 }}</div></div>
+    </section>
+
+    <section class="card stack" data-step="2" {% if not group %}hidden{% endif %}>
+        <h2>2. O'qituvchi</h2>
+        <div class="field"><label for="id_teacher">Guruhni kim o'qitadi?</label>
+            <select name="teacher" id="id_teacher"><option value="">Keyinroq belgilayman</option>
+                {% for t in teachers %}<option value="{{ t.pk }}" {% if form.teacher.value|stringformat:'s' == t.pk|stringformat:'s' %}selected{% endif %}>{{ t.get_full_name|default:t.username }}</option>{% endfor %}</select>
+            <div class="err" role="alert">{{ form.teacher.errors.0 }}</div>
+            <div class="alert warn" id="teacherWarn" hidden style="margin-top:.5rem"></div></div>
+    </section>
+
+    <section class="card stack" data-step="3" {% if not group %}hidden{% endif %}>
+        <h2>3. Dars kunlari va vaqti</h2>
+        <div class="field"><div class="field-label req" id="dayLabel">Dars kunlari</div>
+            <div class="chips" style="margin-bottom:.5rem">{% for val, label in presets %}<button type="button" class="chip js-preset" data-days="{{ val }}">{{ label }}</button>{% endfor %}</div>
+            <div class="chips" role="group" aria-labelledby="dayLabel">
+                {% for d, short in days %}<label class="chip {% if d in form.days.value %}on{% endif %}"><input type="checkbox" class="sr-only js-day" name="days" value="{{ d }}" {% if d in form.days.value %}checked{% endif %}>{{ short }}</label>{% endfor %}
+            </div>
+            <div class="err" role="alert">{{ form.days.errors.0 }}</div></div>
+        <div class="grid-2">
+            <div class="field"><label for="id_lesson_time" class="req">Boshlanish vaqti</label>
+                <input type="time" name="lesson_time" id="id_lesson_time" value="{{ form.lesson_time.value|default:''|stringformat:'s'|slice:':5' }}" {% if form.lesson_time.errors %}aria-invalid="true"{% endif %}>
+                <div class="hint">Masalan: 14:30</div><div class="err" role="alert">{{ form.lesson_time.errors.0 }}</div></div>
+            <div class="field"><label for="id_duration" class="req">Dars davomiyligi</label>
+                <select name="duration" id="id_duration">{% for v, l in durations %}<option value="{{ v }}" {% if form.duration.value|plain == v|plain %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+                <div class="err" role="alert">{{ form.duration.errors.0 }}</div></div>
+        </div>
+        <div class="field"><label for="id_start_date" class="req">Guruh boshlanadigan sana</label>
+            <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default:''|stringformat:'s' }}" {% if form.start_date.errors %}aria-invalid="true"{% endif %}>
+            <div class="hint">To'lov hisobi shu sanadan boshlanadi.</div><div class="err" role="alert">{{ form.start_date.errors.0 }}</div></div>
+    </section>
+
+    <section class="card stack" data-step="4" {% if not group %}hidden{% endif %}>
+        <h2>4. Xona</h2>
+        <p class="muted" id="roomNote">Band xonalar kulrang bo'ladi. Avval kun va vaqtni tanlang.</p>
+        <div class="choices" id="rooms" role="radiogroup" aria-label="Xona">
+            <label class="choice"><input type="radio" name="room" value="" {% if not form.room.value %}checked{% endif %}> Keyinroq belgilayman</label>
+            {% for v, label in rooms %}<label class="choice" data-room="{{ v }}"><input type="radio" name="room" value="{{ v }}" {% if form.room.value|stringformat:'s' == v|stringformat:'s' %}checked{% endif %}> <span>{{ label }}</span></label>{% endfor %}
+        </div>
+        <div class="err" role="alert">{{ form.room.errors.0 }}</div>
+        {% if form.non_field_errors %}<div class="alert bad">{{ form.non_field_errors.0 }}</div>{% endif %}
+        <div class="card" id="gSummary" {% if group %}hidden{% endif %} style="background:var(--surface-2)"></div>
+    </section>
+
+    <div class="sticky-action stack-sm">
+        {% if group %}
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Saqlash</button>
+        <a class="btn btn-secondary btn-block" href="{% url 'new:group' group.pk %}">Bekor qilish</a>
+        {% else %}
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="gSave" hidden>Guruhni yaratish</button>
+        <div class="row"><button type="button" class="btn btn-secondary grow" id="gBack" hidden>Orqaga</button>
+            <button type="button" class="btn btn-primary grow" id="gNext">Keyingi <i class="fa-solid fa-arrow-right"></i></button></div>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{% static 'new/group.js' %}?v=1" defer></script>{% endblock %}
+{% block help %}
+<p>Yangi guruhni <b>4 qadamda</b> ochasiz: nom va narx, o'qituvchi, kunlar va vaqt, xona.</p>
+<ol><li>Har qadamda bitta savolga javob bering.</li><li>3-qadamdan keyin band xonalar o'zi ko'rsatiladi.</li><li>Oxirida "Guruhni yaratish".</li></ol>
+{% endblock %}

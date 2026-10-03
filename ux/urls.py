@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views_att, views_home, views_misc, views_pay, views_students, views_stub
+from . import views_att, views_groups, views_home, views_misc, views_pay, views_students, views_stub
 
 app_name = 'new'
 
@@ -33,9 +33,13 @@ urlpatterns = [
     path('students/<int:pk>/edit/', views_students.StudentEditView.as_view(), name='student_edit'),
     path('students/<int:pk>/delete/', views_students.student_delete, name='student_delete'),
     path('api/students/<int:pk>/group/', views_students.api_student_group, name='api_student_group'),
-    path('groups/', S, name='groups'),
-    path('groups/new/', S, name='group_new'),
-    path('groups/<int:pk>/', S, name='group'),
+    path('groups/', views_groups.GroupsView.as_view(), name='groups'),
+    path('groups/new/', views_groups.GroupNewView.as_view(), name='group_new'),
+    path('groups/<int:pk>/', views_groups.GroupDetailView.as_view(), name='group'),
+    path('groups/<int:pk>/edit/', views_groups.GroupEditView.as_view(), name='group_edit'),
+    path('groups/<int:pk>/pause/', views_groups.group_pause, name='group_pause'),
+    path('groups/<int:pk>/delete/', views_groups.group_delete, name='group_delete'),
+    path('api/groups/check-slot/', views_groups.api_check_slot, name='api_check_slot'),
     path('schedule/', S, name='schedule'),
     path('messages/', S, name='messages'),
     path('staff/', S, name='staff'),

@@ -69,3 +69,24 @@ def payments_today(user):
 def birthdays_today():
     today = timezone.localdate()
     return list(Student.objects.filter(is_active=True, birth_date__month=today.month, birth_date__day=today.day)[:10])
+
+
+def end_from(start, duration):
+    td = datetime.timedelta(hours=float(duration))
+    return (datetime.datetime.combine(datetime.date.today(), start) + td).time()
+
+
+def slot_conflicts(days, start, end, exclude_pk=None):
+    """Berilgan kun/vaqt bilan to'qnashadigan faol guruhlar."""
+    out = []
+    qs = Group.objects.filter(is_active=True, lesson_time__isnull=False).select_related('teacher')
+    if exclude_pk:
+        qs = qs.exclude(pk=exclude_pk)
+    for g in qs:
+        gdays = {d.strip() for d in (g.lesson_days or '').split(',') if d.strip()}
+        if not (gdays & set(days)):
+            continue
+        gend = g.end_time or lesson_end(g)
+        if gend and start < gend and end > g.lesson_time:
+            out.append(g)
+    return out

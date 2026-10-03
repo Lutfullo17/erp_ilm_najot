@@ -18,6 +18,18 @@ def som(value):
 
 
 @register.filter
+def plain(value):
+    """Decimal/matn -> ortiqcha nolsiz matn: 300000.00 -> '300000', 1.5 -> '1.5', '' -> ''."""
+    if value in (None, ''):
+        return ''
+    try:
+        d = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return str(value)
+    return str(int(d)) if d == d.to_integral() else str(d.normalize())
+
+
+@register.filter
 def phone(value):
     """901234567 / +998 90 123 45 67 -> '90 123 45 67' (aniq 9 raqam bo'lsa)."""
     d = ''.join(ch for ch in str(value or '') if ch.isdigit())

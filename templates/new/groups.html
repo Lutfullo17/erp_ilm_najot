@@ -1,0 +1,35 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Guruhlar{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Guruhlar</h1><a class="btn btn-primary" href="{% url 'new:group_new' %}"><i class="fa-solid fa-plus"></i> Yangi guruh</a></div>
+<form method="get" class="stack-sm" style="margin-bottom:1rem">
+    <div class="row"><div class="grow"><label class="sr-only" for="gq">Qidirish</label><input type="search" id="gq" name="q" value="{{ q }}" placeholder="Guruh yoki o'qituvchi nomi"></div>
+        <input type="hidden" name="f" value="{{ flt }}"><button class="btn btn-secondary" type="submit">Qidirish</button></div>
+    <div class="chips">{% for key, label in filters %}<a class="chip {% if flt == key %}on{% endif %}" href="?f={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}">{{ label }}</a>{% endfor %}</div>
+</form>
+{% if page.object_list %}
+<div class="list">
+    {% for g in page.object_list %}
+    <div class="item">
+        <a class="i-main" href="{% url 'new:group' g.pk %}" style="text-decoration:none;color:inherit">
+            <div class="i-title">{{ g.name }}</div>
+            <div class="i-sub">{{ g.teacher.get_full_name|default:"O'qituvchi belgilanmagan" }} · {{ g.lesson_days|default:"Kunlar belgilanmagan" }}{% if g.lesson_time %} · {{ g.lesson_time|hm }}{% endif %}{% if g.room %} · {{ g.get_room_display }}{% endif %}</div>
+        </a>
+        <span class="badge info"><i class="fa-solid fa-user-group"></i> {{ g.n }} ta</span>
+        {% if not g.is_active %}<span class="badge bad">Yopilgan</span>{% elif g.is_paused %}<span class="badge warn"><i class="fa-solid fa-pause"></i> Pauzada</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> Faol</span>{% endif %}
+        <div class="i-act"><a class="btn btn-secondary btn-sm" href="{% url 'new:attendance_mark' g.pk %}">Davomat</a><a class="btn btn-secondary btn-sm" href="{% url 'new:group' g.pk %}">Ochish</a></div>
+    </div>
+    {% endfor %}
+</div>
+{% include 'new/_pager.html' %}
+{% else %}
+<div class="empty"><i class="fa-solid fa-people-group"></i>
+    {% if q or flt != 'active' %}<p>Bu bo'yicha guruh topilmadi.</p><a class="btn btn-secondary" href="{% url 'new:groups' %}">Filtrni tozalash</a>
+    {% else %}<p>Hali guruh yo'q.</p><a class="btn btn-primary" href="{% url 'new:group_new' %}">Birinchi guruhni yarating</a>{% endif %}</div>
+{% endif %}
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>o'quv guruhlari</b>. Faol, pauzadagi yoki yopilgan guruhlarni tanlab ko'rishingiz mumkin.</p>
+<ol><li>Guruhni bosing — o'quvchilari va amallari ochiladi.</li><li>"Davomat" — shu guruh davomatini belgilash.</li><li>Yangi guruh — 4 qadamli yordamchi.</li></ol>
+{% endblock %}

@@ -286,3 +286,79 @@ class NewStudentTests(NewUiBase):
         self.assertContains(self.get(self.admin, '/new/students/?f=nogroup'), 'Hozircha' if False else 'Birinchi' if False else '')
         for f in ('debt', 'nogroup', 'frozen'):
             self.assertEqual(self.get(self.admin, '/new/students/?f=%s&group=%d' % (f, self.g1.pk)).status_code, 200)
+
+
+class NewGroupTests(NewUiBase):
+    def _data(self, **kw):
+        d = {'name': 'Fizika 9', 'monthly_fee': '350000', 'teacher': self.t2.pk, 'days': ['Dushanba', 'Chorshanba'],
+             'lesson_time': '15:00', 'duration': '1.5', 'start_date': '2026-10-05', 'room': '3'}
+        d.update(kw)
+        return d
+
+    def test_pages_render(self):
+        self.assertContains(self.get(self.admin, '/new/groups/'), 'Yangi guruh')
+        self.assertContains(self.get(self.admin, '/new/groups/new/'), 'Qadam 1/4')
+        self.assertContains(self.get(self.admin, '/new/groups/%d/' % self.g1.pk), 'Davomat belgilash')
+        self.assertContains(self.get(self.admin, '/new/groups/%d/edit/' % self.g1.pk), 'tahrirlash')
+        self.assertEqual(self.get(self.t1, '/new/groups/').status_code, 302)
+
+    def test_create_ok_and_audited(self):
+        from groups_app.models import Group
+        from users1.models import AuditLog
+        r = self.login(self.admin).post('/new/groups/new/', self._data())
+        self.assertEqual(r.status_code, 302)
+        g = Group.objects.get(name='Fizika 9')
+        self.assertEqual(g.lesson_days, 'Dushanba, Chorshanba')
+        self.assertEqual(str(g.end_time), '16:30:00')
+        self.assertTrue(AuditLog.objects.filter(action='Guruh yaratildi').exists())
+
+    def test_field_errors_in_uzbek(self):
+        r = self.login(self.admin).post('/new/groups/new/', {'name': '', 'monthly_fee': '', 'days': []})
+        self.assertEqual(r.status_code, 400)
+        for text in ('Guruh nomini kiriting', 'Oylik narxni kiriting', 'Kamida bitta dars kunini', 'Dars boshlanish vaqtini'):
+            self.assertContains(r, text, status_code=400)
+
+    def test_duplicate_name_negative_fee_and_huge_fee(self):
+        c = self.login(self.admin)
+        self.assertContains(c.post('/new/groups/new/', self._data(name='G1')), 'allaqachon bor', status_code=400)
+        self.assertContains(c.post('/new/groups/new/', self._data(monthly_fee='-5')), 'manfiy', status_code=400)
+        self.assertContains(c.post('/new/groups/new/', self._data(monthly_fee='999999999999')), 'katta', status_code=400)
+
+    def test_teacher_and_room_conflicts_rejected(self):
+        import datetime
+        from groups_app.models import Group
+        day = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'][self.today.weekday()]
+        Group.objects.filter(pk=self.g1.pk).update(lesson_time=datetime.time(15, 0), end_time=datetime.time(16, 30), room=3, duration=1.5)
+        c = self.login(self.admin)
+        r = c.post('/new/groups/new/', self._data(days=[day], teacher=self.t1.pk, room=''))
+        self.assertContains(r, "boshqa guruhda dars", status_code=400)
+        r = c.post('/new/groups/new/', self._data(days=[day], room='3'))
+        self.assertContains(r, 'xona', status_code=400)
+
+    def test_check_slot_marks_busy_room(self):
+        import datetime
+        from groups_app.models import Group
+        day = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'][self.today.weekday()]
+        Group.objects.filter(pk=self.g1.pk).update(lesson_time=datetime.time(15, 0), end_time=datetime.time(16, 30), room=2)
+        d = self.get(self.admin, '/new/api/groups/check-slot/?days=%s&time=15:30&duration=1&teacher=%d' % (day, self.t1.pk)).json()
+        self.assertFalse([r for r in d['rooms'] if r['id'] == 2][0]['free'])
+        self.assertTrue([r for r in d['rooms'] if r['id'] == 1][0]['free'])
+        self.assertIn('G1', d['teacher_busy'])
+
+    def test_edit_saves(self):
+        r = self.login(self.admin).post('/new/groups/%d/edit/' % self.g2.pk, self._data(name='G2 yangi', teacher=self.t2.pk))
+        self.assertEqual(r.status_code, 302)
+        self.g2.refresh_from_db()
+        self.assertEqual(self.g2.name, 'G2 yangi')
+
+    def test_pause_and_delete_permissions(self):
+        from groups_app.models import Group
+        c = self.login(self.admin)
+        c.post('/new/groups/%d/pause/' % self.g2.pk)
+        self.g2.refresh_from_db()
+        self.assertTrue(self.g2.is_paused)
+        c.post('/new/groups/%d/delete/' % self.g2.pk)
+        self.assertTrue(Group.objects.filter(pk=self.g2.pk).exists())    # administrator o'chira olmaydi
+        g3 = Group.objects.create(name='Bosh', monthly_fee=1)
+        self.login(self.director).post('/new/groups/%d/delete/' % g3.pk)
+        self.assertFalse(Group.objects.filter(pk=g3.pk).exists())

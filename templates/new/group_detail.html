@@ -1,0 +1,92 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ group.name }}</h1>
+    <div class="muted">{{ group.teacher.get_full_name|default:"O'qituvchi belgilanmagan" }} · {{ group.lesson_days|default:"Kunlar belgilanmagan" }}{% if group.lesson_time %} · {{ group.lesson_time|hm }}{% endif %}{% if group.room %} · {{ group.get_room_display }}{% endif %}</div></div>
+    {% if not group.is_active %}<span class="badge bad">Yopilgan</span>{% elif group.is_paused %}<span class="badge warn"><i class="fa-solid fa-pause"></i> Pauzada</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> Faol</span>{% endif %}</div>
+
+<div class="stack">
+    <div class="row">
+        <a class="btn btn-primary" href="{% url 'new:attendance_mark' group.pk %}"><i class="fa-solid fa-clipboard-check"></i> Davomat belgilash</a>
+        <a class="btn btn-secondary" href="{% url 'new:group_edit' group.pk %}"><i class="fa-solid fa-pen"></i> Tahrirlash</a>
+    </div>
+
+    <div class="grid-2">
+        <div class="card"><div class="muted small">Oylik to'lov</div><div style="font-size:1.4rem;font-weight:800">{{ group.monthly_fee|som }} so'm</div></div>
+        <div class="card"><div class="muted small">Qarzdorlar</div>
+            <div style="font-size:1.4rem;font-weight:800;color:{% if debtors %}var(--danger){% else %}var(--success){% endif %}">{{ debtors }} ta{% if total_debt %} · {{ total_debt|som }} so'm{% endif %}</div>
+            {% if debtors %}<a href="{% url 'new:debtors' %}?group={{ group.pk }}">Qarzdorlarni ko'rish</a>{% endif %}</div>
+    </div>
+
+    <div class="card">
+        <h2>O'quvchilar ({{ members|length }})</h2>
+        {% if members %}
+        <div class="list" id="mList">
+            {% for m in members %}
+            <div class="item" data-sid="{{ m.student_id }}" data-name="{{ m.student.first_name }} {{ m.student.last_name }}">
+                <a class="i-main" href="{% url 'new:student' m.student_id %}" style="text-decoration:none;color:inherit"><div class="i-title">{{ m.student.last_name }} {{ m.student.first_name }}</div>
+                    <div class="i-sub">{{ m.student.phone|phone|default:m.student.parent_phone|phone|default:"Telefon yo'q" }}</div></a>
+                {% if m.debt %}<span class="badge bad">Qarzi: {{ m.debt|som }}</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> To'langan</span>{% endif %}
+                <div class="i-act"><a class="btn btn-secondary btn-sm" href="{% url 'new:pay' %}?student={{ m.student_id }}&group={{ group.pk }}">To'lov</a>
+                    <button type="button" class="btn btn-danger btn-sm js-remove">Chiqarish</button></div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><i class="fa-solid fa-user-plus"></i><p>Bu guruhda hali o'quvchi yo'q.</p></div>
+        {% endif %}
+
+        {% if group.is_active %}
+        <form id="addStudent" class="stack-sm" style="margin-top:1rem">
+            <label for="asQ">O'quvchi qo'shish</label>
+            <div class="row"><div class="grow"><select id="asSel"><option value="">O'quvchini tanlang</option>
+                {% for s in free_students %}<option value="{{ s.pk }}">{{ s.last_name }} {{ s.first_name }}{% if s.phone %} — {{ s.phone|phone }}{% endif %}</option>{% endfor %}</select></div>
+                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Guruhga qo'shish</button></div>
+            <div class="hint">Ro'yxatda yo'q bo'lsa — <a href="{% url 'new:student_new' %}?group={{ group.pk }}">yangi o'quvchi qo'shing</a>.</div>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="card stack-sm"><h2>Boshqa amallar</h2>
+        <form method="post" action="{% url 'new:group_pause' group.pk %}">{% csrf_token %}
+            <button class="btn btn-secondary" type="submit" data-confirm-title="{% if group.is_paused %}Guruh qayta faollashtirilsinmi?{% else %}Guruh pauzaga qo'yilsinmi?{% endif %}" data-confirm-text="{% if group.is_paused %}Hisob qayta boshlanadi.{% else %}Pauza davrida o'quvchilardan to'lov hisoblanmaydi va o'qituvchi jarimalanmaydi.{% endif %}" data-confirm-ok="Ha">
+                <i class="fa-solid fa-{% if group.is_paused %}play{% else %}pause{% endif %}"></i> {% if group.is_paused %}Guruhni qayta faollashtirish{% else %}Guruhni pauzaga qo'yish{% endif %}</button></form>
+        {% if role == 'director' %}
+        <form method="post" action="{% url 'new:group_delete' group.pk %}">{% csrf_token %}
+            <button class="btn btn-danger" type="submit" data-confirm-title="'{{ group.name }}' guruhi o'chirilsinmi?" data-confirm-text="Bu amalni qaytarib bo'lmaydi. Agar guruhda davomat yoki to'lov tarixi bo'lsa, o'chirib bo'lmaydi — u holda guruhni pauzaga qo'ying." data-confirm-ok="Ha, o'chirish" data-danger><i class="fa-solid fa-trash"></i> Guruhni o'chirish</button></form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var UX = window.UX, url = "{% url 'new:api_student_group' 0 %}";
+    function call(sid, action) { return UX.api(url.replace('/0/', '/' + sid + '/'), { body: { action: action, group_id: {{ group.pk }} } }); }
+    document.querySelectorAll('.js-remove').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var row = b.closest('[data-sid]'), sid = row.dataset.sid, name = row.dataset.name;
+            UX.confirm({ title: name + " guruhdan chiqarilsinmi?", text: "Shu sanadan keyin to'lov hisoblanmaydi. Oldingi to'lovlar saqlanadi.", ok: 'Ha, chiqarish', danger: true }, function () {
+                call(sid, 'remove').then(function () {
+                    row.hidden = true;
+                    UX.toast(name + ' guruhdan chiqarildi', { action: 'Qaytarish', onAction: function () { call(sid, 'add').then(function () { location.reload(); }); } });
+                    setTimeout(function () { location.reload(); }, 10500);
+                }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+            });
+        });
+    });
+    var f = document.getElementById('addStudent');
+    if (f) f.addEventListener('submit', function (e) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        var sid = document.getElementById('asSel').value;
+        if (!sid) { UX.toast("Avval o'quvchini tanlang", { kind: 'bad' }); return; }
+        call(sid, 'add').then(function () { location.reload(); }).catch(function (err) { UX.toast(err.message, { kind: 'bad' }); });
+    }, true);
+})();
+</script>
+{% endblock %}
+{% block help %}
+<p>Bu <b>guruh kartochkasi</b>: o'quvchilar, qarzdorlar va amallar.</p>
+<ol><li>"Davomat belgilash" — bugungi davomat.</li><li>O'quvchi qo'shish yoki chiqarish — pastda.</li><li>Guruhni vaqtincha to'xtatish uchun "pauzaga qo'yish".</li></ol>
+{% endblock %}
