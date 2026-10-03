@@ -1,0 +1,24 @@
+{% load static ux_tags %}<!DOCTYPE html>
+<html lang="uz"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kvitansiya №{{ pay.pk }}</title>
+<style>
+body{font-family:system-ui,Arial,sans-serif;max-width:420px;margin:1rem auto;padding:0 1rem;color:#111}
+h1{font-size:1.3rem;text-align:center;margin:.25rem 0}.c{text-align:center;color:#444}
+table{width:100%;border-collapse:collapse;margin:1rem 0}td{padding:.5rem 0;border-bottom:1px dashed #999;vertical-align:top}td:last-child{text-align:right;font-weight:700}
+.big{font-size:1.5rem;text-align:center;margin:1rem 0;font-weight:800}
+button{width:100%;min-height:48px;font-size:1rem;font-weight:700;border-radius:10px;border:2px solid #2f4bbf;background:#2f4bbf;color:#fff;cursor:pointer}
+@media print{button,.noprint{display:none}}
+</style></head>
+<body>
+<h1>Ilm Najot o'quv markazi</h1><div class="c">To'lov kvitansiyasi № {{ pay.pk }}</div>
+<table>
+<tr><td>Sana</td><td>{{ pay.payment_date|date:"d.m.Y" }}</td></tr>
+<tr><td>O'quvchi</td><td>{{ pay.student.first_name }} {{ pay.student.last_name }}</td></tr>
+<tr><td>Guruh</td><td>{{ pay.group.name }}</td></tr>
+<tr><td>To'lov usuli</td><td>{{ pay.get_method_display }}</td></tr>
+<tr><td>Qabul qildi</td><td>{{ pay.created_by.get_full_name|default:pay.created_by.username }}</td></tr>
+</table>
+<div class="big">{{ pay.amount|som }} so'm</div>
+<div class="c">Rahmat!</div>
+<p class="noprint"><button onclick="window.print()">Chop etish</button></p>
+</body></html>

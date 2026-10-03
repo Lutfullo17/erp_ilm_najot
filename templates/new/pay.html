@@ -1,0 +1,94 @@
+{% extends 'new/base.html' %}
+{% load static %}
+{% block title %}To'lov qabul qilish{% endblock %}
+{% block content %}
+<div class="page-title"><h1>To'lov qabul qilish</h1></div>
+{% include 'new/_pay_tabs.html' with tab='pay' %}
+
+<div id="payApp" data-search="{% url 'new:api_pay_search' %}" data-info="{% url 'new:api_pay_info' 0 %}" data-create="{% url 'new:api_pay_create' %}"
+     data-today="{{ today }}" data-min="{{ min_date }}" data-undo="{{ undo_minutes }}" data-pre-group="{{ pre_group }}" data-new-student="{% url 'new:student_new' %}">
+
+    <!-- 1-qadam: o'quvchini topish -->
+    <section id="stepFind" {% if pre %}hidden{% endif %}>
+        <div class="card stack">
+            <div class="field" style="margin:0">
+                <label for="payQ">Qaysi o'quvchidan to'lov qabul qilasiz?</label>
+                <input type="search" id="payQ" placeholder="Ism, familiya yoki telefon yozing" autocomplete="off" autofocus>
+                <div class="hint">Kamida 2 ta harf yozing. Masalan: <b>Ali</b> yoki <b>90 123</b></div>
+            </div>
+            <div id="payResults" class="list" aria-live="polite"></div>
+        </div>
+    </section>
+
+    <!-- 2-qadam: summa -->
+    <section id="stepPay" hidden>
+        <form id="payForm" class="stack" data-ajax novalidate>
+            <div class="card">
+                <div class="row between"><div><div class="muted small">O'quvchi</div><div id="pName" style="font-size:1.25rem;font-weight:800"></div><div id="pPhone" class="muted"></div></div>
+                    <button type="button" class="btn btn-tertiary" id="pChange">Boshqa o'quvchi</button></div>
+            </div>
+
+            <div class="card" id="groupCard">
+                <div class="field-label" id="gLabel">Qaysi guruh uchun?</div>
+                <div class="choices" id="pGroups" role="radiogroup" aria-labelledby="gLabel"></div>
+            </div>
+
+            <div class="card">
+                <div class="field">
+                    <label for="pAmount" class="req">Qancha qabul qilasiz? (so'm)</label>
+                    <input type="text" id="pAmount" inputmode="numeric" data-money autocomplete="off" aria-describedby="pAmountHint pAmountErr">
+                    <div class="hint" id="pAmountHint"></div><div class="err" id="pAmountErr" role="alert"></div>
+                </div>
+                <div class="chips" id="pChips"></div>
+            </div>
+
+            <div class="card">
+                <div class="field-label" id="mLabel">To'lov usuli</div>
+                <div class="choices" role="radiogroup" aria-labelledby="mLabel">
+                    {% for v, label in methods %}
+                    <label class="choice"><input type="radio" name="method" value="{{ v }}" {% if v == 'CASH' %}checked{% endif %}> {% if v == 'CASH' %}<i class="fa-solid fa-money-bill-wave"></i>{% elif v == 'CARD' %}<i class="fa-regular fa-credit-card"></i>{% else %}<i class="fa-solid fa-building-columns"></i>{% endif %} {{ label }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="field-label" id="dLabel">To'lov sanasi</div>
+                <div class="chips" role="radiogroup" aria-labelledby="dLabel">
+                    <label class="chip on" id="dToday"><input type="radio" name="dateMode" value="today" checked class="sr-only"> Bugun</label>
+                    <label class="chip" id="dOther"><input type="radio" name="dateMode" value="other" class="sr-only"> Boshqa sana</label>
+                </div>
+                <div class="field" id="dField" hidden style="margin-top:.75rem"><label for="pDate">Sanani tanlang</label>
+                    <input type="date" id="pDate" min="{{ min_date }}" max="{{ today }}" value="{{ today }}"><div class="hint">{% if role == 'director' %}Istalgan sanani tanlash mumkin.{% else %}Oxirgi {{ max_back }} kun ichidagi sanani tanlash mumkin.{% endif %}</div></div>
+                <details style="margin-top:.75rem"><summary class="muted">Izoh qo'shish (ixtiyoriy)</summary>
+                    <div class="field" style="margin-top:.5rem"><label for="pNote" class="sr-only">Izoh</label><input type="text" id="pNote" maxlength="255" placeholder="Masalan: onasi to'ladi"></div></details>
+            </div>
+
+            <div class="err" id="pFormErr" role="alert"></div>
+            <div class="sticky-action"><button type="submit" class="btn btn-primary btn-lg btn-block" id="pSubmit">Qabul qilish</button></div>
+        </form>
+    </section>
+
+    <!-- 3-qadam: tayyor -->
+    <section id="stepDone" hidden>
+        <div class="card stack" style="text-align:center">
+            <div style="font-size:3rem;color:var(--success)"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+            <h2 id="dTitle"></h2>
+            <dl class="kv" id="dInfo" style="text-align:left"></dl>
+            <div class="stack-sm">
+                <a class="btn btn-primary btn-lg btn-block" id="dAgain" href="{% url 'new:pay' %}"><i class="fa-solid fa-plus"></i> Yana to'lov qabul qilish</a>
+                <a class="btn btn-secondary btn-block" id="dReceipt" target="_blank" rel="noopener" href="#"><i class="fa-solid fa-print"></i> Kvitansiyani chop etish</a>
+                <a class="btn btn-tertiary btn-block" href="{% url 'new:home' %}">Bosh sahifaga</a>
+                <button type="button" class="btn btn-danger btn-block" id="dUndo"><i class="fa-solid fa-rotate-left"></i> Xato bo'ldi — bekor qilish</button>
+                <div class="hint">Bekor qilish faqat {{ undo_minutes }} daqiqa davomida mumkin.</div>
+            </div>
+        </div>
+    </section>
+</div>
+{% if pre %}{{ pre|json_script:"preData" }}{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'new/pay.js' %}?v=1" defer></script>{% endblock %}
+{% block help %}
+<p>Bu sahifada o'quvchidan <b>to'lovni qabul qilasiz</b>. Hammasi 3 qadamda:</p>
+<ol><li>O'quvchini toping (ism yoki telefon).</li><li>Summa avtomatik qarz bilan to'ldiriladi — kerak bo'lsa o'zgartiring.</li><li>Yashil emas, ko'k <b>Qabul qilish</b> tugmasini bosing.</li></ol>
+<p class="muted">Xato bosib yuborsangiz, to'lovdan keyin 5 daqiqa ichida "bekor qilish" mumkin.</p>
+{% endblock %}

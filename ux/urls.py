@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views_home, views_misc, views_stub
+from . import views_home, views_misc, views_pay, views_stub
 
 app_name = 'new'
 
@@ -12,9 +12,18 @@ urlpatterns = [
     path('api/search/', views_misc.api_search, name='api_search'),
     path('feedback/', views_misc.feedback, name='feedback'),
 
+    # --- To'lov
+    path('payments/new/', views_pay.PayView.as_view(), name='pay'),
+    path('payments/debtors/', views_pay.DebtorsView.as_view(), name='debtors'),
+    path('payments/', views_pay.PaymentsView.as_view(), name='payments'),
+    path('payments/<int:pk>/receipt/', views_pay.receipt, name='receipt'),
+    path('payments/<int:pk>/delete/', views_pay.payment_delete, name='payment_delete'),
+    path('api/pay-search/', views_pay.api_pay_search, name='api_pay_search'),
+    path('api/pay-info/<int:pk>/', views_pay.api_pay_info, name='api_pay_info'),
+    path('api/payments/', views_pay.api_pay_create, name='api_pay_create'),
+    path('api/payments/<int:pk>/undo/', views_pay.api_pay_undo, name='api_pay_undo'),
+
     # --- vaqtinchalik (keyingi bosqichlarda almashtiriladi)
-    path('payments/new/', S, name='pay'),
-    path('payments/debtors/', S, name='debtors'),
     path('attendance/', S, name='attendance'),
     path('attendance/<int:gid>/', S, name='attendance_mark'),
     path('students/', S, name='students'),

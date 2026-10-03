@@ -1,0 +1,49 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Qarzdorlar{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Qarzdorlar</h1></div>
+{% include 'new/_pay_tabs.html' with tab='debtors' %}
+
+<div class="card" style="margin-bottom:1rem">
+    <div class="row between"><div><div class="muted small">Jami qarz</div><div style="font-size:1.6rem;font-weight:800;color:var(--danger)">{{ total_debt|som }} so'm</div></div>
+        <div class="badge bad"><i class="fa-solid fa-user-clock"></i> {{ count }} ta qarzdor</div></div>
+</div>
+
+<form method="get" class="stack-sm" style="margin-bottom:1rem">
+    <div class="row">
+        <div class="grow"><label class="sr-only" for="dq">Qidirish</label><input type="search" id="dq" name="q" value="{{ q }}" placeholder="Ism yoki telefon bo'yicha qidirish"></div>
+        <div><label class="sr-only" for="dg">Guruh</label><select id="dg" name="group"><option value="">Barcha guruhlar</option>
+            {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk|stringformat:'s' == group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
+        <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Qidirish</button>
+    </div>
+    <div class="chips">
+        <a class="chip {% if not flt %}on{% endif %}" href="?{% if q %}q={{ q|urlencode }}&{% endif %}{% if group_id %}group={{ group_id }}{% endif %}">Hammasi</a>
+        <a class="chip {% if flt == '1' %}on{% endif %}" href="?f=1{% if q %}&q={{ q|urlencode }}{% endif %}{% if group_id %}&group={{ group_id }}{% endif %}">1 oylik qarz</a>
+        <a class="chip {% if flt == '2' %}on{% endif %}" href="?f=2{% if q %}&q={{ q|urlencode }}{% endif %}{% if group_id %}&group={{ group_id }}{% endif %}">2 va undan ko'p oy</a>
+    </div>
+</form>
+
+{% if items %}
+<div class="list">
+    {% for it in items %}
+    <div class="item">
+        <div class="i-main">
+            <div class="i-title"><a href="{% url 'new:student' it.r.student_id %}" style="color:inherit;text-decoration:none">{{ it.r.student__first_name }} {{ it.r.student__last_name }}</a></div>
+            <div class="i-sub">{{ it.r.student__phone|default:it.r.student__parent_phone|default:"Telefon yo'q" }} · {% for g in it.groups %}{{ g.group__name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+        </div>
+        <span class="badge bad"><i class="fa-solid fa-circle-exclamation"></i> {{ it.r.total|som }} so'm · {{ it.r.months }} oy</span>
+        <div class="i-act"><a class="btn btn-primary btn-sm" href="{% url 'new:pay' %}?student={{ it.r.student_id }}&group={{ it.main_group }}">To'lov qabul qilish</a></div>
+    </div>
+    {% endfor %}
+</div>
+{% include 'new/_pager.html' %}
+{% else %}
+<div class="empty"><i class="fa-solid fa-champagne-glasses"></i><p>{% if q or flt or group_id %}Bu filtr bo'yicha qarzdor topilmadi.{% else %}Qarzdor yo'q — hammasi to'lagan!{% endif %}</p>
+    {% if q or flt or group_id %}<a class="btn btn-secondary" href="{% url 'new:debtors' %}">Filtrni tozalash</a>{% endif %}</div>
+{% endif %}
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>qarzi bor o'quvchilar</b> ko'rinadi — eng katta qarzdan boshlab.</p>
+<ol><li>Qidiruv yoki guruh bo'yicha toping.</li><li>Qatordagi <b>To'lov qabul qilish</b> tugmasini bosing.</li><li>Summa qarz bilan o'zi to'ladi — faqat tasdiqlang.</li></ol>
+{% endblock %}

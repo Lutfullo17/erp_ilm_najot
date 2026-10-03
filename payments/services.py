@@ -21,6 +21,9 @@ from .models import (
 )
 
 
+UNDO_MINUTES = 5
+
+
 class PaymentInputError(ValueError):
     pass
 
@@ -322,17 +325,23 @@ def apply_payment(user, student_id, group_id, amount, payment_date=None, method=
 
 
 @transaction.atomic
-def delete_payment(user, payment_id):
-    if not user.is_director:
-        raise PermissionDenied("Faqat direktor to'lovlarni o'chira oladi.")
-
+def delete_payment(user, payment_id, undo=False):
+    """To'lovni o'chiradi. Direktor — hamisini. `undo=True`: administrator o'zi qabul qilgan
+    to'lovni UNDO_MINUTES ichida bekor qila oladi (xato bosilganda tuzatish uchun)."""
     payment = get_object_or_404(PaymentTransaction.objects.select_related('student', 'group'), pk=payment_id)
+    if not user.is_director:
+        within = timezone.now() - payment.created_at <= timedelta(minutes=UNDO_MINUTES)
+        if not (undo and getattr(user, 'is_admin_access', False) and payment.created_by_id == user.pk and within):
+            raise PermissionDenied(
+                f"Faqat direktor to'lovlarni o'chira oladi (o'zingiz qabul qilgan to'lovni {UNDO_MINUTES} daqiqa ichida bekor qilishingiz mumkin)."
+            )
     student, group = payment.student, payment.group
     snapshot = PaymentTransaction(
         pk=payment.pk, student=student, group=group, amount=payment.amount,
         payment_date=payment.payment_date, method=payment.method,
     )
-    _audit(user, "To'lov o'chirildi", old_data=_payment_snapshot(payment), target_user=payment.created_by)
+    _audit(user, "To'lov bekor qilindi (qaytarish)" if (undo and not user.is_director) else "To'lov o'chirildi",
+           old_data=_payment_snapshot(payment), target_user=payment.created_by)
 
     payment._skip_sync = True
     payment.delete()  # taqsimotlar CASCADE bilan o'chadi

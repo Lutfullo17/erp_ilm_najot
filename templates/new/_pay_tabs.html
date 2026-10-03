@@ -1,0 +1,6 @@
+<div class="chips" style="margin-bottom:1rem" role="tablist" aria-label="To'lov bo'limlari">
+    <a class="chip {% if tab == 'pay' %}on{% endif %}" href="{% url 'new:pay' %}">To'lov qabul qilish</a>
+    <a class="chip {% if tab == 'debtors' %}on{% endif %}" href="{% url 'new:debtors' %}">Qarzdorlar</a>
+    <a class="chip {% if tab == 'history' %}on{% endif %}" href="{% url 'new:payments' %}">To'lovlar tarixi</a>
+    {% if role == 'director' %}<a class="chip" href="{% url 'new:report' %}">Pul hisoboti</a>{% endif %}
+</div>

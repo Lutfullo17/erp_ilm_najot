@@ -1,0 +1,44 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}To'lovlar tarixi{% endblock %}
+{% block content %}
+<div class="page-title"><h1>To'lovlar tarixi</h1><a class="btn btn-primary" href="{% url 'new:pay' %}"><i class="fa-solid fa-plus"></i> To'lov qabul qilish</a></div>
+{% include 'new/_pay_tabs.html' with tab='history' %}
+
+<div class="card" style="margin-bottom:1rem"><div class="muted small">{% if period == 'today' %}Bugun{% elif period == 'week' %}Shu hafta{% elif period == 'month' %}Shu oy{% else %}Hammasi{% endif %} qabul qilindi</div>
+    <div style="font-size:1.6rem;font-weight:800;color:var(--success)">{{ total|som }} so'm</div></div>
+
+<form method="get" class="stack-sm" style="margin-bottom:1rem">
+    <div class="row"><div class="grow"><label class="sr-only" for="pq">Qidirish</label><input type="search" id="pq" name="q" value="{{ q }}" placeholder="O'quvchi yoki guruh nomi"></div>
+        <input type="hidden" name="p" value="{{ period }}"><button class="btn btn-secondary" type="submit">Qidirish</button></div>
+    <div class="chips">
+        {% for key, label in periods %}<a class="chip {% if period == key %}on{% endif %}" href="?p={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}">{{ label }}</a>{% endfor %}
+    </div>
+</form>
+
+{% if page.object_list %}
+<div class="list">
+    {% for p in page.object_list %}
+    <div class="item">
+        <div class="i-main"><div class="i-title">{{ p.student.first_name }} {{ p.student.last_name }}</div>
+            <div class="i-sub">{{ p.group.name }} · {{ p.payment_date|date:"d.m.Y" }} · {{ p.get_method_display }}{% if role == 'director' %} · {{ p.created_by.get_full_name|default:p.created_by.username }}{% endif %}</div></div>
+        <span class="badge ok"><i class="fa-solid fa-check"></i> {{ p.amount|som }} so'm</span>
+        <div class="i-act">
+            <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="{% url 'new:receipt' p.pk %}"><i class="fa-solid fa-print"></i> Kvitansiya</a>
+            {% if role == 'director' or p.can_undo %}
+            <form method="post" action="{% url 'new:payment_delete' p.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-danger btn-sm" type="submit" data-confirm-title="To'lovni bekor qilamizmi?" data-confirm-text="{{ p.student.first_name }} {{ p.student.last_name }}: {{ p.amount|som }} so'm o'chiriladi va o'quvchining qarzi qayta hisoblanadi." data-confirm-ok="Ha, bekor qilish" data-danger>Bekor qilish</button></form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% include 'new/_pager.html' %}
+{% else %}
+<div class="empty"><i class="fa-solid fa-wallet"></i><p>{% if period == 'today' and not q %}Bugun hali to'lov qabul qilinmagan.{% else %}Bu davrda to'lov topilmadi.{% endif %}</p><a class="btn btn-primary" href="{% url 'new:pay' %}">To'lov qabul qilish</a></div>
+{% endif %}
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>qabul qilingan to'lovlar</b> ro'yxati. Davrni tanlang: bugun, shu hafta, shu oy yoki hammasi.</p>
+<p class="muted">Kvitansiyani chop etish mumkin. Xato to'lovni {{ undo_minutes }} daqiqa ichida bekor qilish mumkin (direktor istalgan vaqtda).</p>
+{% endblock %}
