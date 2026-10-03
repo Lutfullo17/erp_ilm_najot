@@ -31,6 +31,9 @@ if os.environ.get('USE_PROXY_SSL_HEADER') == 'True':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Faqat ishonchli proksi ortida True qiling, aks holda audit IP si soxtalashtirilishi mumkin.
 TRUST_X_FORWARDED_FOR = os.environ.get('TRUST_X_FORWARDED_FOR') == 'True'
+# Yangi interfeys (/new/): vergul bilan foydalanuvchi nomlari yoki '*' (hamma). Bo'sh = hamma eskisida.
+NEW_UI_USERS = [u for u in os.environ.get('NEW_UI_USERS', '').split(',') if u.strip()]
+NEW_UI_OPT_IN = os.environ.get('NEW_UI_OPT_IN') == 'True'  # eski sahifalarda "Yangi ko'rinish" havolasi
 # Administrator to'lov sanasini ko'pi bilan shuncha kun orqaga qo'yishi mumkin (director cheklanmagan).
 PAYMENT_BACKDATE_DAYS = int(os.environ.get('PAYMENT_BACKDATE_DAYS', '7'))
 
@@ -54,6 +57,7 @@ INSTALLED_APPS = [
     'students',
     'users1',
     'reports',
+    'ux',
 ]
 
 MIDDLEWARE = [
@@ -81,6 +85,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'users1.notifications.notifications_context',
+                'ux.context.ux_context',
             ],
         },
     },

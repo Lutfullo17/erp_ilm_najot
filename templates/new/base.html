@@ -1,0 +1,135 @@
+{% load static ux_tags %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Bugun{% endblock %} | Ilm Najot</title>
+    <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
+    <script src="{% static 'js/theme-init.js' %}"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'new/new.css' %}?v=1">
+    {% block head %}{% endblock %}
+</head>
+<body data-role="{{ ux_role }}" data-user="{{ user.username }}">
+<a href="#main" class="skip-link">Asosiy mazmunga o'tish</a>
+
+<header class="topbar">
+    <button type="button" class="icon-btn only-mobile" data-open="dlg-menu" aria-label="Menyuni ochish"><i class="fa-solid fa-bars"></i></button>
+    <a class="brand" href="{% url 'new:home' %}"><img src="{% static 'images/logo.png' %}" alt=""><span class="brand-text">Ilm Najot</span></a>
+    <button type="button" class="top-search" data-open="dlg-search" aria-label="Qidirish: o'quvchi, guruh yoki telefon">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><span class="search-label">Qidirish...</span>
+    </button>
+    <button type="button" class="btn btn-primary fab-desktop" data-open="dlg-quick"><i class="fa-solid fa-plus"></i> Tez amal</button>
+    <button type="button" class="icon-btn" id="helpBtn" data-open="dlg-help" aria-label="Bu sahifa nima uchun?" hidden><i class="fa-regular fa-circle-question"></i><span class="sr-only">Yordam</span></button>
+    <button type="button" class="icon-btn" id="themeBtn" aria-label="Kun/Tun rejimini almashtirish"><i class="fa-solid fa-circle-half-stroke"></i></button>
+    <button type="button" class="avatar" data-open="dlg-user" aria-label="Mening hisobim">{{ user.first_name|default:user.username|slice:":1"|upper }}</button>
+</header>
+
+<div class="layout">
+    <nav class="side" aria-label="Asosiy menyu">
+        {% for it in ux_side %}
+        <a class="nav {% if it.active %}active{% endif %}" href="{{ it.url }}" {% if it.active %}aria-current="page"{% endif %}><i class="fa-solid fa-{{ it.icon }}"></i>{{ it.label }}</a>
+        {% endfor %}
+    </nav>
+
+    <main class="main" id="main" tabindex="-1">
+        {% if messages %}
+        <div role="status" aria-live="polite">
+        {% for m in messages %}
+            <div class="alert {% if m.tags == 'error' %}bad{% elif m.tags == 'warning' %}warn{% elif m.tags == 'info' %}info{% else %}ok{% endif %}">
+                <i class="fa-solid fa-{% if m.tags == 'error' %}circle-xmark{% elif m.tags == 'warning' %}triangle-exclamation{% elif m.tags == 'info' %}circle-info{% else %}circle-check{% endif %}" aria-hidden="true"></i>
+                <span>{{ m }}</span>
+            </div>
+        {% endfor %}
+        </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<nav class="bottom-nav" aria-label="Pastki menyu">
+    {% for it in ux_bottom|slice:":2" %}
+    <a class="bn-item {% if it.active %}active{% endif %}" href="{{ it.url }}" {% if it.active %}aria-current="page"{% endif %}><i class="fa-solid fa-{{ it.icon }}"></i><span>{{ it.label }}</span></a>
+    {% endfor %}
+    <button type="button" class="fab" data-open="dlg-quick" aria-label="Tez amal"><i class="fa-solid fa-plus"></i></button>
+    {% for it in ux_bottom|slice:"2:" %}
+    <a class="bn-item {% if it.active %}active{% endif %}" href="{{ it.url }}" {% if it.active %}aria-current="page"{% endif %}><i class="fa-solid fa-{{ it.icon }}"></i><span>{{ it.label }}</span></a>
+    {% endfor %}
+</nav>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- Tez amal -->
+<dialog class="sheet" id="dlg-quick" aria-labelledby="dq-t"><div class="dlg">
+    <div class="dlg-head"><h2 id="dq-t">Nima qilmoqchisiz?</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="qa">{% for q in ux_quick %}<a href="{{ q.url }}"><i class="fa-solid fa-{{ q.icon }}"></i>{{ q.label }}</a>{% endfor %}</div>
+</div></dialog>
+
+<!-- Menyu (telefon) -->
+<dialog class="sheet" id="dlg-menu" aria-labelledby="dm-t"><div class="dlg">
+    <div class="dlg-head"><h2 id="dm-t">Menyu</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="qa">{% for it in ux_side %}<a href="{{ it.url }}"><i class="fa-solid fa-{{ it.icon }}"></i>{{ it.label }}</a>{% endfor %}</div>
+</div></dialog>
+
+<!-- Qidiruv -->
+<dialog class="sheet" id="dlg-search" aria-labelledby="ds-t"><div class="dlg">
+    <div class="dlg-head"><h2 id="ds-t">Qidirish</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="search-box"><label class="sr-only" for="gsInput">Ism, telefon yoki guruh nomi</label>
+        <input type="search" id="gsInput" placeholder="Ism, telefon yoki guruh nomi" autocomplete="off" data-url="{% url 'new:api_search' %}"></div>
+    <div class="search-results" id="gsResults" aria-live="polite"><p class="muted">Kamida 2 ta harf yozing.</p></div>
+</div></dialog>
+
+<!-- Foydalanuvchi menyusi -->
+<dialog class="sheet" id="dlg-user" aria-labelledby="du-t"><div class="dlg">
+    <div class="dlg-head"><h2 id="du-t">{{ user.get_full_name|default:user.username }}</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <p class="muted small" style="margin-bottom:.75rem">{% if ux_role == 'director' %}Direktor{% elif ux_role == 'administrator' %}Administrator{% else %}O'qituvchi{% endif %}</p>
+    <div class="qa">
+        {% if ux_role == 'teacher' %}<a href="{% url 'new:profile' %}"><i class="fa-solid fa-user"></i>Mening ballarim va ma'lumotlarim</a>
+        {% else %}<a href="{% url 'new:settings' %}"><i class="fa-solid fa-gear"></i>Sozlamalar</a>{% endif %}
+        <a href="#" data-action="tour"><i class="fa-solid fa-route"></i>Tanishtiruvni qayta ko'rish</a>
+        <a href="#" data-open="dlg-feedback"><i class="fa-solid fa-comment-dots"></i>Fikr bildirish</a>
+        <a href="{% url 'new:switch' 'old' %}"><i class="fa-solid fa-rotate-left"></i>Eski ko'rinishga qaytish</a>
+    </div>
+    <form method="post" action="{% url 'users1:logout' %}" data-confirm-title="Tizimdan chiqasizmi?" data-confirm-text="Qayta kirish uchun login va parol kerak bo'ladi." data-confirm-ok="Chiqish" style="margin-top:.75rem">
+        {% csrf_token %}<button class="btn btn-secondary btn-block" type="submit"><i class="fa-solid fa-right-from-bracket"></i> Chiqish</button>
+    </form>
+</div></dialog>
+
+<!-- Yordam -->
+<dialog class="sheet" id="dlg-help" aria-labelledby="dh-t"><div class="dlg">
+    <div class="dlg-head"><h2 id="dh-t">Bu sahifa nima uchun?</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="helpBody" class="stack-sm"></div>
+    <div class="dlg-actions"><button class="btn btn-primary" data-close>Tushundim</button></div>
+</div></dialog>
+<template id="helpTpl">{% block help %}{% endblock %}</template>
+
+<!-- Fikr bildirish -->
+<dialog class="sheet" id="dlg-feedback" aria-labelledby="df-t"><div class="dlg">
+    <form method="post" action="{% url 'new:feedback' %}" id="feedbackForm">
+        {% csrf_token %}
+        <div class="dlg-head"><h2 id="df-t">Fikr bildirish</h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="field"><label for="fbText" class="req">Nima qiyin bo'ldi yoki nimani yaxshilash kerak?</label>
+            <textarea id="fbText" name="message" maxlength="1000" required placeholder="Masalan: To'lov sahifasida summani topa olmadim"></textarea></div>
+        <input type="hidden" name="page" value="{{ request.path }}">
+        <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Yuborish</button></div>
+    </form>
+</div></dialog>
+
+<!-- Tasdiqlash -->
+<dialog id="dlg-confirm" aria-labelledby="dc-t"><div class="dlg">
+    <h2 id="dc-t">Tasdiqlang</h2><p id="dc-p" class="muted" style="margin-top:.5rem"></p>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" id="dc-no">Bekor qilish</button><button type="button" class="btn btn-primary" id="dc-yes">Ha</button></div>
+</div></dialog>
+
+<!-- Tanishtiruv -->
+<dialog id="dlg-tour" aria-labelledby="dt-t"><div class="dlg">
+    <div class="stepper"><span id="tourStep">1/4</span><div class="bar"><i id="tourBar" style="width:25%"></i></div></div>
+    <h2 id="dt-t"></h2><p id="dt-p" class="muted" style="margin-top:.5rem"></p>
+    <div class="dlg-actions"><button class="btn btn-tertiary" id="tourSkip">O'tkazib yuborish</button><button class="btn btn-primary" id="tourNext">Keyingi</button></div>
+</div></dialog>
+
+<script>window.UX = {role: "{{ ux_role }}", home: "{% url 'new:home' %}"};</script>
+<script src="{% static 'new/new.js' %}?v=1" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

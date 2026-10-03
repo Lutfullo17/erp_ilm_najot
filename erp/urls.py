@@ -31,6 +31,7 @@ urlpatterns = [
     path('students/', include('students.urls')),
     path('users/', include('users1.urls')),
     path('reports/', include('reports.urls')),
+    path('new/', include('ux.urls')),
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'images/logo.png')),
     path('', lambda r: redirect('users1:index'), name='root_redirect'),
 ]

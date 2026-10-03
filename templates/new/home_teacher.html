@@ -1,0 +1,53 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Bugun{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Assalomu alaykum, {{ user.first_name|default:user.username }}!</h1></div>
+
+{% if current %}
+<div class="task t-success" style="flex-wrap:wrap">
+    <div class="t-ic"><i class="fa-solid fa-circle-play"></i></div>
+    <div class="t-body"><div class="badge ok">Hozir dars bor</div>
+        <div class="t-big" style="margin-top:.25rem">{{ current.group.name }}</div>
+        <div class="muted">{{ current.start|hm }}–{{ current.end|hm }} · {{ current.students }} ta o'quvchi</div></div>
+    <div class="t-act" style="width:100%"><a class="btn btn-primary btn-lg btn-block" href="{% url 'new:attendance_mark' current.group.pk %}"><i class="fa-solid fa-clipboard-check"></i> {% if current.taken %}Davomatni ko'rish{% else %}Davomat belgilash{% endif %}</a></div>
+</div>
+{% elif lessons %}
+<div class="alert info"><i class="fa-regular fa-clock"></i><span>Hozir dars yo'q.{% for l in lessons %}{% if l.state == 'upcoming' and forloop.first %} Keyingi dars: <b>{{ l.start|hm }} {{ l.group.name }}</b>.{% endif %}{% endfor %}</span></div>
+{% else %}
+<div class="empty"><i class="fa-regular fa-calendar"></i><p>Bugun darsingiz yo'q.</p><a class="btn btn-secondary" href="{% url 'new:my_schedule' %}">Haftalik jadvalni ko'rish</a></div>
+{% endif %}
+
+{% if missed %}
+<h2 style="margin:1.5rem 0 .5rem">Davomat olinmagan darslar</h2>
+<div class="list">
+    {% for a in missed %}
+    <div class="item"><div class="i-main"><div class="i-title">{{ a.group.name }}</div><div class="i-sub">{{ a.lesson_date|date:"d.m.Y" }} — davomat o'z vaqtida olinmagan. Tuzatish uchun administratorga murojaat qiling.</div></div>
+        <span class="badge bad"><i class="fa-solid fa-triangle-exclamation"></i> Olinmagan</span></div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if lessons %}
+<h2 style="margin:1.5rem 0 .5rem">Bugungi darslar</h2>
+<div class="list">
+    {% for l in lessons %}
+    <a class="item" href="{% url 'new:attendance_mark' l.group.pk %}">
+        <div class="i-main"><div class="i-title">{{ l.start|hm }}–{{ l.end|hm }} · {{ l.group.name }}</div><div class="i-sub">{{ l.students }} ta o'quvchi</div></div>
+        {% if l.taken %}<span class="badge ok"><i class="fa-solid fa-check"></i> Davomat olingan</span>
+        {% elif l.state == 'upcoming' %}<span class="badge info"><i class="fa-regular fa-clock"></i> Hali boshlanmagan</span>
+        {% elif l.state == 'now' %}<span class="badge warn"><i class="fa-solid fa-circle-play"></i> Davom etmoqda</span>
+        {% else %}<span class="badge bad"><i class="fa-solid fa-triangle-exclamation"></i> Davomat olinmagan</span>{% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:1rem"><div class="row between"><div><h3>Shu oydagi jarima ballari</h3>
+    <div style="font-size:1.4rem;font-weight:800">{{ month_points }}</div><div class="muted small">Davomatni o'z vaqtida olmaslik uchun ball ayiriladi.</div></div>
+    <a class="btn btn-secondary" href="{% url 'new:profile' %}">Batafsil</a></div></div>
+{% endblock %}
+{% block help %}
+<p>Bu sahifa <b>bugungi darslaringizni</b> ko'rsatadi. Dars vaqti kelganda yashil kartada <b>Davomat belgilash</b> tugmasi chiqadi.</p>
+<ol><li>Tugmani bosing.</li><li>Kelmagan o'quvchilarni belgilang (hamma avtomatik "Keldi").</li><li>"Saqlash" ni bosing.</li></ol>
+{% endblock %}

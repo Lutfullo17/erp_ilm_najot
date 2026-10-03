@@ -1,0 +1,10 @@
+{# params: tone (primary|danger|success|warning), icon, big, label, sub, href, action #}
+<div class="task t-{{ tone|default:'primary' }}">
+    <div class="t-ic"><i class="fa-solid fa-{{ icon }}" aria-hidden="true"></i></div>
+    <div class="t-body">
+        <div class="t-big">{{ big }}</div>
+        <div>{{ label }}</div>
+        {% if sub %}<div class="muted small">{{ sub }}</div>{% endif %}
+    </div>
+    {% if href %}<div class="t-act"><a class="btn {% if primary %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ href }}">{{ action }}</a></div>{% endif %}
+</div>

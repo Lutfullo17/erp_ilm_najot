@@ -1,0 +1,57 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Bugun{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Assalomu alaykum, {{ user.first_name|default:user.username }}!</h1></div>
+<p class="muted" style="margin:-.5rem 0 1rem">Bugungi holat:</p>
+
+<div class="stack">
+    {% url 'new:report' as u_rep %}
+    {% include 'new/_task.html' with tone='success' icon='wallet' big=paid_today.total|som label="so'm bugun tushdi" sub=paid_sub href=u_rep action="Pul hisobotini ko'rish" primary=True %}
+
+    {% if debt.students %}
+        {% url 'new:debtors' as u_debt %}
+        {% include 'new/_task.html' with tone='danger' icon='circle-exclamation' big=debt.students label='ta qarzdor' sub=debt_sub href=u_debt action="Qarzdorlarni ko'rish" %}
+    {% else %}
+        {% include 'new/_task.html' with tone='success' icon='circle-check' big='0' label="Qarzdor yo'q" %}
+    {% endif %}
+
+    {% if waiting %}
+        {% url 'new:attendance' as u_att %}
+        {% include 'new/_task.html' with tone='warning' icon='clipboard-list' big=waiting|length label="ta guruhda davomat hali olinmagan" sub=waiting.0.group.name href=u_att action="Davomatni ko'rish" %}
+    {% else %}
+        {% include 'new/_task.html' with tone='success' icon='clipboard-check' big=lessons|length label="ta bugungi dars — davomat bo'yicha muammo yo'q" %}
+    {% endif %}
+
+    {% if requests %}
+        {% url 'new:schedule' as u_sch %}
+        {% include 'new/_task.html' with tone='primary' icon='calendar-check' big=requests label="ta dars vaqtini o'zgartirish so'rovi kutmoqda" href=u_sch action="Ko'rib chiqish" %}
+    {% endif %}
+    {% if appeals %}
+        {% url 'new:messages' as u_msg %}
+        {% include 'new/_task.html' with tone='primary' icon='envelope' big=appeals label="ta yangi xabar (ota-onalardan)" href=u_msg action="Xabarlarni ko'rish" %}
+    {% endif %}
+</div>
+
+{% if missed_today %}
+<h2 style="margin:1.5rem 0 .5rem">Davomatni olmagan o'qituvchilar (bugun)</h2>
+<div class="list">
+    {% for a in missed_today %}
+    <div class="item"><div class="i-main"><div class="i-title">{{ a.teacher.get_full_name|default:a.teacher.username }}</div><div class="i-sub">{{ a.group.name }}</div></div>
+        <span class="badge {% if a.status == 'PENDING' %}warn{% else %}bad{% endif %}">{{ a.get_status_display }}</span></div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:1rem"><div class="row between"><div><h3>Shu oy tushumi</h3><div class="t-big" style="font-size:1.5rem;font-weight:800">{{ month_income|som }} so'm</div></div>
+    <a class="btn btn-secondary" href="{% url 'new:report' %}">Batafsil</a></div></div>
+
+{% if birthdays %}
+<div class="card" style="margin-top:1rem"><h3><i class="fa-solid fa-cake-candles"></i> Bugun tug'ilgan kun</h3>
+    <p>{% for s in birthdays %}{{ s.first_name }} {{ s.last_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p></div>
+{% endif %}
+{% endblock %}
+{% block help %}
+<p>Direktor uchun <b>bugungi umumiy holat</b>: tushum, qarzdorlar, davomat olinmagan darslar va kutilayotgan so'rovlar.</p>
+<ol><li>Kartadagi tugma kerakli bo'limga olib boradi.</li><li><b>+</b> tugmasi — tez amallar.</li><li>Lupa — o'quvchi, guruh yoki o'qituvchini qidirish.</li></ol>
+{% endblock %}

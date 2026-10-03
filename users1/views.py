@@ -372,6 +372,9 @@ class AdminAccessRequiredMixin(UserPassesTestMixin):
 # Root redirect
 # ---------------------------------------------------------------------------
 def index(request):
+    from ux.flags import new_ui_enabled
+    if new_ui_enabled(request):
+        return redirect('new:home')
     if request.user.is_authenticated:
         if request.user.is_director:
             return redirect('users1:admin_dashboard')
@@ -409,6 +412,9 @@ class RoleLoginView(LoginView):
         return super().form_valid(form)
 
     def get_success_url(self):
+        from ux.flags import new_ui_enabled
+        if new_ui_enabled(self.request):
+            return '/new/'
         user = self.request.user
         if user.is_director:
             return '/users/admin/'
