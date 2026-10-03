@@ -2,7 +2,7 @@
 {% load ux_tags %}
 {% block title %}Mening ballarim{% endblock %}
 {% block content %}
-<div class="page-title"><div><h1>{{ user.get_full_name|default:user.username }}</h1><div class="muted">Login: {{ user.username }} · {{ user.phone|phone|default:"Telefon yo'q" }}</div></div></div>
+<div class="page-title"><div><h1>{{ user.get_full_name|default:user.username }}</h1><div class="muted">Foydalanuvchi nomi: {{ user.username }} · {{ user.phone|phone|default:"Telefon yo'q" }}</div></div></div>
 <div class="stack">
     <div class="grid-2">
         <div class="card"><div class="muted small">Shu oydagi ballar</div><div style="font-size:1.6rem;font-weight:800;color:{% if monthly_penalty < 0 %}var(--danger){% endif %}">{{ monthly_penalty }}</div></div>

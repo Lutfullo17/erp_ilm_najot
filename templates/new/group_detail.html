@@ -39,7 +39,7 @@
 
         {% if group.is_active %}
         <form id="addStudent" class="stack-sm" style="margin-top:1rem">
-            <label for="asQ">O'quvchi qo'shish</label>
+            <label for="asSel">O'quvchi qo'shish</label>
             <div class="row"><div class="grow"><select id="asSel"><option value="">O'quvchini tanlang</option>
                 {% for s in free_students %}<option value="{{ s.pk }}">{{ s.last_name }} {{ s.first_name }}{% if s.phone %} — {{ s.phone|phone }}{% endif %}</option>{% endfor %}</select></div>
                 <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Guruhga qo'shish</button></div>

@@ -8,7 +8,7 @@
         <div class="field"><label for="id_full_name" class="req">Ism va familiya</label>
             <input type="text" name="full_name" id="id_full_name" value="{{ form.full_name.value|default:'' }}" maxlength="300" {% if form.full_name.errors %}aria-invalid="true"{% endif %} autofocus>
             <div class="hint">Masalan: Aziza Qodirova</div><div class="err" role="alert">{{ form.full_name.errors.0 }}</div></div>
-        <div class="field"><label for="id_username" class="req">Login (tizimga kirish uchun)</label>
+        <div class="field"><label for="id_username" class="req">Foydalanuvchi nomi (tizimga kirish uchun)</label>
             <input type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}" maxlength="150" autocomplete="off" {% if form.username.errors %}aria-invalid="true"{% endif %}>
             <div class="hint">Lotin harflari, kichik. Masalan: aziza.q</div><div class="err" role="alert">{{ form.username.errors.0 }}</div></div>
         <div class="field"><label for="id_phone">Telefon</label>

@@ -2,7 +2,7 @@
 {% load ux_tags %}
 {% block title %}{{ obj.get_full_name|default:obj.username }}{% endblock %}
 {% block content %}
-<div class="page-title"><div><h1>{{ obj.get_full_name|default:obj.username }}</h1><div class="muted">Login: {{ obj.username }} · {{ obj.phone|phone|default:"Telefon yo'q" }}</div></div>
+<div class="page-title"><div><h1>{{ obj.get_full_name|default:obj.username }}</h1><div class="muted">Foydalanuvchi nomi: {{ obj.username }} · {{ obj.phone|phone|default:"Telefon yo'q" }}</div></div>
     <a class="btn btn-secondary" href="{% url 'new:teacher_edit' obj.pk %}"><i class="fa-solid fa-pen"></i> Tahrirlash</a></div>
 
 <div class="stack">

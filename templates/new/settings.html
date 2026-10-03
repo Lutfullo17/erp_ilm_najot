@@ -5,7 +5,7 @@
 <div class="page-title"><h1>Sozlamalar</h1></div>
 <div class="stack">
     <div class="card"><h2>Mening ma'lumotlarim</h2>
-        <dl class="kv"><dt>Ism</dt><dd>{{ user.get_full_name|default:"—" }}</dd><dt>Login</dt><dd>{{ user.username }}</dd><dt>Telefon</dt><dd>{{ user.phone|phone|default:"—" }}</dd></dl>
+        <dl class="kv"><dt>Ism</dt><dd>{{ user.get_full_name|default:"—" }}</dd><dt>Foydalanuvchi nomi</dt><dd>{{ user.username }}</dd><dt>Telefon</dt><dd>{{ user.phone|phone|default:"—" }}</dd></dl>
         {% if role == 'director' %}
         <div class="row" style="margin-top:.75rem"><button class="btn btn-secondary" data-act="info">Ism va telefonni o'zgartirish</button><button class="btn btn-secondary" data-act="login">Loginni o'zgartirish</button>
             <button class="btn btn-secondary" data-act="pw">Parolni o'zgartirish</button><button class="btn btn-secondary" data-act="photo">Rasm yuklash</button></div>

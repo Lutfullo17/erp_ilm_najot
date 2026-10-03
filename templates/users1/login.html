@@ -41,7 +41,7 @@
                 {% csrf_token %}
                 {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
                 <div class="form-group">
-                    <label for="{{ form.username.id_for_label }}" class="required">Login</label>
+                    <label for="{{ form.username.id_for_label }}" class="required">Foydalanuvchi nomi</label>
                     <input type="text" name="username" id="{{ form.username.id_for_label }}" autocomplete="username" autofocus required
                            value="{{ form.username.value|default:'' }}">
                 </div>

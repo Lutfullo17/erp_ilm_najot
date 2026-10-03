@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import LoginView
 from django.contrib.auth import update_session_auth_hash
 from django.http import JsonResponse
@@ -389,7 +390,15 @@ def index(request):
 # ---------------------------------------------------------------------------
 # Login
 # ---------------------------------------------------------------------------
+class SimpleAuthForm(AuthenticationForm):
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        'invalid_login': "Foydalanuvchi nomi yoki parol noto'g'ri. Qayta urinib ko'ring.",
+    }
+
+
 class RoleLoginView(LoginView):
+    form_class = SimpleAuthForm
     template_name = 'users1/login.html'
     redirect_authenticated_user = True
 

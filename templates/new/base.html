@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="{% static 'images/logo.png' %}">
     <script src="{% static 'js/theme-init.js' %}"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'new/new.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'new/new.css' %}?v=4">
     {% block head %}{% endblock %}
 </head>
 <body data-role="{{ ux_role }}" data-user="{{ user.username }}">
@@ -90,7 +90,7 @@
         <a href="#" data-open="dlg-feedback"><i class="fa-solid fa-comment-dots"></i>Fikr bildirish</a>
         <a href="{% url 'new:switch' 'old' %}"><i class="fa-solid fa-rotate-left"></i>Eski ko'rinishga qaytish</a>
     </div>
-    <form method="post" action="{% url 'users1:logout' %}" data-confirm-title="Tizimdan chiqasizmi?" data-confirm-text="Qayta kirish uchun login va parol kerak bo'ladi." data-confirm-ok="Chiqish" style="margin-top:.75rem">
+    <form method="post" action="{% url 'users1:logout' %}" data-confirm-title="Tizimdan chiqasizmi?" data-confirm-text="Qayta kirish uchun foydalanuvchi nomi va parol kerak bo'ladi." data-confirm-ok="Chiqish" style="margin-top:.75rem">
         {% csrf_token %}<button class="btn btn-secondary btn-block" type="submit"><i class="fa-solid fa-right-from-bracket"></i> Chiqish</button>
     </form>
 </div></dialog>
@@ -129,7 +129,7 @@
 </div></dialog>
 
 <script>window.UX = {role: "{{ ux_role }}", home: "{% url 'new:home' %}"};</script>
-<script src="{% static 'new/new.js' %}?v=1" defer></script>
+<script src="{% static 'new/new.js' %}?v=2" defer></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

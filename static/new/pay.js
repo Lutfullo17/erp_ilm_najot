@@ -145,7 +145,7 @@
         state.payment = r.payment;
         $('dTitle').textContent = som(r.payment.amount) + " so'm qabul qilindi";
         var dl = $('dInfo'); dl.textContent = '';
-        [["O'quvchi", r.student.full_name], ['Guruh', r.group.name], ['Sana', r.payment.payment_date],
+        [["O'quvchi", r.student.full_name], ['Guruh', r.group.name], ['Sana', r.payment.payment_date.split('-').reverse().join('.')],
          ['Guruh bo\'yicha qolgan qarz', Number(r.left_debt) > 0 ? som(r.left_debt) + " so'm" : "Yo'q"],
          ['Jami qarzi', Number(r.total_left_debt) > 0 ? som(r.total_left_debt) + " so'm" : "Yo'q"]].forEach(function (p) {
             dl.appendChild(el('dt', { text: p[0] })); dl.appendChild(el('dd', { text: p[1] }));

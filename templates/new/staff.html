@@ -31,7 +31,7 @@
 <div class="list" id="aList">
     {% for a in admins %}
     <div class="item" data-id="{{ a.pk }}" data-name="{{ a.get_full_name|default:a.username }}">
-        <div class="i-main"><div class="i-title">{{ a.get_full_name|default:a.username }}</div><div class="i-sub">Login: {{ a.username }} · {{ a.phone|phone|default:"Telefon yo'q" }}</div></div>
+        <div class="i-main"><div class="i-title">{{ a.get_full_name|default:a.username }}</div><div class="i-sub">Foydalanuvchi nomi: {{ a.username }} · {{ a.phone|phone|default:"Telefon yo'q" }}</div></div>
         {% if a.is_blocked %}<span class="badge bad"><i class="fa-solid fa-ban"></i> Kirishi to'xtatilgan</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> Faol</span>{% endif %}
         <div class="i-act"><button class="btn btn-secondary btn-sm js-pw">Parolni tiklash</button><button class="btn btn-secondary btn-sm js-login">Login</button>
             <button class="btn btn-danger btn-sm js-block" data-blocked="{{ a.is_blocked|yesno:'1,0' }}">{% if a.is_blocked %}Qayta ruxsat berish{% else %}Kirishni to'xtatish{% endif %}</button></div>

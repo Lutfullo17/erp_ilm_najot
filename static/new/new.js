@@ -74,6 +74,13 @@
         return t;
     };
 
+    /* ---- Sessiya tugaganda: aniq xabar va kirish havolasi ---- */
+    function sessionExpired() {
+        var url = '/users/login/?next=' + encodeURIComponent(location.pathname + location.search);
+        UX.toast('Sessiya tugadi. Qayta kiring (sahifadagi ma'lumot o'zgarishsiz qoladi).', { kind: 'bad', ms: 20000, action: 'Kirish', onAction: function () { window.open(url, '_blank', 'noopener'); } });
+        var e = new Error('Sessiya tugadi. Qayta kiring.'); e.status = 401; e.handled = true; throw e;
+    }
+
     /* ---- API (JSON) ---- */
     UX.api = function (url, opts) {
         opts = opts || {};
@@ -86,6 +93,7 @@
         }
         return fetch(url, init).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (data) {
+                if (r.status === 401) return sessionExpired();
                 if (!r.ok) { var err = new Error(data.detail || data.error || 'Xatolik yuz berdi'); err.status = r.status; err.data = data; throw err; }
                 return data;
             });
@@ -101,6 +109,7 @@
         return fetch(url, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) {
                 return r.json().catch(function () { return {}; }).then(function (data) {
+                    if (r.status === 401) return sessionExpired();
                     if (!r.ok) { var e = new Error(data.detail || data.error || 'Xatolik yuz berdi'); e.status = r.status; throw e; }
                     return data;
                 });
@@ -117,6 +126,7 @@
         yes.textContent = opts.ok || 'Ha';
         yes.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
         pendingConfirm = onYes;
+        $$('dialog.sheet[open]').forEach(function (o) { o.close(); });
         d.showModal();
     }
     UX.confirm = askConfirm;

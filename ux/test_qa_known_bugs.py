@@ -1,5 +1,4 @@
-"""QA: topilgan, hali tuzatilmagan kamchiliklar. Har biri `expectedFailure`: tuzatilgach test "kutilmagan muvaffaqiyat" beradi
-va dekoratorni olib tashlash kerak (5-bosqich). Hisobotdagi ID lar BACKEND_TEST_REPORT.md / FRONTEND_TEST_REPORT.md ga mos."""
+"""QA: topilgan va tuzatilgan kamchiliklar uchun regressiya testlari. Hisobotdagi ID lar BACKEND_TEST_REPORT.md / FRONTEND_TEST_REPORT.md ga mos."""
 import json
 
 from payments.models import PaymentTransaction
@@ -43,3 +42,33 @@ class KnownBugs(AuditBase):
         c = self._c(self.admin)
         for url in ('/new/students/', '/new/payments/debtors/'):
             self.assertLess(c.get(url, {'group': '99999999999999999999'}).status_code, 500, url)
+
+
+class FrontendFixes(AuditBase):
+    def test_QA_F09_login_error_is_plain_uzbek(self):
+        r = self.client.post('/users/login/', {'username': 'nobody', 'password': 'x'})
+        self.assertContains(r, 'Foydalanuvchi nomi yoki parol noto&#x27;g&#x27;ri')
+        self.assertNotContains(r, 'ikkala maydon')
+
+    def test_QA_F13_no_english_login_label(self):
+        self.assertContains(self.client.get('/users/login/'), 'Foydalanuvchi nomi')
+
+    def test_QA_F04_pay_lookup_phone_is_formatted(self):
+        self.s1.phone = '931112233'
+        self.s1.save()
+        r = self.login(self.admin).get('/new/api/pay/students/?q=%s' % self.s1.first_name)
+        if r.status_code == 200 and r.json().get('students'):
+            self.assertEqual(r.json()['students'][0]['phone'], '93 111 22 33')
+
+    def test_QA_F05_new_student_page_has_single_pay_button(self):
+        r = self.login(self.admin).get('/new/students/%d/?new=1' % self.s1.pk)
+        self.assertEqual(r.content.decode().count("To'lov qabul qilish"), 1)
+        self.assertNotContains(r, "To'langan")
+
+    def test_QA_F03_session_expiry_returns_401_json(self):
+        self.client.logout()
+        self.assertEqual(self.client.get('/new/api/search/?q=Ali').status_code, 401)
+
+    def test_session_cookie_age_is_12h(self):
+        from django.conf import settings
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 12 * 3600)

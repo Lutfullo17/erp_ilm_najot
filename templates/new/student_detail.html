@@ -7,9 +7,7 @@
     <a class="btn btn-secondary" href="{% url 'new:student_edit' student.pk %}"><i class="fa-solid fa-pen"></i> Tahrirlash</a></div>
 
 {% if is_new %}
-<div class="alert ok"><i class="fa-solid fa-circle-check"></i><span>O'quvchi qo'shildi. Keyingi qadam:</span></div>
 <div class="row" style="margin-bottom:1rem">
-    <a class="btn btn-primary" href="{% url 'new:pay' %}?student={{ student.pk }}"><i class="fa-solid fa-wallet"></i> To'lov qabul qilish</a>
     <a class="btn btn-secondary" href="{% url 'new:student_new' %}"><i class="fa-solid fa-plus"></i> Yana o'quvchi qo'shish</a>
 </div>
 {% endif %}
@@ -29,7 +27,7 @@
             <div class="item" data-gid="{{ m.group_id }}">
                 <a class="i-main" href="{% url 'new:group' m.group_id %}" style="text-decoration:none;color:inherit"><div class="i-title">{{ m.group.name }}</div>
                     <div class="i-sub">{{ m.group.lesson_days }} {% if m.group.lesson_time %}· {{ m.group.lesson_time|hm }}{% endif %} · {{ m.group.monthly_fee|som }} so'm/oy</div></a>
-                {% if m.debt %}<span class="badge bad">Qarzi: {{ m.debt|som }} ({{ m.months }} oy)</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> To'langan</span>{% endif %}
+                {% if m.debt %}<span class="badge bad">Qarzi: {{ m.debt|som }} ({{ m.months }} oy)</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> Qarzi yo'q</span>{% endif %}
                 <div class="i-act"><button type="button" class="btn btn-danger btn-sm js-remove" data-name="{{ m.group.name }}">Guruhdan chiqarish</button></div>
             </div>
             {% endfor %}

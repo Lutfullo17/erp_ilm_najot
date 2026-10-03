@@ -18,6 +18,8 @@ from payments.services import PaymentInputError, UNDO_MINUTES, apply_payment, de
 from payments.views import _payable_students
 from students.models import Student
 
+from .templatetags.ux_tags import phone as fmt_phone
+
 from .base import UxView, json_body, ux_login
 from users1.jsonutil import to_id
 
@@ -52,7 +54,7 @@ def student_pay_info(student):
             groups.append({'id': g.pk, 'name': g.name + " (sobiq guruh)", 'fee': serialize_money(effective_fee(student, g)),
                            'debt': serialize_money(d['total']), 'months': d['months'], 'has_fee': True, 'former': True})
     groups.sort(key=lambda x: -Decimal(x['debt']))
-    return {'id': student.pk, 'name': f'{student.first_name} {student.last_name}', 'phone': student.phone or student.parent_phone,
+    return {'id': student.pk, 'name': f'{student.first_name} {student.last_name}', 'phone': fmt_phone(student.phone or student.parent_phone),
             'groups': groups}
 
 
@@ -94,7 +96,7 @@ def api_pay_search(request):
     debts = {r['student_id']: r['total'] for r in StudentMonthBalance.objects.debts().filter(student__in=students)
              .values('student_id').annotate(total=Sum(F('required_amount') - F('paid_amount')))}
     return JsonResponse({'students': [
-        {'id': s.pk, 'name': f'{s.first_name} {s.last_name}', 'phone': s.phone or s.parent_phone,
+        {'id': s.pk, 'name': f'{s.first_name} {s.last_name}', 'phone': fmt_phone(s.phone or s.parent_phone),
          'debt': serialize_money(debts.get(s.pk, 0))} for s in students]})
 
 
