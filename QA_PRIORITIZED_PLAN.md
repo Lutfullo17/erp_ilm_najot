@@ -6,8 +6,8 @@ Manba: [BACKEND_TEST_REPORT.md](BACKEND_TEST_REPORT.md), [FRONTEND_TEST_REPORT.m
 | Jiddiylik | Soni | Holat |
 |---|---|---|
 | Kritik | 1 | QA-F-01 — **tuzatilgan** (telefonda gorizontal scroll) |
-| Yuqori | 3 | QA-B-04 (= QA-F-02, bitta sabab), QA-F-11 |
-| O'rta | 11 | QA-B-03, -06, -08, -10, -12, -13, QA-N-01, -02, QA-F-03, -04, -05, -06, -12 (13 ta; ba'zilari bitta tuzatishda) |
+| Yuqori | 2 | QA-B-04 (= QA-F-02, bitta sabab), QA-F-11 |
+| O'rta | 13 | QA-B-03, -06, -08, -10, -12, -13, QA-N-01, -02, QA-F-03, -04, -05, -06, -12 (ba'zilari bitta tuzatishda) |
 | Past | 13 | QA-B-01, -02, -05, -07, -09, -11, -14, QA-F-07..10, -13, -14 |
 
 (Eslatma: QA-B-15 — ma'lumot, tuzatilgan.)
