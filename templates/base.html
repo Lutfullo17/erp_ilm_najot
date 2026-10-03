@@ -13,7 +13,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="{% static 'js/theme-init.js' %}"></script>
-    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.2">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -40,7 +40,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'reports:finance_report' %}" class="nav-link {% if 'reports' in request.path %}active{% endif %}">
+                <a href="{% url 'reports:finance_report' %}" class="nav-link {% if 'reports/finance' in request.path or request.resolver_match.url_name == 'finance_report' %}active{% endif %}">
                     <i class="fas fa-file-invoice-dollar"></i>
                     <span>Tushum Hisoboti</span>
                 </a>
@@ -70,15 +70,6 @@
 
             {% if user.is_admin_access %}
             <li class="nav-item">
-                <a href="{% url 'users1:notifications' %}" class="nav-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
-                    <i class="fas fa-bell"></i>
-                    <span>Bildirishnomalar</span>
-                    {% if notification_count %}
-                    <span style="margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{ notification_count }}</span>
-                    {% endif %}
-                </a>
-            </li>
-            <li class="nav-item">
                 <a href="{% url 'students:student_list' %}" class="nav-link {% if 'students' in request.path %}active{% endif %}">
                     <i class="fas fa-user-graduate"></i>
                     <span>O'quvchilar</span>
@@ -97,7 +88,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{% url 'payments:payment_list' %}" class="nav-link {% if 'payments' in request.path %}active{% endif %}">
+                <a href="{% url 'payments:payment_list' %}" class="nav-link {% if 'payments' in request.path and 'debtor' not in request.path %}active{% endif %}">
                     <i class="fas fa-wallet"></i>
                     <span>To'lovlar</span>
                 </a>
@@ -171,26 +162,34 @@
                 <h1>{% block header_title %}Xush kelibsiz!{% endblock %}</h1>
             </div>
             <div class="header-actions">
+                {% if user.is_admin_access %}
+                <a href="{% url 'users1:notifications' %}" class="theme-toggle notif-toggle {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}" id="notifToggle" aria-label="Bildirishnomalar" title="Bildirishnomalar">
+                    <i class="fas fa-bell" aria-hidden="true"></i>
+                    {% if notification_count %}
+                    <span class="notif-badge">{{ notification_count }}</span>
+                    {% endif %}
+                </a>
+                {% endif %}
                 <button class="theme-toggle" id="themeToggle" type="button" aria-label="Rejimni almashtirish"><i class="fas fa-moon" aria-hidden="true"></i></button>
-            <div class="user-profile">
-                <button type="button" class="avatar" id="avatarBtn" aria-label="Foydalanuvchi menyusi" aria-haspopup="true" aria-expanded="false">
-                    {{ user.username.0.upper }}
-                </button>
-                <div class="dropdown-menu" id="dropdownMenu">
-                    <a href="{% if user.is_director %}{% url 'users1:director_profile' %}{% elif user.is_administrator_role %}{% url 'users1:administrator_profile' %}{% elif user.is_teacher %}{% url 'users1:teacher_profile' %}{% else %}{% url 'users1:director_profile' %}{% endif %}" class="dropdown-item">
-                        <i class="fas fa-user-circle"></i>
-                        <span>Profil</span>
-                    </a>
-                    <div class="dropdown-divider"></div>
-                    <form action="{% url 'users1:logout' %}" method="post" data-confirm="Tizimdan chiqmoqchimisiz?">
-                        {% csrf_token %}
-                        <button type="submit" class="dropdown-item" style="color: var(--danger);">
-                            <i class="fas fa-power-off"></i>
-                            <span>Chiqish</span>
-                        </button>
-                    </form>
+                <div class="user-profile">
+                    <button type="button" class="avatar" id="avatarBtn" aria-label="Foydalanuvchi menyusi" aria-haspopup="true" aria-expanded="false">
+                        {{ user.username.0.upper }}
+                    </button>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="{% if user.is_director %}{% url 'users1:director_profile' %}{% elif user.is_administrator_role %}{% url 'users1:administrator_profile' %}{% elif user.is_teacher %}{% url 'users1:teacher_profile' %}{% else %}{% url 'users1:director_profile' %}{% endif %}" class="dropdown-item">
+                            <i class="fas fa-user-circle"></i>
+                            <span>Profil</span>
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <form action="{% url 'users1:logout' %}" method="post" data-confirm="Tizimdan chiqmoqchimisiz?">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item" style="color: var(--danger);">
+                                <i class="fas fa-power-off"></i>
+                                <span>Chiqish</span>
+                            </button>
+                        </form>
+                    </div>
                 </div>
-            </div>
             </div>
         </header>
 
