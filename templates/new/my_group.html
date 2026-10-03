@@ -1,0 +1,19 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ group.name }}</h1><div class="muted">{{ group.lesson_days }}{% if group.lesson_time %} · {{ group.lesson_time|hm }}{% endif %}{% if group.room %} · {{ group.get_room_display }}{% endif %}</div></div></div>
+<div class="row" style="margin-bottom:1rem"><a class="btn btn-primary" href="{% url 'new:attendance_mark' group.pk %}"><i class="fa-solid fa-clipboard-check"></i> Davomat belgilash</a>
+    <a class="btn btn-secondary" href="{% url 'new:grades' %}?group={{ group.pk }}"><i class="fa-solid fa-star"></i> Baho qo'yish</a>
+    <a class="btn btn-secondary" href="{% url 'new:request_new' group.pk %}">Dars vaqtini o'zgartirish so'rovi</a></div>
+<h2>O'quvchilar ({{ members|length }})</h2>
+{% if members %}
+<div class="list" style="margin-top:.5rem">
+    {% for m in members %}
+    <a class="item" href="{% url 'new:my_student' m.student_id %}"><div class="i-main"><div class="i-title">{{ m.student.last_name }} {{ m.student.first_name }}</div>
+        <div class="i-sub">{% if m.last %}Oxirgi davomat: {{ m.last.session.date|date:"d.m" }}{% else %}Davomat hali yo'q{% endif %}</div></div>
+        {% if m.last %}<span class="badge {% if m.last.status == 'PRESENT' %}ok{% elif m.last.status == 'ABSENT' %}bad{% else %}warn{% endif %}">{{ m.last.get_status_display }}</span>{% endif %}</a>
+    {% endfor %}
+</div>
+{% else %}<div class="empty"><i class="fa-solid fa-user-group"></i><p>Bu guruhda hali o'quvchi yo'q.</p></div>{% endif %}
+{% endblock %}

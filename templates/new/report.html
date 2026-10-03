@@ -1,0 +1,67 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Pul hisoboti{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Pul hisoboti</h1></div>
+{% include 'new/_pay_tabs.html' with tab='report' %}
+
+<form method="get" class="row" style="margin-bottom:1rem">
+    <div><label for="rm" class="sr-only">Oy</label><input type="month" id="rm" name="month" value="{{ month_value }}"></div>
+    <button class="btn btn-secondary" type="submit">Ko'rsatish</button>
+    <span class="muted">{{ selected_month|date:"F Y" }}</span>
+</form>
+
+<div class="stack">
+    <div class="card">
+        <h2>Kassaga tushgan pul</h2>
+        <div class="muted small">Tanlangan oyda haqiqatda qabul qilingan pul ({{ cash.count }} ta to'lov)</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--success)">{{ cash.total|som }} so'm</div>
+        <div class="grid-2" style="margin-top:.75rem">
+            <dl class="kv"><dt>Naqd</dt><dd>{{ cash.cash|som }}</dd><dt>Karta</dt><dd>{{ cash.card|som }}</dd><dt>O'tkazma</dt><dd>{{ cash.transfer|som }}</dd></dl>
+            <dl class="kv"><dt>Shu oy uchun</dt><dd>{{ cash.for_this_month|som }}</dd><dt>Oldingi oylar qarzi uchun</dt><dd>{{ cash.for_past_months|som }}</dd><dt>Oldindan to'lov</dt><dd>{{ cash.for_future_months|som }}</dd></dl>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>{{ selected_month|date:"F" }} oyi uchun hisob</h2>
+        {% if is_future_month %}<div class="alert info">Bu oy hali kelmagan. Hisob oy boshlangandan keyin ko'rinadi.</div>{% endif %}
+        <div class="grid-2">
+            <dl class="kv"><dt>Yig'ilishi kerak</dt><dd>{{ month_stats.expected|som }}</dd><dt>Yig'ildi</dt><dd style="color:var(--success)">{{ month_stats.collected|som }}</dd><dt>Qarz</dt><dd style="color:var(--danger)">{{ month_stats.debt|som }}</dd></dl>
+            <dl class="kv"><dt>To'lagan o'quvchilar</dt><dd>{{ month_stats.paid_students }}</dd><dt>Qisman to'lagan</dt><dd>{{ month_stats.partial_students }}</dd><dt>To'lamagan</dt><dd>{{ month_stats.unpaid_students }}</dd></dl>
+        </div>
+        <div class="stepper" style="margin-top:.75rem"><span>{{ month_stats.percent }}%</span><div class="bar"><i style="width:{{ month_stats.percent|stringformat:'d' }}%"></i></div></div>
+    </div>
+
+    <div class="card">
+        <h2>Umumiy holat (bugungi kun bo'yicha)</h2>
+        <dl class="kv"><dt>Hozirgi o'quvchilar qarzi</dt><dd style="color:var(--danger)">{{ overall.debt|som }} so'm ({{ overall.debtors }} ta)</dd>
+            <dt>Ketgan o'quvchilar qarzi</dt><dd>{{ overall.former_debt|som }} so'm ({{ overall.former_debtors }} ta)</dd>
+            <dt>Oldindan to'langan</dt><dd>{{ overall.advance|som }} so'm</dd>
+            <dt>Barcha vaqt tushumi</dt><dd>{{ overall.total_income|som }} so'm</dd>
+            <dt>Faol o'quvchilar / guruhlar</dt><dd>{{ overall.active_students }} / {{ overall.active_groups }}</dd></dl>
+        <a class="btn btn-secondary" style="margin-top:.5rem" href="{% url 'new:debtors' %}">Qarzdorlarni ko'rish</a>
+    </div>
+
+    <div class="card">
+        <h2>Guruhlar bo'yicha</h2>
+        {% if group_stats %}
+        <div class="scroll-x"><table class="tbl"><thead><tr><th>Guruh</th><th>O'qituvchi</th><th class="right">Kerak</th><th class="right">Yig'ildi</th><th class="right">Qarz</th><th class="right">%</th></tr></thead>
+            <tbody>{% for g in group_stats %}<tr><td><a href="{% url 'new:group' g.group.id %}">{{ g.group.name }}</a></td><td>{{ g.group.teacher }}</td><td class="right">{{ g.expected|som }}</td><td class="right">{{ g.collected|som }}</td>
+                <td class="right" style="color:{% if g.debt %}var(--danger){% endif %}">{{ g.debt|som }}</td><td class="right">{{ g.percent }}%</td></tr>{% endfor %}</tbody></table></div>
+        {% else %}<p class="muted">Bu oy uchun hisob yo'q.</p>{% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Oxirgi 12 oy tushumi</h2>
+        {% for m in monthly_income %}
+        <div class="row" style="margin:.35rem 0;flex-wrap:nowrap"><span style="width:90px" class="{% if m.is_selected %}nowrap{% endif %}"><b>{{ m.month|date:"M Y" }}</b></span>
+            <div class="bar" style="flex:1;height:14px;background:var(--surface-2);border-radius:99px;overflow:hidden"><i style="display:block;height:100%;width:{{ m.width|stringformat:'d' }}%;background:var(--primary)"></i></div>
+            <span style="width:110px;text-align:right">{{ m.total|som }}</span></div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>pul hisoboti</b>: kassaga qancha pul tushgani va o'quvchilardan qancha yig'ish kerakligi.</p>
+<ol><li>Oyni tanlang.</li><li>"Kassaga tushgan pul" — shu oyda real qabul qilingan summa.</li><li>"Hisob" — shu oy uchun kerak, yig'ilgan va qarz.</li></ol>
+{% endblock %}

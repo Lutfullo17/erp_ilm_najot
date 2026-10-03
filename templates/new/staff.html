@@ -1,0 +1,121 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Xodimlar{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Xodimlar</h1>
+    {% if tab == 'admins' %}<a class="btn btn-primary" href="{% url 'new:admin_new' %}"><i class="fa-solid fa-user-plus"></i> Yangi administrator</a>
+    {% elif tab == 'teachers' %}<a class="btn btn-primary" href="{% url 'new:teacher_new' %}"><i class="fa-solid fa-user-plus"></i> Yangi o'qituvchi</a>{% endif %}</div>
+<div class="chips" style="margin-bottom:1rem">
+    <a class="chip {% if tab == 'teachers' %}on{% endif %}" href="?tab=teachers">O'qituvchilar</a>
+    <a class="chip {% if tab == 'admins' %}on{% endif %}" href="?tab=admins">Administratorlar</a>
+    <a class="chip {% if tab == 'penalties' %}on{% endif %}" href="?tab=penalties">Jarima ballari{% if pending_alerts %} ({{ pending_alerts }}){% endif %}</a>
+</div>
+
+{% if tab == 'teachers' %}
+<div class="field"><label class="sr-only" for="tf">Qidirish</label><input type="search" id="tf" data-filter="#tList" placeholder="O'qituvchi ismini yozing"></div>
+{% if teachers %}
+<div class="list" id="tList">
+    {% for t in teachers %}
+    <a class="item" href="{% url 'new:staff_teacher' t.pk %}" data-search="{{ t.get_full_name }} {{ t.username }} {{ t.phone }}">
+        <div class="i-main"><div class="i-title">{{ t.get_full_name|default:t.username }}</div><div class="i-sub">{{ t.phone|phone|default:"Telefon yo'q" }} · {{ t.n_groups }} ta guruh</div></div>
+        <span class="badge {% if t.month_points and t.month_points < 0 %}bad{% else %}ok{% endif %}">Shu oy: {{ t.month_points|default:0 }} ball</span>
+        {% if t.is_blocked %}<span class="badge bad">Kirishi to'xtatilgan</span>{% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty"><i class="fa-solid fa-chalkboard-user"></i><p>Hali o'qituvchi yo'q.</p><a class="btn btn-primary" href="{% url 'new:teacher_new' %}">Birinchi o'qituvchini qo'shing</a></div>
+{% endif %}
+
+{% elif tab == 'admins' %}
+<div class="list" id="aList">
+    {% for a in admins %}
+    <div class="item" data-id="{{ a.pk }}" data-name="{{ a.get_full_name|default:a.username }}">
+        <div class="i-main"><div class="i-title">{{ a.get_full_name|default:a.username }}</div><div class="i-sub">Login: {{ a.username }} · {{ a.phone|phone|default:"Telefon yo'q" }}</div></div>
+        {% if a.is_blocked %}<span class="badge bad"><i class="fa-solid fa-ban"></i> Kirishi to'xtatilgan</span>{% else %}<span class="badge ok"><i class="fa-solid fa-check"></i> Faol</span>{% endif %}
+        <div class="i-act"><button class="btn btn-secondary btn-sm js-pw">Parolni tiklash</button><button class="btn btn-secondary btn-sm js-login">Login</button>
+            <button class="btn btn-danger btn-sm js-block" data-blocked="{{ a.is_blocked|yesno:'1,0' }}">{% if a.is_blocked %}Qayta ruxsat berish{% else %}Kirishni to'xtatish{% endif %}</button></div>
+    </div>
+    {% empty %}
+    <div class="empty"><i class="fa-solid fa-user-shield"></i><p>Hali administrator yo'q.</p><a class="btn btn-primary" href="{% url 'new:admin_new' %}">Birinchi administratorni qo'shing</a></div>
+    {% endfor %}
+</div>
+<dialog class="sheet" id="dlg-admin"><form class="dlg" id="adminForm" data-ajax>
+    <div class="dlg-head"><h2 id="adTitle"></h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="field"><label for="adVal" class="req" id="adLabel"></label><input type="text" id="adVal" autocomplete="off"><div class="hint" id="adHint"></div><div class="err" id="adErr" role="alert"></div></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Saqlash</button></div>
+</form></dialog>
+
+{% else %}
+<div class="row" style="margin-bottom:1rem"><button class="btn btn-secondary" id="runCheck"><i class="fa-solid fa-rotate"></i> Davomat nazoratini hozir tekshirish</button></div>
+<h2>Hal qilinishi kerak</h2>
+{% if alerts %}
+<div class="list" style="margin:.5rem 0 1.5rem">
+    {% for a in alerts %}
+    <div class="item" data-alert="{{ a.pk }}"><div class="i-main"><div class="i-title">{{ a.teacher.get_full_name|default:a.teacher.username }} — {{ a.group.name }}</div>
+        <div class="i-sub">{{ a.lesson_date|date:"d.m.Y" }} — davomat olinmagan. O'qituvchi darsga keldimi?</div></div>
+        <div class="i-act"><button class="btn btn-secondary btn-sm js-came">Keldi (−5 ball)</button><button class="btn btn-danger btn-sm js-notcame">Kelmadi (−10 ball)</button></div></div>
+    {% endfor %}
+</div>
+{% else %}<p class="muted" style="margin:.5rem 0 1.5rem">Hal qilinishi kerak bo'lgan ogohlantirish yo'q.</p>{% endif %}
+<h2>Oxirgi jarimalar</h2>
+{% if recent %}
+<div class="list" style="margin-top:.5rem">
+    {% for p in recent %}<div class="item"><div class="i-main"><div class="i-title">{{ p.teacher.get_full_name|default:p.teacher.username }}</div><div class="i-sub">{{ p.date|date:"d.m.Y" }} · {{ p.reason }}{% if p.group %} · {{ p.group.name }}{% endif %}</div></div>
+        <span class="badge {% if p.points < 0 %}bad{% else %}ok{% endif %}">{{ p.points }} ball</span></div>{% endfor %}
+</div>
+{% else %}<div class="empty"><i class="fa-regular fa-face-smile"></i><p>Hali jarima berilmagan.</p></div>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var UX = window.UX;
+    var rc = document.getElementById('runCheck');
+    if (rc) rc.addEventListener('click', function () {
+        rc.classList.add('is-loading');
+        UX.post('/users/admin/penalties/run-check/', {}).then(function () { UX.toast('Tekshiruv tugadi', { kind: 'ok' }); setTimeout(function () { location.reload(); }, 800); })
+          .catch(function (e) { rc.classList.remove('is-loading'); UX.toast(e.message, { kind: 'bad' }); });
+    });
+    function decide(row, decision, label) {
+        UX.confirm({ title: label + ' deb belgilaymizmi?', text: decision === 'came' ? "O'qituvchiga −5 ball jarima yoziladi (davomat olinmagan uchun)." : "O'qituvchiga −10 ball jarima yoziladi (darsga kelmagan uchun).", ok: 'Ha', danger: decision !== 'came' }, function () {
+            UX.api('/users/admin/penalties/alert/' + row.dataset.alert + '/resolve/', { body: { decision: decision } }).then(function () { location.reload(); }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+        });
+    }
+    document.querySelectorAll('.js-came').forEach(function (b) { b.addEventListener('click', function () { decide(b.closest('[data-alert]'), 'came', 'Keldi'); }); });
+    document.querySelectorAll('.js-notcame').forEach(function (b) { b.addEventListener('click', function () { decide(b.closest('[data-alert]'), 'not_came', 'Kelmadi'); }); });
+
+    var dlg = document.getElementById('dlg-admin'); if (!dlg) return;
+    var mode = null, row = null;
+    function open(m, r) {
+        mode = m; row = r;
+        document.getElementById('adTitle').textContent = (m === 'pw' ? 'Parolni tiklash: ' : 'Loginni o\'zgartirish: ') + r.dataset.name;
+        document.getElementById('adLabel').textContent = m === 'pw' ? 'Yangi parol' : 'Yangi login';
+        document.getElementById('adHint').textContent = m === 'pw' ? 'Kamida 8 belgi. Parolni administratorga o\'zingiz aytasiz.' : 'Masalan: nodira.y';
+        document.getElementById('adVal').value = ''; document.getElementById('adErr').textContent = '';
+        UX.openDlg('dlg-admin');
+    }
+    document.querySelectorAll('.js-pw').forEach(function (b) { b.addEventListener('click', function () { open('pw', b.closest('[data-id]')); }); });
+    document.querySelectorAll('.js-login').forEach(function (b) { b.addEventListener('click', function () { open('login', b.closest('[data-id]')); }); });
+    document.getElementById('adminForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var v = document.getElementById('adVal').value.trim(), err = document.getElementById('adErr');
+        if (!v) { err.textContent = mode === 'pw' ? 'Parol kiriting.' : 'Login kiriting.'; return; }
+        var url = '/users/administrators/' + row.dataset.id + (mode === 'pw' ? '/reset-password/' : '/change-login/');
+        UX.api(url, { body: mode === 'pw' ? { new_password: v } : { username: v } }).then(function () {
+            dlg.close(); UX.toast(mode === 'pw' ? 'Parol yangilandi' : 'Login yangilandi', { kind: 'ok' }); if (mode === 'login') setTimeout(function () { location.reload(); }, 800);
+        }).catch(function (e2) { err.textContent = e2.message; });
+    });
+    document.querySelectorAll('.js-block').forEach(function (b) { b.addEventListener('click', function () {
+        var r = b.closest('[data-id]'), blocked = b.dataset.blocked === '1';
+        UX.confirm({ title: (blocked ? 'Qayta ruxsat berilsinmi?' : 'Kirish to\'xtatilsinmi?'), text: blocked ? r.dataset.name + ' yana tizimga kira oladi.' : r.dataset.name + ' darhol tizimdan chiqariladi va kira olmaydi.', ok: 'Ha', danger: !blocked }, function () {
+            UX.api('/users/administrators/' + r.dataset.id + '/toggle-block/', { body: {} }).then(function () { location.reload(); }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+        });
+    }); });
+})();
+</script>
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>xodimlar</b>: o'qituvchilar, administratorlar va o'qituvchilarning jarima ballari.</p>
+<ol><li>O'qituvchini bosing — guruhlari va ballari ko'rinadi.</li><li>Administratorning parolini yoki loginini shu yerda almashtirasiz.</li><li>"Jarima ballari"da davomat olmagan o'qituvchilar bo'yicha qaror qabul qilasiz.</li></ol>
+{% endblock %}

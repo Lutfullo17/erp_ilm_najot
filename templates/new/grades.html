@@ -1,0 +1,73 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Baholash{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Baholash</h1></div>
+
+<form method="get" class="card stack-sm" style="margin-bottom:1rem">
+    <div class="field" style="margin:0"><label for="gGroup">Guruh</label><select id="gGroup" name="group" required><option value="">Guruhni tanlang</option>{% for g in groups %}<option value="{{ g.pk }}" {% if gid == g.pk|stringformat:'s' %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
+    <div class="grid-2"><div class="field" style="margin:0"><label for="gDate">Sana</label><input type="date" id="gDate" name="date" value="{{ date }}" max="{{ today }}"></div>
+        <div class="field" style="margin:0"><label for="gTitle">Nima baholanadi?</label><input type="text" id="gTitle" name="title" value="{{ title }}" maxlength="150"><div class="hint">Masalan: Dars bahosi, Nazorat ishi</div></div></div>
+    <button class="btn btn-secondary" type="submit">Ro'yxatni ochish</button>
+</form>
+
+{% if error %}<div class="alert bad"><i class="fa-solid fa-circle-xmark"></i><span>{{ error }}</span></div>{% endif %}
+
+{% if snapshot %}
+<div id="gApp" data-url="{% url 'grades:group_grades' snapshot.group.id %}" data-date="{{ snapshot.date }}" data-title="{{ snapshot.title }}">
+    <div class="alert info"><i class="fa-solid fa-circle-info"></i><span>0 dan 100 gacha foiz kiriting. <b>Bo'sh qoldirilgan o'quvchi baholanmaydi.</b> Saqlangan bahoni o'qituvchi o'zgartira olmaydi — xato bo'lsa administratorga yozing.</span></div>
+    {% if snapshot.students %}
+    <div class="list" id="gList">
+        {% for s in snapshot.students %}
+        <div class="item" data-id="{{ s.id }}" style="flex-wrap:wrap">
+            <div class="i-main"><div class="i-title">{{ s.full_name }}</div>{% if s.is_locked %}<div class="i-sub"><i class="fa-solid fa-lock"></i> Baho saqlangan</div>{% endif %}</div>
+            <div style="width:120px"><label class="sr-only" for="p{{ s.id }}">{{ s.full_name }} bahosi (%)</label>
+                <input type="number" id="p{{ s.id }}" class="js-pct" min="0" max="100" step="0.5" inputmode="decimal" placeholder="0–100" value="{{ s.percentage|default:'' }}" {% if s.is_locked %}disabled{% endif %}></div>
+            <div style="flex:1 1 220px"><label class="sr-only" for="c{{ s.id }}">Izoh</label><input type="text" id="c{{ s.id }}" class="js-cm" maxlength="255" placeholder="Izoh (ixtiyoriy)" value="{{ s.comment }}" {% if s.is_locked %}disabled{% endif %}></div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="err" id="gErr" role="alert" style="margin-top:.5rem"></div>
+    <div class="sticky-action"><button class="btn btn-primary btn-lg btn-block" id="gSave">Baholarni saqlash</button></div>
+    {% else %}<div class="empty"><i class="fa-solid fa-user-group"></i><p>Bu guruhda hali o'quvchi yo'q.</p></div>{% endif %}
+</div>
+{% elif not error and not gid %}
+<div class="empty"><i class="fa-regular fa-star"></i><p>Baholash uchun guruhni tanlang.</p></div>
+{% endif %}
+
+<h2 style="margin-top:1.5rem">Baholar tarixi</h2>
+{% if history %}
+<div class="list" style="margin-top:.5rem">{% for h in history %}<a class="item" href="?group={{ h.group_id }}&date={{ h.date|date:'Y-m-d' }}&title={{ h.title|urlencode }}"><div class="i-main"><div class="i-title">{{ h.group.name }} · {{ h.title }}</div><div class="i-sub">{{ h.date|date:"d.m.Y" }} · {{ h.n }} ta baho</div></div>
+    <span class="badge {% if h.avg and h.avg >= 60 %}ok{% else %}warn{% endif %}">O'rtacha: {{ h.avg|floatformat:0 }}%</span></a>{% endfor %}</div>
+{% else %}<div class="empty"><i class="fa-regular fa-star"></i><p>Hali baho qo'yilmagan.</p></div>{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var app = document.getElementById('gApp'); if (!app) return;
+    var UX = window.UX, save = document.getElementById('gSave'); if (!save) return;
+    save.addEventListener('click', function () {
+        var records = [], err = document.getElementById('gErr'); err.textContent = ''; var bad = false;
+        document.querySelectorAll('#gList [data-id]').forEach(function (row) {
+            var inp = row.querySelector('.js-pct'); if (inp.disabled || inp.value.trim() === '') return;
+            var v = parseFloat(inp.value);
+            if (isNaN(v) || v < 0 || v > 100) { err.textContent = "Foiz 0 dan 100 gacha bo'lishi kerak: " + row.querySelector('.i-title').textContent; inp.setAttribute('aria-invalid', 'true'); inp.focus(); bad = true; return; }
+            inp.removeAttribute('aria-invalid');
+            records.push({ student_id: parseInt(row.dataset.id, 10), percentage: v, comment: row.querySelector('.js-cm').value });
+        });
+        if (bad) return;
+        if (!records.length) { err.textContent = 'Kamida bitta o\'quvchiga baho kiriting.'; return; }
+        UX.confirm({ title: records.length + ' ta baho saqlansinmi?', text: "Saqlangan bahoni keyin o'zingiz o'zgartira olmaysiz. Ota-onalarga Telegram orqali xabar boradi.", ok: 'Ha, saqlash' }, function () {
+            save.classList.add('is-loading');
+            UX.api(app.dataset.url, { body: { date: app.dataset.date, title: app.dataset.title, records: records } })
+                .then(function () { UX.toast('Baholar saqlandi', { kind: 'ok' }); setTimeout(function () { location.reload(); }, 800); })
+                .catch(function (e) { save.classList.remove('is-loading'); err.textContent = e.message; });
+        });
+    });
+})();
+</script>
+{% endblock %}
+{% block help %}
+<p>Bu yerda o'quvchilarga <b>baho (foiz)</b> qo'yasiz.</p>
+<ol><li>Guruhni tanlang va "Ro'yxatni ochish".</li><li>Har o'quvchiga 0–100 foiz yozing (bo'sh qoldirsangiz baholanmaydi).</li><li>"Baholarni saqlash".</li></ol>
+{% endblock %}

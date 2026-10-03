@@ -1,0 +1,35 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Jadval{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Haftalik jadval</h1></div>
+<div class="row between" style="margin-bottom:1rem">
+    <a class="btn btn-secondary btn-sm" href="?week_offset={{ prev_week_offset }}"><i class="fa-solid fa-chevron-left"></i> Oldingi hafta</a>
+    <b>{{ week_start|date:"d.m" }} – {{ week_end|date:"d.m.Y" }}</b>
+    <a class="btn btn-secondary btn-sm" href="?week_offset={{ next_week_offset }}">Keyingi hafta <i class="fa-solid fa-chevron-right"></i></a>
+</div>
+<div class="stack">
+    {% for d in week_days %}
+    <div class="card {% if d.date == today %}{% endif %}" {% if d.date == today %}style="border-color:var(--primary);border-width:2px"{% endif %}>
+        <div class="row between"><h3>{{ d.day_name }} · {{ d.date|date:"d.m" }}</h3>{% if d.date == today %}<span class="badge info">Bugun</span>{% endif %}</div>
+        {% for l in d.lessons %}
+        <div class="row between" style="padding:.5rem 0;border-top:1px solid var(--border)">
+            <div><b>{{ l.time|hm }}{% if l.end_time %}–{{ l.end_time|hm }}{% endif %}</b> · {{ l.group.name }}{% if l.room %} · {{ l.group.get_room_display }}{% endif %}
+                {% if l.is_modified %}<span class="badge warn">O'zgartirilgan</span>{% endif %}</div>
+            <a class="btn btn-secondary btn-sm" href="{% url 'new:request_new' l.group.pk %}?day={{ d.day_name }}">Vaqtini o'zgartirish so'rovi</a>
+        </div>
+        {% empty %}<p class="muted">Dars yo'q.</p>{% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+<h2 style="margin-top:1.5rem">Mening so'rovlarim</h2>
+{% if requests %}
+<div class="list" style="margin-top:.5rem">{% for r in requests %}
+    <div class="item"><div class="i-main"><div class="i-title">{{ r.group.name }}: {{ r.old_day }} → {{ r.new_day }} {{ r.new_start_time|hm }}</div><div class="i-sub">{{ r.submitted_at|date:"d.m.Y" }}{% if r.review_comment %} · Izoh: {{ r.review_comment }}{% endif %}</div></div>
+        <span class="badge {% if r.status == 'APPROVED' %}ok{% elif r.status == 'REJECTED' %}bad{% elif r.status == 'PENDING' %}warn{% else %}info{% endif %}">{{ r.get_status_display }}</span></div>{% endfor %}</div>
+{% else %}<p class="muted">Hali so'rov yubormagansiz.</p>{% endif %}
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>haftalik dars jadvalingiz</b>. Dars vaqtini o'zgartirish kerak bo'lsa, darsning yonidagi tugmani bosing — so'rov administratorga ketadi.</p>
+{% endblock %}

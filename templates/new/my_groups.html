@@ -1,0 +1,17 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Guruhlarim{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Guruhlarim</h1></div>
+{% if groups %}
+<div class="list">
+    {% for g in groups %}
+    <div class="item"><a class="i-main" href="{% url 'new:my_group' g.pk %}" style="text-decoration:none;color:inherit"><div class="i-title">{{ g.name }}</div>
+        <div class="i-sub">{{ g.lesson_days|default:"Kunlar belgilanmagan" }}{% if g.lesson_time %} · {{ g.lesson_time|hm }}{% endif %}{% if g.room %} · {{ g.get_room_display }}{% endif %}</div></a>
+        <span class="badge info"><i class="fa-solid fa-user-group"></i> {{ g.n }} ta</span>
+        {% if g.is_paused %}<span class="badge warn">Pauzada</span>{% endif %}
+        <div class="i-act"><a class="btn btn-secondary btn-sm" href="{% url 'new:attendance_mark' g.pk %}">Davomat</a><a class="btn btn-secondary btn-sm" href="{% url 'new:grades' %}?group={{ g.pk }}">Baholash</a></div></div>
+    {% endfor %}
+</div>
+{% else %}<div class="empty"><i class="fa-solid fa-people-group"></i><p>Sizga hali guruh biriktirilmagan. Administratorga murojaat qiling.</p></div>{% endif %}
+{% endblock %}

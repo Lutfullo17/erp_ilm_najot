@@ -1,0 +1,29 @@
+{% extends 'new/base.html' %}
+{% block title %}{% if edit %}Tahrirlash{% elif kind == 'teacher' %}Yangi o'qituvchi{% else %}Yangi administrator{% endif %}{% endblock %}
+{% block content %}
+<div class="page-title"><h1>{% if edit %}{{ obj.get_full_name|default:obj.username }} — tahrirlash{% elif kind == 'teacher' %}Yangi o'qituvchi{% else %}Yangi administrator{% endif %}</h1></div>
+<form method="post" novalidate class="stack">
+    {% csrf_token %}
+    <div class="card stack">
+        <div class="field"><label for="id_full_name" class="req">Ism va familiya</label>
+            <input type="text" name="full_name" id="id_full_name" value="{{ form.full_name.value|default:'' }}" maxlength="300" {% if form.full_name.errors %}aria-invalid="true"{% endif %} autofocus>
+            <div class="hint">Masalan: Aziza Qodirova</div><div class="err" role="alert">{{ form.full_name.errors.0 }}</div></div>
+        <div class="field"><label for="id_username" class="req">Login (tizimga kirish uchun)</label>
+            <input type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}" maxlength="150" autocomplete="off" {% if form.username.errors %}aria-invalid="true"{% endif %}>
+            <div class="hint">Lotin harflari, kichik. Masalan: aziza.q</div><div class="err" role="alert">{{ form.username.errors.0 }}</div></div>
+        <div class="field"><label for="id_phone">Telefon</label>
+            <input type="tel" name="phone" id="id_phone" inputmode="numeric" data-phone value="{{ form.phone.value|default:'' }}" placeholder="90 123 45 67" {% if form.phone.errors %}aria-invalid="true"{% endif %}>
+            <div class="err" role="alert">{{ form.phone.errors.0 }}</div></div>
+    </div>
+    <div class="card stack">
+        <h2>{% if edit %}Yangi parol (ixtiyoriy){% else %}Parol{% endif %}</h2>
+        <div class="field"><label for="id_password1" {% if not edit %}class="req"{% endif %}>Parol</label>
+            <input type="password" name="password1" id="id_password1" autocomplete="new-password" {% if form.password1.errors %}aria-invalid="true"{% endif %}>
+            <div class="hint">Kamida 8 belgi. Faqat raqamlardan iborat bo'lmasin.</div><div class="err" role="alert">{{ form.password1.errors.0 }}</div></div>
+        <div class="field"><label for="id_password2" {% if not edit %}class="req"{% endif %}>Parolni takrorlang</label>
+            <input type="password" name="password2" id="id_password2" autocomplete="new-password" {% if form.password2.errors %}aria-invalid="true"{% endif %}><div class="err" role="alert">{{ form.password2.errors.0 }}</div></div>
+    </div>
+    <div class="sticky-action stack-sm"><button type="submit" class="btn btn-primary btn-lg btn-block">Saqlash</button>
+        <a class="btn btn-secondary btn-block" href="{% if edit %}{% url 'new:staff_teacher' obj.pk %}{% else %}{% url 'new:staff' %}{% endif %}">Bekor qilish</a></div>
+</form>
+{% endblock %}

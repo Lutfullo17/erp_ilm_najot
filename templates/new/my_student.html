@@ -1,0 +1,17 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}{{ student }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ student.first_name }} {{ student.last_name }}</h1><div class="muted">{{ groups|join:", " }}</div></div></div>
+<div class="stack">
+    <div class="card"><h2>Ota-ona</h2><dl class="kv"><dt>Telefon</dt><dd>{{ student.parent_phone|phone|default:"—" }}</dd>
+        <dt>Telegram</dt><dd>{% if telegram %}<span class="badge ok"><i class="fa-brands fa-telegram"></i> Ulangan</span>{% else %}<span class="badge">Ulanmagan</span>{% endif %}</dd></dl></div>
+    <div class="card"><h2>Davomati (sizning darslaringizda)</h2>
+        {% for a in attendance %}<div class="row between" style="padding:.4rem 0;border-bottom:1px solid var(--border)"><span>{{ a.session.date|date:"d.m.Y" }} · {{ a.session.group.name }}</span>
+            <span class="badge {% if a.status == 'PRESENT' %}ok{% elif a.status == 'ABSENT' %}bad{% else %}warn{% endif %}">{{ a.get_status_display }}</span></div>
+        {% empty %}<p class="muted">Davomat hali yo'q.</p>{% endfor %}</div>
+    <div class="card"><h2>Ota-onaning oxirgi xabarlari</h2>
+        {% for a in appeals %}<div style="padding:.4rem 0;border-bottom:1px solid var(--border)"><div class="muted small">{{ a.created_at|date:"d.m.Y" }}</div><div style="white-space:pre-wrap">{{ a.message }}</div></div>
+        {% empty %}<p class="muted">Xabar yo'q.</p>{% endfor %}</div>
+</div>
+{% endblock %}

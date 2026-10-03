@@ -1,0 +1,15 @@
+{% extends 'new/base.html' %}
+{% block title %}O'zgarishlar tarixi{% endblock %}
+{% block content %}
+<div class="page-title"><h1>O'zgarishlar tarixi</h1></div>
+<form method="get" class="row" style="margin-bottom:1rem"><div class="grow"><label class="sr-only" for="aq">Qidirish</label><input type="search" id="aq" name="q" value="{{ q }}" placeholder="Amal yoki foydalanuvchi bo'yicha qidirish"></div><button class="btn btn-secondary" type="submit">Qidirish</button></form>
+{% if page.object_list %}
+<div class="list">
+    {% for l in page.object_list %}
+    <div class="item"><div class="i-main"><div class="i-title">{{ l.action }}</div><div class="i-sub">{{ l.user.get_full_name|default:l.user.username|default:"Tizim" }}{% if l.target_user %} → {{ l.target_user.get_full_name|default:l.target_user.username }}{% endif %}</div></div>
+        <span class="muted small nowrap">{{ l.created_at|date:"d.m.Y H:i" }}</span></div>
+    {% endfor %}
+</div>
+{% include 'new/_pager.html' %}
+{% else %}<div class="empty"><i class="fa-solid fa-clock-rotate-left"></i><p>Hech narsa topilmadi.</p></div>{% endif %}
+{% endblock %}

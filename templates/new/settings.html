@@ -1,0 +1,67 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Sozlamalar{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Sozlamalar</h1></div>
+<div class="stack">
+    <div class="card"><h2>Mening ma'lumotlarim</h2>
+        <dl class="kv"><dt>Ism</dt><dd>{{ user.get_full_name|default:"—" }}</dd><dt>Login</dt><dd>{{ user.username }}</dd><dt>Telefon</dt><dd>{{ user.phone|phone|default:"—" }}</dd></dl>
+        {% if role == 'director' %}
+        <div class="row" style="margin-top:.75rem"><button class="btn btn-secondary" data-act="info">Ism va telefonni o'zgartirish</button><button class="btn btn-secondary" data-act="login">Loginni o'zgartirish</button>
+            <button class="btn btn-secondary" data-act="pw">Parolni o'zgartirish</button><button class="btn btn-secondary" data-act="photo">Rasm yuklash</button></div>
+        {% else %}<p class="muted" style="margin-top:.5rem">Parolni o'zgartirish uchun direktorga murojaat qiling.</p>{% endif %}
+    </div>
+
+    <a class="item" href="{% url 'new:telegram' %}"><div class="i-main"><div class="i-title"><i class="fa-brands fa-telegram"></i> Telegram ulanishi</div><div class="i-sub">Qaysi ota-onalar botga ulangan, qaysilari ulanmagan</div></div><i class="fa-solid fa-chevron-right"></i></a>
+    {% if role == 'director' %}
+    <a class="item" href="{% url 'new:audit' %}"><div class="i-main"><div class="i-title"><i class="fa-solid fa-clock-rotate-left"></i> O'zgarishlar tarixi</div><div class="i-sub">Kim, qachon, nimani o'zgartirgan</div></div><i class="fa-solid fa-chevron-right"></i></a>
+    <div class="card"><h2>Foydalanuvchilar fikrlari</h2>
+        {% for f in feedback %}<div style="padding:.5rem 0;border-bottom:1px solid var(--border)"><div class="small muted">{{ f.created_at|date:"d.m.Y H:i" }} · {{ f.user.get_full_name|default:f.user.username }} · {{ f.page }}</div><div style="white-space:pre-wrap">{{ f.message }}</div></div>
+        {% empty %}<p class="muted">Hali fikr kelmagan.</p>{% endfor %}</div>
+    {% endif %}
+    <div class="card"><h2>Ko'rinish</h2>
+        <p class="muted">Kun/tun rejimini yuqoridagi tugma bilan almashtirasiz. Tanlovingiz shu qurilmada saqlanadi.</p>
+        <a class="btn btn-secondary" href="{% url 'new:switch' 'old' %}"><i class="fa-solid fa-rotate-left"></i> Eski ko'rinishga qaytish</a></div>
+</div>
+
+<dialog class="sheet" id="dlg-set"><form class="dlg" id="setForm" data-ajax>
+    <div class="dlg-head"><h2 id="sTitle"></h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="sFields" class="stack-sm"></div><div class="err" id="sErr" role="alert"></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Saqlash</button></div>
+</form></dialog>
+{% endblock %}
+{% block scripts %}{% if role == 'director' %}
+<script>
+(function () {
+    var UX = window.UX, mode = null, el = UX.el;
+    var defs = {
+        info: { title: "Ism va telefon", fields: [['first_name', 'Ism', 'text', '{{ user.first_name|escapejs }}', true], ['last_name', 'Familiya', 'text', '{{ user.last_name|escapejs }}'], ['phone', 'Telefon', 'tel', '{{ user.phone|escapejs }}']] },
+        login: { title: "Loginni o'zgartirish", fields: [['username', 'Yangi login', 'text', '', true]] },
+        pw: { title: "Parolni o'zgartirish", fields: [['old_password', 'Hozirgi parol', 'password', '', true], ['new_password', 'Yangi parol (kamida 8 belgi)', 'password', '', true], ['confirm_password', 'Yangi parolni takrorlang', 'password', '', true]] },
+        photo: { title: "Profil rasmi", fields: [['photo', 'Rasm (JPEG, PNG yoki WEBP, 2 MB gacha)', 'file', '', true]] }
+    };
+    document.querySelectorAll('[data-act]').forEach(function (b) { b.addEventListener('click', function () {
+        mode = b.dataset.act; var d = defs[mode];
+        document.getElementById('sTitle').textContent = d.title; var box = document.getElementById('sFields'); box.textContent = ''; document.getElementById('sErr').textContent = '';
+        d.fields.forEach(function (f) {
+            var id = 'f_' + f[0];
+            var inp = el('input', { type: f[2], id: id, name: f[0], value: f[3] || '' }); if (f[2] === 'file') inp.setAttribute('accept', 'image/*'); if (f[2] === 'password') inp.setAttribute('autocomplete', f[0] === 'old_password' ? 'current-password' : 'new-password');
+            box.appendChild(el('div', { class: 'field' }, [el('label', { for: id, class: f[4] ? 'req' : '', text: f[1] }), inp]));
+        });
+        UX.openDlg('dlg-set');
+    }); });
+    document.getElementById('setForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var err = document.getElementById('sErr'); err.textContent = '';
+        var g = function (n) { var i = document.getElementById('f_' + n); return i ? i.value : ''; };
+        var p;
+        if (mode === 'info') { if (!g('first_name').trim()) { err.textContent = 'Ismni kiriting.'; return; } p = UX.api('/users/admin/profile/update-info/', { body: { first_name: g('first_name'), last_name: g('last_name'), phone: g('phone') } }); }
+        else if (mode === 'login') { if (!g('username').trim()) { err.textContent = 'Loginni kiriting.'; return; } p = UX.api('/users/admin/profile/change-login/', { body: { username: g('username') } }); }
+        else if (mode === 'pw') {
+            if (g('new_password') !== g('confirm_password')) { err.textContent = 'Yangi parollar mos kelmadi.'; return; }
+            p = UX.api('/users/admin/profile/change-password/', { body: { old_password: g('old_password'), new_password: g('new_password'), confirm_password: g('confirm_password') } });
+        } else { var f = document.getElementById('f_photo').files[0]; if (!f) { err.textContent = 'Rasmni tanlang.'; return; } p = UX.post('/users/admin/profile/change-photo/', {}, { photo: f }); }
+        p.then(function () { document.getElementById('dlg-set').close(); UX.toast('Saqlandi', { kind: 'ok' }); setTimeout(function () { location.reload(); }, 700); }).catch(function (e2) { err.textContent = e2.message; });
+    });
+})();
+</script>{% endif %}{% endblock %}

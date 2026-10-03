@@ -362,3 +362,61 @@ class NewGroupTests(NewUiBase):
         g3 = Group.objects.create(name='Bosh', monthly_fee=1)
         self.login(self.director).post('/new/groups/%d/delete/' % g3.pk)
         self.assertFalse(Group.objects.filter(pk=g3.pk).exists())
+
+
+class NewUiSmokeTests(NewUiBase):
+    """Har bir rol uchun har bir sahifa 200 qaytaradi yoki aniq rad etiladi (302). 500 bo'lmasligi shart."""
+    ADMIN_URLS = ['/new/', '/new/payments/new/', '/new/payments/debtors/', '/new/payments/', '/new/attendance/', '/new/students/',
+                  '/new/students/new/', '/new/groups/', '/new/groups/new/', '/new/schedule/', '/new/messages/',
+                  '/new/reports/attendance/', '/new/settings/', '/new/settings/telegram/']
+    DIRECTOR_ONLY = ['/new/reports/', '/new/staff/', '/new/staff/?tab=admins', '/new/staff/?tab=penalties', '/new/staff/teachers/new/',
+                     '/new/staff/admins/new/', '/new/settings/log/']
+    TEACHER_URLS = ['/new/', '/new/attendance/', '/new/grades/', '/new/my-groups/', '/new/my-schedule/', '/new/profile/']
+
+    def test_admin_pages(self):
+        for url in self.ADMIN_URLS:
+            self.assertEqual(self.get(self.admin, url).status_code, 200, url)
+        for url in self.DIRECTOR_ONLY:
+            self.assertEqual(self.get(self.admin, url).status_code, 302, url)
+
+    def test_director_pages(self):
+        for url in self.ADMIN_URLS + self.DIRECTOR_ONLY:
+            self.assertEqual(self.get(self.director, url).status_code, 200, url)
+        for url in ['/new/staff/teachers/%d/' % self.t1.pk, '/new/staff/teachers/%d/edit/' % self.t1.pk,
+                    '/new/students/%d/' % self.s1.pk, '/new/groups/%d/' % self.g1.pk, '/new/attendance/%d/' % self.g1.pk]:
+            self.assertEqual(self.get(self.director, url).status_code, 200, url)
+
+    def test_teacher_pages_and_forbidden_admin_pages(self):
+        for url in self.TEACHER_URLS + ['/new/my-groups/%d/' % self.g1.pk, '/new/attendance/%d/' % self.g1.pk,
+                                       '/new/grades/?group=%d' % self.g1.pk, '/new/my-schedule/request/%d/' % self.g1.pk,
+                                       '/new/my-students/%d/' % self.s1.pk]:
+            self.assertEqual(self.get(self.t1, url).status_code, 200, url)
+        for url in self.ADMIN_URLS[1:] + self.DIRECTOR_ONLY:
+            if url == '/new/attendance/':
+                continue
+            self.assertEqual(self.get(self.t1, url).status_code, 302, url)
+
+    def test_teacher_cannot_open_other_teachers_pages(self):
+        self.assertEqual(self.get(self.t1, '/new/my-groups/%d/' % self.g2.pk).status_code, 404)
+        self.assertEqual(self.get(self.t1, '/new/my-students/%d/' % self.s_other.pk).status_code, 302)
+        self.assertEqual(self.get(self.t1, '/new/my-schedule/request/%d/' % self.g2.pk).status_code, 404)
+        self.assertEqual(self.get(self.t1, '/new/grades/?group=%d' % self.g2.pk).status_code, 200)   # xato xabari bilan, ma'lumotsiz
+        self.assertNotContains(self.get(self.t1, '/new/grades/?group=%d' % self.g2.pk), 'Boshqa Guruh')
+
+    def test_admin_cannot_open_director_actions(self):
+        t3 = __import__('users1.test_audit_fixes', fromlist=['mk_user']).mk_user('t3', 'TEACHER')
+        self.login(self.admin).post('/new/staff/teachers/%d/delete/' % t3.pk)
+        t3.refresh_from_db()
+        self.assertFalse(t3.is_deleted)
+
+    def test_teacher_creation_and_validation(self):
+        from users1.models import User
+        c = self.login(self.director)
+        r = c.post('/new/staff/teachers/new/', {'full_name': 'Yangi Ustoz', 'username': 'yangi.u', 'phone': '90 111 22 33',
+                                                'password1': 'Qiyin-Parol-77', 'password2': 'Qiyin-Parol-77'})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(User.objects.get(username='yangi.u').role, 'TEACHER')
+        bad = c.post('/new/staff/teachers/new/', {'full_name': '', 'username': 'dir', 'password1': '123', 'password2': '456'})
+        self.assertEqual(bad.status_code, 400)
+        self.assertContains(bad, 'Bu login band', status_code=400)
+        self.assertContains(bad, 'Ism va familiyani kiriting', status_code=400)

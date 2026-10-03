@@ -1,0 +1,20 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Bugungi davomat{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Bugungi davomat hisoboti</h1><span class="muted">{{ today|date:"d.m.Y" }}</span></div>
+{% if attendance_stats %}
+<div class="list">
+    {% for s in attendance_stats %}
+    <div class="item"><div class="i-main"><div class="i-title">{{ s.group.name }}</div><div class="i-sub">{{ s.teacher.get_full_name|default:s.teacher.username }}</div></div>
+        <span class="badge ok"><i class="fa-solid fa-check"></i> {{ s.present }}</span>
+        <span class="badge bad"><i class="fa-solid fa-xmark"></i> {{ s.absent }}</span>
+        {% if s.late %}<span class="badge warn"><i class="fa-solid fa-clock"></i> {{ s.late }}</span>{% endif %}
+        {% if s.excused %}<span class="badge warn">Sababli {{ s.excused }}</span>{% endif %}
+        <div class="i-act"><a class="btn btn-secondary btn-sm" href="{% url 'new:attendance_mark' s.group.pk %}">Ochish</a></div></div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty"><i class="fa-regular fa-clipboard"></i><p>Bugun hali davomat olinmagan.</p><a class="btn btn-primary" href="{% url 'new:attendance' %}">Bugungi darslarni ko'rish</a></div>
+{% endif %}
+{% endblock %}

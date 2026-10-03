@@ -1,0 +1,80 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Dars jadvali{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Dars jadvali</h1></div>
+
+<h2>O'qituvchilarning so'rovlari {% if pending %}<span class="badge warn">{{ pending|length }} ta kutmoqda</span>{% endif %}</h2>
+{% if pending %}
+<div class="list" style="margin:.5rem 0 1.5rem">
+    {% for r in pending %}
+    <div class="card stack-sm">
+        <div><b>{{ r.teacher.get_full_name|default:r.teacher.username }}</b> — {{ r.group.name }}</div>
+        <div>{{ r.old_day }} {{ r.old_start_time|hm }} <i class="fa-solid fa-arrow-right"></i> <b>{{ r.new_day }} {{ r.new_start_time|hm }}–{{ r.new_end_time|hm }}</b></div>
+        <div class="muted" style="white-space:pre-wrap">Sabab: {{ r.reason }}</div>
+        <form method="post" action="{% url 'new:schedule_review' r.pk %}" class="stack-sm">{% csrf_token %}
+            <div class="field" style="margin:0"><label class="sr-only" for="c{{ r.pk }}">Izoh</label><input type="text" id="c{{ r.pk }}" name="review_comment" placeholder="Izoh (rad etganda majburiy)"></div>
+            <div class="row"><button class="btn btn-primary" type="submit" name="decision" value="approve" data-confirm-title="So'rov tasdiqlansinmi?" data-confirm-text="Shu hafta uchun dars vaqti o'zgaradi va ota-onalarga Telegram orqali xabar yuboriladi." data-confirm-ok="Ha, tasdiqlash">Tasdiqlash</button>
+                <button class="btn btn-danger" type="submit" name="decision" value="reject">Rad etish</button></div>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}<p class="muted" style="margin:.5rem 0 1.5rem">Kutayotgan so'rov yo'q.</p>{% endif %}
+
+<h2>Xonalar jadvali</h2>
+<div class="chips" style="margin:.5rem 0 1rem">{% for d in days %}<a class="chip {% if d == day %}on{% endif %}" href="?day={{ d }}">{{ d }}</a>{% endfor %}</div>
+<div class="stack">
+    {% for room in rooms %}
+    <div class="card"><h3>{{ room.label }}</h3>
+        {% for g in room.lessons %}
+        <div class="row between" style="padding:.4rem 0;border-bottom:1px solid var(--border)" data-gid="{{ g.pk }}" data-name="{{ g.name }}" data-time="{{ g.lesson_time|hm }}" data-room="{{ g.room }}">
+            <div><b>{{ g.lesson_time|hm }}–{{ g.end_time|hm }}</b> · <a href="{% url 'new:group' g.pk %}">{{ g.name }}</a><div class="muted small">{{ g.teacher.get_full_name|default:"O'qituvchi yo'q" }}</div></div>
+            <button class="btn btn-secondary btn-sm js-edit">O'zgartirish</button></div>
+        {% empty %}<p class="muted">Bu kunda dars yo'q — xona bo'sh.</p>{% endfor %}
+    </div>
+    {% endfor %}
+    {% if no_room %}<div class="card"><h3>Xonasi belgilanmagan</h3>{% for g in no_room %}<div>{{ g.lesson_time|hm }} · <a href="{% url 'new:group' g.pk %}">{{ g.name }}</a></div>{% endfor %}</div>{% endif %}
+</div>
+
+{% if done %}
+<h2 style="margin-top:1.5rem">Oxirgi ko'rib chiqilganlar</h2>
+<div class="list" style="margin-top:.5rem">{% for r in done %}<div class="item"><div class="i-main"><div class="i-title">{{ r.group.name }}: {{ r.old_day }} → {{ r.new_day }} {{ r.new_start_time|hm }}</div><div class="i-sub">{{ r.teacher.get_full_name|default:r.teacher.username }}{% if r.review_comment %} · {{ r.review_comment }}{% endif %}</div></div>
+    <span class="badge {% if r.status == 'APPROVED' %}ok{% elif r.status == 'REJECTED' %}bad{% else %}warn{% endif %}">{{ r.get_status_display }}</span></div>{% endfor %}</div>
+{% endif %}
+
+<dialog class="sheet" id="dlg-edit"><form class="dlg" id="editForm" data-ajax>
+    <div class="dlg-head"><h2 id="eTitle"></h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="alert warn"><i class="fa-solid fa-triangle-exclamation"></i><span>Diqqat: bu guruhning dars vaqti/xonasi doimiy o'zgaradi va ota-onalarga xabar yuboriladi.</span></div>
+    <div class="field"><label for="eDay">Dars kuni</label><select id="eDay"><option value="">O'zgarmasin</option>{% for d in days %}<option value="{{ d }}">{{ d }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="eTime">Yangi boshlanish vaqti</label><input type="time" id="eTime"></div>
+    <div class="field"><label for="eRoom">Xona</label><select id="eRoom"><option value="">O'zgarmasin</option>{% for v, l in room_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="eReason" class="req">Sababi</label><input type="text" id="eReason" maxlength="255" placeholder="Masalan: Xona ta'mirlanmoqda"></div>
+    <div class="err" id="eErr" role="alert"></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Saqlash</button></div>
+</form></dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var UX = window.UX, cur = null, day = "{{ day|escapejs }}";
+    document.querySelectorAll('.js-edit').forEach(function (b) { b.addEventListener('click', function () {
+        cur = b.closest('[data-gid]'); document.getElementById('eTitle').textContent = cur.dataset.name + ' — ' + day;
+        document.getElementById('eTime').value = cur.dataset.time; document.getElementById('eRoom').value = ''; document.getElementById('eDay').value = ''; document.getElementById('eReason').value = ''; document.getElementById('eErr').textContent = '';
+        UX.openDlg('dlg-edit');
+    }); });
+    document.getElementById('editForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var r = document.getElementById('eReason').value.trim(), err = document.getElementById('eErr');
+        if (!r) { err.textContent = 'Sababini yozing.'; return; }
+        UX.api('/groups/' + cur.dataset.gid + '/edit-lesson/' + day + '/save/', { body: { new_day: document.getElementById('eDay').value, room: document.getElementById('eRoom').value || null, start_time: document.getElementById('eTime').value, reason: r } })
+            .then(function (res) { document.getElementById('dlg-edit').close(); UX.toast(res.message || 'Saqlandi', { kind: 'ok' }); setTimeout(function () { location.reload(); }, 900); })
+            .catch(function (e2) { err.textContent = e2.message; });
+    });
+})();
+</script>
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>kunlar bo'yicha xonalar jadvali</b> va o'qituvchilarning dars vaqtini o'zgartirish so'rovlari.</p>
+<ol><li>Kunni tanlang — har xonada qaysi guruh qachon dars qilishini ko'rasiz.</li><li>So'rovni tasdiqlasangiz yoki rad etsangiz, o'qituvchi ko'radi.</li></ol>
+{% endblock %}

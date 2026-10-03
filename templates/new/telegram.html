@@ -1,0 +1,21 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Telegram ulanishi{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Telegram ulanishi</h1></div>
+<div class="grid-2" style="margin-bottom:1rem">
+    <div class="card"><div class="muted small">Botga ulangan</div><div style="font-size:1.5rem;font-weight:800;color:var(--success)">{{ connected_count }}</div></div>
+    <div class="card"><div class="muted small">Ulanmagan</div><div style="font-size:1.5rem;font-weight:800;color:var(--warning)">{{ not_connected_count }}</div></div>
+</div>
+<div class="chips" style="margin-bottom:1rem">{% for key, label in tabs %}<a class="chip {% if status == key %}on{% endif %}" href="?status={{ key }}">{{ label }}</a>{% endfor %}</div>
+{% if page.object_list %}
+<div class="list">
+    {% for s in page.object_list %}
+    <a class="item" href="{% url 'new:student' s.pk %}"><div class="i-main"><div class="i-title">{{ s.last_name }} {{ s.first_name }}</div><div class="i-sub">Ota-ona: {{ s.parent_phone|phone|default:"telefon yo'q" }}</div></div>
+        {% if s.pk in tg %}<span class="badge ok"><i class="fa-brands fa-telegram"></i> Ulangan</span>{% else %}<span class="badge">Ulanmagan</span>{% endif %}</a>
+    {% endfor %}
+</div>
+{% include 'new/_pager.html' %}
+{% else %}<div class="empty"><i class="fa-brands fa-telegram"></i><p>Bu bo'limda o'quvchi yo'q.</p></div>{% endif %}
+<p class="muted small" style="margin-top:1rem">Ota-ona botga ulanishi uchun botda "Telefon raqam yuborish" tugmasini bosishi kerak. Raqam ota-ona telefoni bilan mos kelishi lozim.</p>
+{% endblock %}

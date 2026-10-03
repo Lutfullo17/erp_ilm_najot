@@ -1,0 +1,84 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}{{ obj.get_full_name|default:obj.username }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ obj.get_full_name|default:obj.username }}</h1><div class="muted">Login: {{ obj.username }} · {{ obj.phone|phone|default:"Telefon yo'q" }}</div></div>
+    <a class="btn btn-secondary" href="{% url 'new:teacher_edit' obj.pk %}"><i class="fa-solid fa-pen"></i> Tahrirlash</a></div>
+
+<div class="stack">
+    <div class="task {% if total_points < 0 %}t-warning{% else %}t-success{% endif %}"><div class="t-ic"><i class="fa-solid fa-star-half-stroke"></i></div>
+        <div class="t-body"><div class="t-big">{{ total_points }} ball</div><div>jami jarima ballari</div></div>
+        <div class="t-act"><button class="btn btn-secondary" id="addPen">Jarima berish</button></div></div>
+
+    <div class="card"><h2>Guruhlari</h2>
+        {% for g in groups %}<a class="item" style="margin-top:.4rem" href="{% url 'new:group' g.pk %}"><div class="i-main"><div class="i-title">{{ g.name }}</div><div class="i-sub">{{ g.lesson_days }} {% if g.lesson_time %}· {{ g.lesson_time|hm }}{% endif %}</div></div></a>
+        {% empty %}<p class="muted">Faol guruhi yo'q.</p>{% endfor %}</div>
+
+    <div class="card"><h2>Jarimalar</h2>
+        {% for p in penalties %}
+        <div class="item" style="margin-top:.4rem" data-pen="{{ p.pk }}"><div class="i-main"><div class="i-title">{{ p.reason }}</div><div class="i-sub">{{ p.date|date:"d.m.Y" }}{% if p.group %} · {{ p.group.name }}{% endif %}{% if p.is_manual %} · qo'lda{% endif %}</div></div>
+            <span class="badge {% if p.points < 0 %}bad{% else %}ok{% endif %}">{{ p.points }} ball</span>
+            <div class="i-act"><button class="btn btn-secondary btn-sm js-pen-edit" data-points="{{ p.points }}" data-reason="{{ p.reason }}">O'zgartirish</button><button class="btn btn-danger btn-sm js-pen-del">O'chirish</button></div></div>
+        {% empty %}<p class="muted">Jarima yo'q.</p>{% endfor %}</div>
+
+    <div class="card stack-sm"><h2>Hisob amallari</h2>
+        <div class="row"><button class="btn btn-secondary" id="pwBtn"><i class="fa-solid fa-key"></i> Parolni tiklash</button>
+            <button class="btn btn-secondary" id="loginBtn"><i class="fa-solid fa-id-badge"></i> Loginni o'zgartirish</button></div>
+        <form method="post" action="{% url 'new:teacher_delete' obj.pk %}">{% csrf_token %}
+            <button class="btn btn-danger" type="submit" data-confirm-title="{{ obj.get_full_name|default:obj.username }} o'chirilsinmi?" data-confirm-text="O'qituvchi tizimga kira olmaydi. Faol guruhi bo'lsa, o'chirib bo'lmaydi — avval guruhlarini boshqa o'qituvchiga o'tkazing." data-confirm-ok="Ha, o'chirish" data-danger><i class="fa-solid fa-trash"></i> O'qituvchini o'chirish</button></form></div>
+
+    {% if logs %}<div class="card"><h2>O'zgarishlar tarixi</h2>{% for l in logs %}<div class="row between small" style="padding:.3rem 0;border-bottom:1px solid var(--border)"><span>{{ l.action }}</span><span class="muted">{{ l.created_at|date:"d.m.Y H:i" }}</span></div>{% endfor %}</div>{% endif %}
+</div>
+
+<dialog class="sheet" id="dlg-pen"><form class="dlg" id="penForm" data-ajax>
+    <div class="dlg-head"><h2 id="penTitle">Jarima berish</h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="field"><label for="penPts" class="req">Necha ball ayiramiz?</label><input type="number" id="penPts" min="1" max="100" inputmode="numeric" placeholder="Masalan: 5"><div class="err" id="penErr1" role="alert"></div></div>
+    <div class="field"><label for="penReason" class="req">Sababi</label><input type="text" id="penReason" maxlength="255" placeholder="Masalan: Darsga kech qoldi"><div class="err" id="penErr2" role="alert"></div></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Saqlash</button></div>
+</form></dialog>
+<dialog class="sheet" id="dlg-acc"><form class="dlg" id="accForm" data-ajax>
+    <div class="dlg-head"><h2 id="accTitle"></h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="field"><label for="accVal" class="req" id="accLabel"></label><input type="text" id="accVal" autocomplete="off"><div class="hint" id="accHint"></div><div class="err" id="accErr" role="alert"></div></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Saqlash</button></div>
+</form></dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var UX = window.UX, editId = null, pid = {{ obj.pk }};
+    document.getElementById('addPen').addEventListener('click', function () { editId = null; document.getElementById('penTitle').textContent = 'Jarima berish'; document.getElementById('penPts').value = ''; document.getElementById('penReason').value = ''; UX.openDlg('dlg-pen'); });
+    document.querySelectorAll('.js-pen-edit').forEach(function (b) { b.addEventListener('click', function () {
+        editId = b.closest('[data-pen]').dataset.pen; document.getElementById('penTitle').textContent = "Jarimani o'zgartirish";
+        document.getElementById('penPts').value = Math.abs(parseInt(b.dataset.points, 10)); document.getElementById('penReason').value = b.dataset.reason; UX.openDlg('dlg-pen');
+    }); });
+    document.getElementById('penForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var n = parseInt(document.getElementById('penPts').value, 10), r = document.getElementById('penReason').value.trim(), bad = false;
+        document.getElementById('penErr1').textContent = ''; document.getElementById('penErr2').textContent = '';
+        if (!n || n < 1 || n > 100) { document.getElementById('penErr1').textContent = "1 dan 100 gacha ball kiriting."; bad = true; }
+        if (!r) { document.getElementById('penErr2').textContent = 'Sababini yozing.'; bad = true; }
+        if (bad) return;
+        var url = editId ? '/users/admin/penalties/' + editId + '/edit/' : '/users/admin/penalties/teacher/' + pid + '/add/';
+        UX.api(url, { body: { points: -n, reason: r } }).then(function () { location.reload(); }).catch(function (err) { document.getElementById('penErr2').textContent = err.message; });
+    });
+    document.querySelectorAll('.js-pen-del').forEach(function (b) { b.addEventListener('click', function () {
+        var id = b.closest('[data-pen]').dataset.pen;
+        UX.confirm({ title: "Jarima o'chirilsinmi?", text: "Ball o'qituvchiga qaytariladi.", ok: "Ha, o'chirish", danger: true }, function () {
+            UX.api('/users/admin/penalties/' + id + '/delete/', { body: {} }).then(function () { location.reload(); }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+        });
+    }); });
+    var mode = null;
+    function acc(m) { mode = m; document.getElementById('accTitle').textContent = m === 'pw' ? 'Parolni tiklash' : "Loginni o'zgartirish"; document.getElementById('accLabel').textContent = m === 'pw' ? 'Yangi parol' : 'Yangi login'; document.getElementById('accHint').textContent = m === 'pw' ? 'Kamida 8 belgi.' : 'Masalan: aziza.q'; document.getElementById('accVal').value = ''; document.getElementById('accErr').textContent = ''; UX.openDlg('dlg-acc'); }
+    document.getElementById('pwBtn').addEventListener('click', function () { acc('pw'); });
+    document.getElementById('loginBtn').addEventListener('click', function () { acc('login'); });
+    document.getElementById('accForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var v = document.getElementById('accVal').value.trim(), err = document.getElementById('accErr');
+        if (!v) { err.textContent = 'Maydonni to\'ldiring.'; return; }
+        UX.api('/users/teachers/' + pid + (mode === 'pw' ? '/reset-password/' : '/change-login/'), { body: mode === 'pw' ? { new_password: v } : { username: v } })
+            .then(function () { document.getElementById('dlg-acc').close(); UX.toast('Saqlandi', { kind: 'ok' }); if (mode === 'login') setTimeout(function () { location.reload(); }, 700); })
+            .catch(function (e2) { err.textContent = e2.message; });
+    });
+})();
+</script>
+{% endblock %}

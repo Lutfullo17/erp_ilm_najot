@@ -1,0 +1,23 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Dars vaqtini o'zgartirish{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Dars vaqtini o'zgartirish so'rovi</h1></div>
+<form method="post" novalidate class="stack">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert bad"><i class="fa-solid fa-circle-xmark"></i><span>{{ form.non_field_errors.0 }}</span></div>{% endif %}
+    <div class="card"><div class="muted small">1. Qaysi dars</div><div style="font-size:1.1rem;font-weight:800">{{ group.name }}</div><div>Hozir: {{ old_day }}, {{ group.lesson_time|hm }}</div></div>
+    <div class="card stack"><h2>2. Qachonga ko'chiramiz?</h2>
+        <div class="field"><label for="id_new_day">Yangi kun</label><select name="new_day" id="id_new_day">{% for d in days %}<option value="{{ d }}" {% if form.new_day.value|default:old_day == d %}selected{% endif %}>{{ d }}</option>{% endfor %}</select><div class="err" role="alert">{{ form.new_day.errors.0 }}</div></div>
+        <div class="field"><label for="id_new_start_time">Yangi boshlanish vaqti</label><input type="time" name="new_start_time" id="id_new_start_time" value="{{ form.new_start_time.value|default:group.lesson_time|stringformat:'s'|slice:':5' }}" {% if form.new_start_time.errors %}aria-invalid="true"{% endif %}>
+            <div class="hint">Masalan: 15:30</div><div class="err" role="alert">{{ form.new_start_time.errors.0 }}</div></div>
+        <div class="field"><label for="id_room">Xona (agar o'zgarsa)</label><select name="room" id="id_room"><option value="">O'zgarmasin</option>{% for v, l in rooms %}<option value="{{ v }}" {% if form.room.value|stringformat:'s' == v|stringformat:'s' %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="card stack"><h2>3. Sababi</h2>
+        <div class="chips">
+            <button type="button" class="chip js-reason">Kasal bo'ldim</button><button type="button" class="chip js-reason">Oilaviy sabab</button><button type="button" class="chip js-reason">Boshqa tadbir bilan to'qnashuv</button><button type="button" class="chip js-reason">Transport muammosi</button></div>
+        <div class="field"><label for="id_reason" class="req">Sababni yozing</label><textarea name="reason" id="id_reason" maxlength="500" {% if form.reason.errors %}aria-invalid="true"{% endif %}>{{ form.reason.value|default:'' }}</textarea><div class="err" role="alert">{{ form.reason.errors.0 }}</div></div></div>
+    <div class="sticky-action stack-sm"><button type="submit" class="btn btn-primary btn-lg btn-block">So'rovni yuborish</button><a class="btn btn-secondary btn-block" href="{% url 'new:my_schedule' %}">Bekor qilish</a></div>
+</form>
+<script>document.querySelectorAll('.js-reason').forEach(function (b) { b.addEventListener('click', function () { document.getElementById('id_reason').value = b.textContent; }); });</script>
+{% endblock %}

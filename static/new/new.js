@@ -92,6 +92,21 @@
         }, function () { var e = new Error("Internet bilan aloqa yo'q. Qayta urinib ko'ring."); e.network = true; throw e; });
     };
 
+
+    /* Eski endpointlar uchun (form-urlencoded yoki multipart) */
+    UX.post = function (url, fields, files) {
+        var body;
+        if (files) { body = new FormData(); Object.keys(fields || {}).forEach(function (k) { body.append(k, fields[k]); }); Object.keys(files).forEach(function (k) { body.append(k, files[k]); }); }
+        else { body = new URLSearchParams(); Object.keys(fields || {}).forEach(function (k) { body.append(k, fields[k]); }); }
+        return fetch(url, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (data) {
+                    if (!r.ok) { var e = new Error(data.detail || data.error || 'Xatolik yuz berdi'); e.status = r.status; throw e; }
+                    return data;
+                });
+            }, function () { throw new Error("Internet bilan aloqa yo'q. Qayta urinib ko'ring."); });
+    };
+
     /* ---- Tasdiqlash dialogi ---- */
     var pendingConfirm = null;
     function askConfirm(opts, onYes) {

@@ -1,0 +1,16 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Mening ballarim{% endblock %}
+{% block content %}
+<div class="page-title"><div><h1>{{ user.get_full_name|default:user.username }}</h1><div class="muted">Login: {{ user.username }} · {{ user.phone|phone|default:"Telefon yo'q" }}</div></div></div>
+<div class="stack">
+    <div class="grid-2">
+        <div class="card"><div class="muted small">Shu oydagi ballar</div><div style="font-size:1.6rem;font-weight:800;color:{% if monthly_penalty < 0 %}var(--danger){% endif %}">{{ monthly_penalty }}</div></div>
+        <div class="card"><div class="muted small">Jami ballar</div><div style="font-size:1.6rem;font-weight:800">{{ total_penalty_points }}</div></div>
+    </div>
+    <div class="card"><h2>Jarima ballari nima?</h2><p class="muted">Davomatni dars tugaganidan keyin 30 daqiqa ichida kiritmasangiz, ball ayiriladi. Muammo bo'lsa, administratorga murojaat qiling.</p></div>
+    <div class="card"><h2>Oxirgi jarimalar</h2>
+        {% for p in penalties %}<div class="row between" style="padding:.5rem 0;border-bottom:1px solid var(--border)"><div><div>{{ p.reason }}</div><div class="muted small">{{ p.date|date:"d.m.Y" }}</div></div><span class="badge bad">{{ p.points }} ball</span></div>
+        {% empty %}<div class="empty" style="border:0"><i class="fa-regular fa-face-smile"></i><p>Jarima yo'q. Barakalla!</p></div>{% endfor %}</div>
+</div>
+{% endblock %}

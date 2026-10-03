@@ -1,0 +1,87 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}Ota-onalar xabarlari{% endblock %}
+{% block content %}
+<div class="page-title"><h1>Ota-onalar xabarlari</h1><button class="btn btn-primary" data-open="dlg-bc"><i class="fa-solid fa-bullhorn"></i> Ota-onalarga xabar yuborish</button></div>
+
+<form method="get" class="stack-sm" style="margin-bottom:1rem">
+    <div class="row"><div class="grow"><label class="sr-only" for="mq">Qidirish</label><input type="search" id="mq" name="q" value="{{ q }}" placeholder="O'quvchi ismi yoki xabar matni"></div>
+        <input type="hidden" name="f" value="{{ flt }}"><button class="btn btn-secondary" type="submit">Qidirish</button></div>
+    <div class="chips">{% for key, label in filters %}<a class="chip {% if flt == key %}on{% endif %}" href="?f={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}">{{ label }}{% if key == 'open' and open_count %} ({{ open_count }}){% endif %}</a>{% endfor %}</div>
+</form>
+
+{% if page.object_list %}
+<div class="list">
+    {% for a in page.object_list %}
+    <div class="card" data-appeal="{{ a.pk }}">
+        <div class="row between"><div><b>{{ a.student.first_name }} {{ a.student.last_name }}</b> <span class="muted small">ota-onasi · {{ a.created_at|date:"d.m.Y H:i" }}</span></div>
+            {% if a.is_resolved %}<span class="badge ok"><i class="fa-solid fa-check"></i> Javob berilgan</span>{% else %}<span class="badge warn"><i class="fa-regular fa-clock"></i> Javob kutmoqda</span>{% endif %}</div>
+        <p style="margin:.5rem 0;white-space:pre-wrap;overflow-wrap:anywhere">{{ a.message }}</p>
+        {% if not a.is_resolved %}
+        <div class="row"><button class="btn btn-primary btn-sm js-reply">Javob berish</button>
+            <button class="btn btn-secondary btn-sm js-resolve">Javob berildi deb belgilash</button></div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% include 'new/_pager.html' %}
+{% else %}
+<div class="empty"><i class="fa-regular fa-envelope-open"></i><p>{% if flt == 'open' and not q %}Javob kutayotgan xabar yo'q.{% else %}Xabar topilmadi.{% endif %}</p></div>
+{% endif %}
+
+<dialog class="sheet" id="dlg-reply"><form class="dlg" id="replyForm" data-ajax>
+    <div class="dlg-head"><h2>Javob yozing</h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="field"><label for="rText" class="req">Javob matni</label><textarea id="rText" maxlength="1000" placeholder="Masalan: Rahmat, xabaringiz qabul qilindi."></textarea>
+        <div class="hint">Javob ota-onaga Telegram orqali yuboriladi.</div><div class="err" id="rErr" role="alert"></div></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Yuborish</button></div>
+</form></dialog>
+
+<dialog class="sheet" id="dlg-bc"><form class="dlg" id="bcForm" data-ajax>
+    <div class="dlg-head"><h2>Ota-onalarga xabar</h2><button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="field"><label for="bGroup" class="req">Kimga?</label><select id="bGroup"><option value="">Guruhni tanlang</option>
+        {% for g in groups %}<option value="{{ g.pk }}">{{ g.name }}</option>{% endfor %}
+        {% if role == 'director' %}<option value="all">Hamma ota-onalarga</option>{% endif %}</select></div>
+    <div class="field"><label for="bText" class="req">Xabar matni</label><textarea id="bText" maxlength="1000" placeholder="Masalan: Ertaga dars soat 15:00 da boshlanadi."></textarea>
+        <div class="err" id="bErr" role="alert"></div></div>
+    <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>Bekor qilish</button><button type="submit" class="btn btn-primary">Yuborish</button></div>
+</form></dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var UX = window.UX, cur = null;
+    document.querySelectorAll('.js-reply').forEach(function (b) { b.addEventListener('click', function () { cur = b.closest('[data-appeal]').dataset.appeal; document.getElementById('rText').value = ''; document.getElementById('rErr').textContent = ''; UX.openDlg('dlg-reply'); }); });
+    document.getElementById('replyForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var t = document.getElementById('rText').value.trim();
+        if (!t) { document.getElementById('rErr').textContent = 'Javob matnini yozing.'; return; }
+        UX.post('/users/api/reply/' + cur + '/', { reply: t }).then(function () { UX.toast('Javob yuborildi', { kind: 'ok' }); setTimeout(function () { location.reload(); }, 800); })
+            .catch(function (err) { document.getElementById('rErr').textContent = err.message; });
+    });
+    document.querySelectorAll('.js-resolve').forEach(function (b) { b.addEventListener('click', function () {
+        var id = b.closest('[data-appeal]').dataset.appeal;
+        UX.confirm({ title: "Javob berildi deb belgilaymizmi?", text: "Xabar \"Javob berilgan\" bo'limiga o'tadi. Ota-onaga hech narsa yuborilmaydi.", ok: 'Ha' }, function () {
+            UX.post('/users/api/resolve/' + id + '/', {}).then(function () { location.reload(); }).catch(function (e) { UX.toast(e.message, { kind: 'bad' }); });
+        });
+    }); });
+    document.getElementById('bcForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var g = document.getElementById('bGroup').value, t = document.getElementById('bText').value.trim(), err = document.getElementById('bErr');
+        err.textContent = '';
+        if (!g) { err.textContent = 'Guruhni tanlang.'; return; }
+        if (!t) { err.textContent = 'Xabar matnini yozing.'; return; }
+        var all = g === 'all';
+        UX.confirm({ title: 'Xabar yuborilsinmi?', text: (all ? 'Xabar hamma ota-onalarga' : 'Xabar shu guruh ota-onalariga') + " Telegram orqali yuboriladi. Qaytarib bo'lmaydi.", ok: 'Ha, yuborish' }, function () {
+            UX.api(all ? '/users/api/broadcast-all/' : '/users/api/broadcast/', { body: all ? { message: t } : { group_id: g, message: t } }).then(function (r) {
+                document.getElementById('dlg-bc').close();
+                UX.toast('Yuborildi: ' + r.sent_count + ' ta' + (r.blocked_count ? ', bloklagan: ' + r.blocked_count : ''), { kind: 'ok' });
+            }).catch(function (e2) { err.textContent = e2.message; });
+        });
+    });
+})();
+</script>
+{% endblock %}
+{% block help %}
+<p>Bu yerda <b>ota-onalarning Telegram bot orqali yuborgan xabarlari</b>.</p>
+<ol><li>"Javob berish" — javob Telegram orqali ota-onaga ketadi.</li><li>Javob telefon orqali berilgan bo'lsa — "Javob berildi deb belgilash".</li><li>Hamma ota-onaga e'lon yuborish uchun yuqoridagi tugmani bosing.</li></ol>
+{% endblock %}
