@@ -38,9 +38,10 @@
 </div>
 
 {% if done %}
-<h2 style="margin-top:1.5rem">Oxirgi ko'rib chiqilganlar</h2>
+<h2 style="margin-top:1.5rem">{% if show_all %}Ko'rib chiqilgan arizalar tarixi{% else %}Oxirgi ko'rib chiqilganlar{% endif %}</h2>
 <div class="list" style="margin-top:.5rem">{% for r in done %}<div class="item"><div class="i-main"><div class="i-title">{{ r.group.name }}: {{ r.old_day }} → {{ r.new_day }} {{ r.new_start_time|hm }}</div><div class="i-sub">{{ r.teacher.get_full_name|default:r.teacher.username }}{% if r.review_comment %} · {{ r.review_comment }}{% endif %}</div></div>
     <span class="badge {% if r.status == 'APPROVED' %}ok{% elif r.status == 'REJECTED' %}bad{% else %}warn{% endif %}">{{ r.get_status_display }}</span></div>{% endfor %}</div>
+{% if not show_all and done_total > 10 %}<p style="margin-top:.75rem"><a class="btn btn-secondary" href="?all=1&day={{ day }}">Hammasini ko'rish ({{ done_total }} ta)</a></p>{% elif show_all %}<p style="margin-top:.75rem"><a class="btn btn-secondary" href="?day={{ day }}">Faqat oxirgilarini ko'rsatish</a></p>{% endif %}
 {% endif %}
 
 <dialog class="sheet" id="dlg-edit"><form class="dlg" id="editForm" data-ajax>

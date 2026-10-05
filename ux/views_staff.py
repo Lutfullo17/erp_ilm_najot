@@ -81,6 +81,9 @@ class StaffView(UxView):
             ctx['admins'] = User.objects.filter(role=User.Role.ADMINISTRATOR).order_by('last_name', 'first_name')
         elif tab == 'penalties':
             ctx['alerts'] = MissedAttendanceAlert.objects.filter(status=MissedAttendanceAlert.Status.PENDING).select_related('teacher', 'group')[:30]
+            ctx['repeat_missed'] = User.objects.filter(role=User.Role.TEACHER, is_deleted=False).annotate(
+                n_missed=Count('missed_alerts', filter=Q(missed_alerts__status=MissedAttendanceAlert.Status.NOT_CAME, missed_alerts__penalty_applied=True)),
+            ).filter(n_missed__gte=3).order_by('-n_missed')
             ctx['recent'] = TeacherPenalty.objects.select_related('teacher', 'group').order_by('-created_at')[:30]
         else:
             ctx['teachers'] = User.objects.filter(role='TEACHER', is_deleted=False).annotate(

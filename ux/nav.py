@@ -24,6 +24,7 @@ ITEMS = {
     'settings': ("Sozlamalar", 'gear', 'new:settings', ('/new/settings/',), False),
     'grades': ("Baholash", 'star', 'new:grades', ('/new/grades/',), False),
     'mygroups': ("Guruhlarim", 'people-group', 'new:my_groups', ('/new/my-groups/',), False),
+    'mystudents': ("O'quvchilarim", 'user-graduate', 'new:my_students', ('/new/my-students/',), False),
     'myschedule': ("Jadval", 'calendar-days', 'new:my_schedule', ('/new/my-schedule/',), False),
 }
 
@@ -37,7 +38,7 @@ LAYOUT = {
         'bottom': ['home', 'money', 'students', 'staff'],
     },
     'teacher': {
-        'side': ['home', 'attendance', 'grades', 'mygroups', 'myschedule'],
+        'side': ['home', 'attendance', 'grades', 'mygroups', 'mystudents', 'myschedule'],
         'bottom': ['home', 'attendance', 'grades', 'myschedule'],
     },
 }

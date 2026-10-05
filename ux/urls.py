@@ -73,5 +73,6 @@ urlpatterns = [
     path('grades/', views_sched.GradesView.as_view(), name='grades'),
     path('my-groups/', views_sched.MyGroupsView.as_view(), name='my_groups'),
     path('my-groups/<int:pk>/', views_sched.MyGroupView.as_view(), name='my_group'),
+    path('my-students/', views_sched.MyStudentsView.as_view(), name='my_students'),
     path('my-students/<int:pk>/', views_sched.MyStudentView.as_view(), name='my_student'),
 ]

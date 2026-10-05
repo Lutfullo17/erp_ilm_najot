@@ -48,6 +48,10 @@
 
 {% else %}
 <div class="row" style="margin-bottom:1rem"><button class="btn btn-secondary" id="runCheck"><i class="fa-solid fa-rotate"></i> Davomat nazoratini hozir tekshirish</button></div>
+{% if repeat_missed %}
+<div class="alert warn"><i class="fa-solid fa-triangle-exclamation"></i><span><b>3 va undan ko'p darsga kelmagan o'qituvchilar:</b>
+    {% for t in repeat_missed %}<a href="{% url 'new:staff_teacher' t.pk %}">{{ t.get_full_name|default:t.username }} ({{ t.n_missed }} marta)</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>
+{% endif %}
 <h2>Hal qilinishi kerak</h2>
 {% if alerts %}
 <div class="list" style="margin:.5rem 0 1.5rem">

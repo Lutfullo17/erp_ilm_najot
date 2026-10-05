@@ -3,6 +3,7 @@
 {% block title %}Bugungi davomat{% endblock %}
 {% block content %}
 <div class="page-title"><h1>Bugungi davomat hisoboti</h1><span class="muted">{{ today|date:"d.m.Y" }}</span></div>
+<div class="row" style="margin-bottom:1rem"><span class="badge info">Oxirgi 7 kunda: {{ week_total }} ta belgi</span><span class="badge info">Shu oyda: {{ month_total }} ta belgi</span></div>
 {% if attendance_stats %}
 <div class="list">
     {% for s in attendance_stats %}

@@ -40,8 +40,11 @@ class ScheduleView(UxView):
             rooms.append({'id': val, 'label': label, 'lessons': lessons})
         no_room = [g for g in groups if not g.room and day in {d.strip() for d in (g.lesson_days or '').split(',')}]
         pending = ScheduleChangeRequest.objects.filter(status=ScheduleChangeRequest.Status.PENDING).select_related('teacher', 'group').order_by('submitted_at')
-        done = ScheduleChangeRequest.objects.exclude(status=ScheduleChangeRequest.Status.PENDING).select_related('teacher', 'group', 'reviewed_by').order_by('-submitted_at')[:10]
-        return self.render(request, {'day': day, 'days': services.DAY_NAMES, 'rooms': rooms, 'no_room': no_room, 'pending': pending, 'done': done,
+        show_all = request.GET.get('all') == '1'
+        done_qs = ScheduleChangeRequest.objects.exclude(status=ScheduleChangeRequest.Status.PENDING).select_related('teacher', 'group', 'reviewed_by').order_by('-submitted_at')
+        done_total = done_qs.count()
+        done = done_qs[:200] if show_all else done_qs[:10]
+        return self.render(request, {'day': day, 'show_all': show_all, 'done_total': done_total, 'days': services.DAY_NAMES, 'rooms': rooms, 'no_room': no_room, 'pending': pending, 'done': done,
                                      'room_choices': Room.choices})
 
 
@@ -103,6 +106,17 @@ class RequestNewView(UxView):
 
 
 # ----------------------------------------------------------------------- O'qituvchi: guruhlar va baholar
+
+class MyStudentsView(UxView):
+    roles = TEACHER
+    template_name = 'new/my_students.html'
+
+    def get(self, request):
+        from users1.views import TeacherStudentsView
+        ctx = _context_of(TeacherStudentsView, request)
+        rows = sorted(ctx['students_data'], key=lambda r: (r['student'].last_name or '', r['student'].first_name or ''))
+        return self.render(request, {'rows': rows})
+
 
 class MyGroupsView(UxView):
     roles = TEACHER

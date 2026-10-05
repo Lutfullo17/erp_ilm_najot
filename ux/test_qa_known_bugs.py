@@ -72,3 +72,29 @@ class FrontendFixes(AuditBase):
     def test_session_cookie_age_is_12h(self):
         from django.conf import settings
         self.assertEqual(settings.SESSION_COOKIE_AGE, 12 * 3600)
+
+
+class ParityFeatures(AuditBase):
+    """QA-F-11: eski interfeysdagi funksiyalar yangi interfeysda ham bor."""
+
+    def test_teacher_my_students_list(self):
+        r = self.login(self.teacher).get('/new/my-students/')
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "O'quvchilarim")
+        self.assertEqual(self.login(self.admin).get('/new/my-students/').status_code, 403)
+
+    def test_director_repeat_missed_teachers(self):
+        from users1.models import MissedAttendanceAlert
+        for i in range(3):
+            MissedAttendanceAlert.objects.create(teacher=self.teacher, group=self.g1, lesson_date=self.today - __import__('datetime').timedelta(days=i + 1),
+                                                 status=MissedAttendanceAlert.Status.NOT_CAME, penalty_applied=True)
+        r = self.login(self.director).get('/new/staff/?tab=penalties')
+        self.assertContains(r, "3 va undan ko'p darsga kelmagan")
+
+    def test_schedule_history_all(self):
+        self.assertEqual(self.login(self.admin).get('/new/schedule/?all=1').status_code, 200)
+
+    def test_attendance_report_has_week_and_month(self):
+        r = self.login(self.admin).get('/new/reports/attendance/')
+        self.assertContains(r, 'Oxirgi 7 kunda')
+        self.assertContains(r, 'Shu oyda')

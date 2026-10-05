@@ -1,0 +1,20 @@
+{% extends 'new/base.html' %}
+{% load ux_tags %}
+{% block title %}O'quvchilarim{% endblock %}
+{% block content %}
+<div class="page-title"><h1>O'quvchilarim <span class="muted" style="font-size:1rem">({{ rows|length }})</span></h1></div>
+{% if rows %}
+<div class="field"><label class="sr-only" for="msq">Qidirish</label><input type="search" id="msq" data-filter="#msList" placeholder="O'quvchi ismini yozing"></div>
+<div class="list" id="msList">
+    {% for r in rows %}
+    <a class="item" href="{% url 'new:my_student' r.student.pk %}" data-search="{{ r.student.first_name }} {{ r.student.last_name }}">
+        <div class="i-main"><div class="i-title">{{ r.student.last_name }} {{ r.student.first_name }}</div>
+            <div class="i-sub">{{ r.groups|join:", " }}</div></div>
+        {% if r.last_attendance %}<span class="badge {% if r.last_attendance.status == 'PRESENT' %}ok{% else %}warn{% endif %}">Oxirgi davomat: {{ r.last_attendance.get_status_display }} · {{ r.last_attendance.session.date|date:"d.m" }}</span>
+        {% else %}<span class="badge info">Davomat hali olinmagan</span>{% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% else %}<div class="empty"><i class="fa-solid fa-user-graduate"></i><p>Sizning guruhlaringizda hali o'quvchi yo'q.</p></div>{% endif %}
+{% endblock %}
+{% block help %}<p>Bu yerda <b>barcha guruhlaringizdagi o'quvchilar</b> bitta ro'yxatda. Ismni bosing — o'quvchi kartochkasi ochiladi.</p>{% endblock %}
