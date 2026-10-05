@@ -70,7 +70,7 @@
                     </button>
                 </form>
                     <form action="{% url 'groups_app:group_delete' group.id %}" method="post" style="width: 100%;"
-                        data-confirm="Haqiqatan ham bu guruhni o'chirmoqchimisiz? Bu amal qaytarib bo'lmaydi!" data-confirm-title="Guruhni o'chirish" data-confirm-ok="Ha, o'chirish" data-danger>
+                        data-confirm="Tarixiy davomat, baho yoki to'lov bo'lmasa guruh butunlay o'chadi. Tarix mavjud bo'lsa guruh yopilib, yozuvlar saqlanadi." data-confirm-title="Guruhni o'chirish" data-confirm-ok="Ha, davom etish" data-danger>
                     {% csrf_token %}
                     <button type="submit" class="btn" style="width: 100%; justify-content: center; background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3);">
                         <i class="fas fa-trash"></i> Guruhni o'chirish

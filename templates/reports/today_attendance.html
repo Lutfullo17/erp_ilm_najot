@@ -14,7 +14,7 @@
                 <tr>
                     <th>Guruh</th>
                     <th>O'qituvchi</th>
-                    <th>Jami</th>
+                    <th>O'quvchilar</th>
                     <th style="color: var(--success);">Keldi</th>
                     <th style="color: var(--danger);">Kelmadi</th>
                     <th style="color: var(--warning);">Kechikdi</th>
@@ -33,7 +33,7 @@
                     <td style="color: var(--warning); font-weight: bold;">{{ stat.late }}</td>
                     <td style="color: var(--primary); font-weight: bold;">{{ stat.excused }}</td>
                     <td style="text-align: right;">
-                        <a href="{% url 'attendance:attendance_mark' stat.group.id %}" class="btn btn-outline" style="padding: 0.5rem 1rem;">Ko'rish</a>
+                        <a href="{% url 'reports:today_attendance_detail' stat.group.id %}" class="btn btn-outline" style="padding: 0.5rem 1rem;">O'quvchilar</a>
                     </td>
                 </tr>
                 {% empty %}

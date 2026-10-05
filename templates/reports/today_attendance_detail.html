@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}{{ group.name }} — bugungi davomat{% endblock %}
+{% block header_title %}{{ group.name }} — davomat tafsilotlari{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:1rem">
+    <a href="{% url 'reports:today_attendance' %}" class="btn btn-outline">← Hisobotga qaytish</a>
+</div>
+<div class="glass-panel" style="margin-bottom:1.5rem">
+    <h2>{{ today|date:"d.m.Y" }} kungi davomat</h2>
+    <p style="color:var(--text-muted);margin:.5rem 0 1rem">O'qituvchi: {{ group.teacher.get_full_name|default:"Belgilanmagan" }}</p>
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+        <span>Jami: <strong>{{ total }}</strong></span>
+        <span style="color:var(--success)">Keldi: <strong>{{ present }}</strong></span>
+        <span style="color:var(--danger)">Kelmadi: <strong>{{ absent }}</strong></span>
+        <span style="color:var(--warning)">Kechikdi: <strong>{{ late }}</strong></span>
+        <span style="color:var(--primary)">Sababli: <strong>{{ excused }}</strong></span>
+        {% if unmarked %}<span style="color:var(--text-muted)">Belgilanmagan: <strong>{{ unmarked }}</strong></span>{% endif %}
+    </div>
+</div>
+
+<div class="glass-panel">
+    <div class="table-container">
+        <table>
+            <thead><tr><th>#</th><th>O'quvchi</th><th>Holati</th><th>Izoh</th></tr></thead>
+            <tbody>
+                {% for membership in students %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ membership.student.last_name }} {{ membership.student.first_name }}</td>
+                    <td>
+                        {% if not membership.attendance %}<span class="badge badge-warning">Belgilanmagan</span>
+                        {% elif membership.attendance.status == 'PRESENT' %}<span class="badge badge-success">Keldi</span>
+                        {% elif membership.attendance.status == 'ABSENT' %}<span class="badge badge-danger">Kelmadi</span>
+                        {% elif membership.attendance.status == 'LATE' %}<span class="badge badge-warning">Kechikdi</span>
+                        {% else %}<span class="badge badge-primary">Sababli</span>{% endif %}
+                    </td>
+                    <td>{{ membership.attendance.comment|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center;padding:2rem">Guruhda faol o'quvchi yo'q.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

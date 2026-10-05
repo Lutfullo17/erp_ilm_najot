@@ -1,5 +1,7 @@
 from django.http import JsonResponse
 from django.contrib import messages
+from django.db import transaction
+from django.db.models import ProtectedError
 from users1.jsonutil import loads_dict
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -278,18 +280,25 @@ def delete_group(request, pk):
     if not request.user.is_authenticated or not request.user.is_director:
         messages.error(request, "Faqat Director guruhlarni o'chira oladi.")
         return redirect('groups_app:group_list')
-    from django.db.models import ProtectedError
     group = get_object_or_404(Group, pk=pk)
     try:
-        group.delete()
+        with transaction.atomic():
+            group.delete()
         AuditLog.objects.create(user=request.user, role=request.user.role, action=f"Guruh o'chirildi: {group.name}")
         messages.success(request, f"'{group.name}' guruhi butunlay o'chirildi.")
     except ProtectedError:
-        # Agar guruhda darslar yoki baholar bo'lsa, o'chirib bo'lmaydi
-        messages.error(
-            request, 
-            f"'{group.name}' guruhini o'chirib bo'lmaydi, chunki unda davomat yoki baholash ma'lumotlari mavjud. "
-            "Uni arxivlash (statusini faol emas qilish) tavsiya etiladi."
+        # Tarixiy yozuvlar FK bilan himoyalangan: guruhni arxivlab, tarixni saqlaymiz.
+        group.is_active = False
+        group.is_paused = False
+        group.save(update_fields=['is_active', 'is_paused'])
+        AuditLog.objects.create(
+            user=request.user,
+            role=request.user.role,
+            action=f"Guruh arxivlandi (tarix saqlandi): {group.name}",
+        )
+        messages.success(
+            request,
+            f"'{group.name}' guruhi yopildi va arxivlandi. Davomat, baho hamda to'lov tarixi saqlandi.",
         )
     return redirect('groups_app:group_list')
 

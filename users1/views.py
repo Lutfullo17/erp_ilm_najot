@@ -787,15 +787,36 @@ def delete_teacher(request, pk):
         messages.error(request, error_msg)
         return redirect('users1:teacher_list')
 
-    # Soft Delete
-    teacher.is_deleted = True
-    teacher.deleted_at = timezone.now()
-    teacher.deleted_by = request.user
-    teacher.is_active = False # Assuming we want to also deactivate the user
-    teacher.save()
+    # O'qituvchi bilan bog'liq tarixni saqlaymiz, lekin faol guruhlarni yopamiz.
+    # Har bir guruhni save() qilish billing signallarini ham ishga tushiradi.
+    with transaction.atomic():
+        active_groups = list(
+            Group.objects.select_for_update().filter(teacher=teacher, is_active=True)
+        )
+        for group in active_groups:
+            group.is_active = False
+            group.is_paused = False
+            group.save(update_fields=['is_active', 'is_paused'])
+            AuditLog.objects.create(
+                user=request.user,
+                role=request.user.role,
+                action=f"O'qituvchi o'chirilgani sabab guruh yopildi: {group.name}",
+            )
+
+        teacher.is_deleted = True
+        teacher.deleted_at = timezone.now()
+        teacher.deleted_by = request.user
+        teacher.is_active = False
+        teacher.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'is_active'])
 
     create_audit_log(request, f"O'qituvchi o'chirildi: {teacher.username}", target_user=teacher)
-    messages.success(request, f"{teacher.get_full_name()} o'chirildi.")
+    if active_groups:
+        messages.success(
+            request,
+            f"{teacher.get_full_name()} o'chirildi. {len(active_groups)} ta faol guruhi yopildi; davomat va to'lov tarixi saqlandi.",
+        )
+    else:
+        messages.success(request, f"{teacher.get_full_name()} o'chirildi.")
     return redirect('users1:teacher_list')
 
 

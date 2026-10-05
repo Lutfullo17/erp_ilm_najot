@@ -1,9 +1,4 @@
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.utils import timezone
 from groups_app.models import Group
-from attendance.models import AttendanceSession
-from payments.models import StudentMonthBalance
 
 import datetime
 import logging
@@ -13,18 +8,15 @@ logger = logging.getLogger(__name__)
 
 def validate_teacher_deletion(teacher):
     """
-    Teacher o'chirishdan oldin tekshirish:
-    * Faol guruhlarga biriktirilganmi?
-    * Kelajakdagi darslarga biriktirilganmi?
-    * Tugallanmagan davomatlari mavjudmi?
-    """
-    # 1. Faol guruhlar
-    if Group.objects.filter(teacher=teacher, is_active=True).exists():
-        return False, "Ushbu o'qituvchi faol guruhlarga biriktirilganligi sababli o'chirib bo'lmaydi."
+    Teacher soft-delete qilinishidan oldin tekshirish.
 
-    # 2. Kelajakdagi darslar (AttendanceSession)
-    if AttendanceSession.objects.filter(teacher=teacher, date__gt=timezone.now().date()).exists():
-        return False, "Ushbu o'qituvchining kelajakdagi darslari mavjud."
+    Guruh va dars yozuvlari o'qituvchi bilan FK orqali bog'langan bo'lsa ham,
+    akkaunt fizik o'chirilmaydi. Faol guruhlar o'chirish view'ida yopiladi,
+    shu sababli tarixiy va kelajak uchun kiritilgan davomat yozuvlarini saqlab
+    qolish o'chirishga to'sqinlik qilmasligi kerak.
+    """
+    if teacher.is_deleted:
+        return False, "Ushbu o'qituvchi allaqachon o'chirilgan."
 
     return True, None
 

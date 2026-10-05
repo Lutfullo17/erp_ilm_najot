@@ -54,7 +54,7 @@
                 <i class="fa-solid fa-{% if group.is_paused %}play{% else %}pause{% endif %}"></i> {% if group.is_paused %}Guruhni qayta faollashtirish{% else %}Guruhni pauzaga qo'yish{% endif %}</button></form>
         {% if role == 'director' %}
         <form method="post" action="{% url 'new:group_delete' group.pk %}">{% csrf_token %}
-            <button class="btn btn-danger" type="submit" data-confirm-title="'{{ group.name }}' guruhi o'chirilsinmi?" data-confirm-text="Bu amalni qaytarib bo'lmaydi. Agar guruhda davomat yoki to'lov tarixi bo'lsa, o'chirib bo'lmaydi — u holda guruhni pauzaga qo'ying." data-confirm-ok="Ha, o'chirish" data-danger><i class="fa-solid fa-trash"></i> Guruhni o'chirish</button></form>
+            <button class="btn btn-danger" type="submit" data-confirm-title="'{{ group.name }}' guruhi o'chirilsinmi?" data-confirm-text="Tarixiy davomat, baho yoki to'lov bo'lmasa guruh butunlay o'chadi. Tarix mavjud bo'lsa guruh yopilib, barcha yozuvlar saqlanadi." data-confirm-ok="Ha, davom etish" data-danger><i class="fa-solid fa-trash"></i> Guruhni o'chirish</button></form>
         {% endif %}
     </div>
 </div>

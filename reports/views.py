@@ -5,13 +5,14 @@ from django.views.generic import TemplateView
 from django.db.models import Case, Count, DecimalField, F, Q, Sum, Value, When
 from django.db.models.functions import TruncMonth
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import get_object_or_404
 from users1.views import DirectorRequiredMixin
 from payments.billing import add_months
 from payments.models import PaymentAllocation, PaymentMethod, PaymentTransaction, StudentMonthBalance
 from students.models import Student
-from groups_app.models import Group
+from groups_app.models import Group, GroupStudent
 
-from attendance.models import AttendanceSession, AttendanceStatus
+from attendance.models import AttendanceRecord, AttendanceSession, AttendanceStatus
 from django.utils import timezone
 from users1.views import AdminAccessRequiredMixin
 
@@ -25,20 +26,75 @@ class TodayAttendanceView(LoginRequiredMixin, AdminAccessRequiredMixin, Template
 
         attendance_stats = []
         for session in sessions:
-            records = session.records.all()
+            roster = list(
+                GroupStudent.objects.filter(
+                    group=session.group,
+                    is_active=True,
+                    joined_at__lte=today,
+                    student__is_active=True,
+                ).select_related('student')
+            )
+            records = {
+                record.student_id: record.status
+                for record in session.records.all()
+            }
+            roster_ids = {membership.student_id for membership in roster}
+            statuses = [records.get(student_id) for student_id in roster_ids]
             stats = {
                 'group': session.group,
                 'teacher': session.teacher,
-                'total': records.count(),
-                'present': sum(1 for r in records if r.status == AttendanceStatus.PRESENT),
-                'absent': sum(1 for r in records if r.status == AttendanceStatus.ABSENT),
-                'excused': sum(1 for r in records if r.status == AttendanceStatus.EXCUSED),
-                'late': sum(1 for r in records if r.status == AttendanceStatus.LATE),
+                'total': len(roster),
+                'present': statuses.count(AttendanceStatus.PRESENT),
+                'absent': statuses.count(AttendanceStatus.ABSENT),
+                'excused': statuses.count(AttendanceStatus.EXCUSED),
+                'late': statuses.count(AttendanceStatus.LATE),
+                'unmarked': statuses.count(None),
+                'session': session,
             }
             attendance_stats.append(stats)
 
         context['attendance_stats'] = attendance_stats
         context['today'] = today
+        return context
+
+
+class TodayAttendanceDetailView(LoginRequiredMixin, AdminAccessRequiredMixin, TemplateView):
+    template_name = 'reports/today_attendance_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        group = get_object_or_404(Group.objects.select_related('teacher'), pk=self.kwargs['group_id'])
+        session = AttendanceSession.objects.filter(group=group, date=today).first()
+        records = {}
+        if session:
+            records = {
+                record.student_id: record
+                for record in AttendanceRecord.objects.filter(session=session).select_related('student')
+            }
+
+        students = list(
+            GroupStudent.objects.filter(
+                group=group,
+                is_active=True,
+                joined_at__lte=today,
+                student__is_active=True,
+            ).select_related('student')
+        )
+        for membership in students:
+            membership.attendance = records.get(membership.student_id)
+        context.update({
+            'group': group,
+            'session': session,
+            'students': students,
+            'today': today,
+            'total': len(students),
+            'present': sum(1 for membership in students if membership.attendance and membership.attendance.status == AttendanceStatus.PRESENT),
+            'absent': sum(1 for membership in students if membership.attendance and membership.attendance.status == AttendanceStatus.ABSENT),
+            'late': sum(1 for membership in students if membership.attendance and membership.attendance.status == AttendanceStatus.LATE),
+            'excused': sum(1 for membership in students if membership.attendance and membership.attendance.status == AttendanceStatus.EXCUSED),
+            'unmarked': sum(1 for membership in students if not membership.attendance),
+        })
         return context
 
 

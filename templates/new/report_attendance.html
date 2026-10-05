@@ -12,7 +12,7 @@
         <span class="badge bad"><i class="fa-solid fa-xmark"></i> {{ s.absent }}</span>
         {% if s.late %}<span class="badge warn"><i class="fa-solid fa-clock"></i> {{ s.late }}</span>{% endif %}
         {% if s.excused %}<span class="badge warn">Sababli {{ s.excused }}</span>{% endif %}
-        <div class="i-act"><a class="btn btn-secondary btn-sm" href="{% url 'new:attendance_mark' s.group.pk %}">Ochish</a></div></div>
+        <div class="i-act"><a class="btn btn-secondary btn-sm" href="{% url 'reports:today_attendance_detail' s.group.pk %}">O'quvchilar</a></div></div>
     {% endfor %}
 </div>
 {% else %}

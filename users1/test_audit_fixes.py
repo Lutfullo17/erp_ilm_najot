@@ -72,6 +72,30 @@ class PermissionTests(AuditBase):
         t3.refresh_from_db()
         self.assertTrue(t3.is_deleted)
 
+    def test_director_can_delete_teacher_with_active_group_and_keep_history(self):
+        session = AttendanceSession.objects.create(group=self.g1, teacher=self.t1, date=self.today)
+
+        response = self.login(self.director).post('/new/staff/teachers/%d/delete/' % self.t1.pk)
+
+        self.assertEqual(response.status_code, 302)
+        self.t1.refresh_from_db()
+        self.g1.refresh_from_db()
+        self.assertTrue(self.t1.is_deleted)
+        self.assertFalse(self.t1.is_active)
+        self.assertFalse(self.g1.is_active)
+        self.assertEqual(self.g1.teacher_id, self.t1.pk)
+        self.assertTrue(AttendanceSession.objects.filter(pk=session.pk).exists())
+
+    def test_group_with_history_is_archived_instead_of_blocked(self):
+        session = AttendanceSession.objects.create(group=self.g1, teacher=self.t1, date=self.today)
+
+        response = self.login(self.director).post('/new/groups/%d/delete/' % self.g1.pk)
+
+        self.assertEqual(response.status_code, 302)
+        self.g1.refresh_from_db()
+        self.assertFalse(self.g1.is_active)
+        self.assertTrue(AttendanceSession.objects.filter(pk=session.pk).exists())
+
     def test_blocked_admin_session_is_terminated(self):  # Y-2
         client = self.login(self.admin)
         self.admin.is_blocked = True

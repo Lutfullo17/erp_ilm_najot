@@ -25,7 +25,7 @@
         <div class="row"><button class="btn btn-secondary" id="pwBtn"><i class="fa-solid fa-key"></i> Parolni tiklash</button>
             <button class="btn btn-secondary" id="loginBtn"><i class="fa-solid fa-id-badge"></i> Loginni o'zgartirish</button></div>
         <form method="post" action="{% url 'new:teacher_delete' obj.pk %}">{% csrf_token %}
-            <button class="btn btn-danger" type="submit" data-confirm-title="{{ obj.get_full_name|default:obj.username }} o'chirilsinmi?" data-confirm-text="O'qituvchi tizimga kira olmaydi. Faol guruhi bo'lsa, o'chirib bo'lmaydi — avval guruhlarini boshqa o'qituvchiga o'tkazing." data-confirm-ok="Ha, o'chirish" data-danger><i class="fa-solid fa-trash"></i> O'qituvchini o'chirish</button></form></div>
+            <button class="btn btn-danger" type="submit" data-confirm-title="{{ obj.get_full_name|default:obj.username }} o'chirilsinmi?" data-confirm-text="O'qituvchi tizimga kira olmaydi. Uning faol guruhlari yopiladi, lekin davomat va to'lov tarixi saqlanadi." data-confirm-ok="Ha, o'chirish" data-danger><i class="fa-solid fa-trash"></i> O'qituvchini o'chirish</button></form></div>
 
     {% if logs %}<div class="card"><h2>O'zgarishlar tarixi</h2>{% for l in logs %}<div class="row between small" style="padding:.3rem 0;border-bottom:1px solid var(--border)"><span>{{ l.action }}</span><span class="muted">{{ l.created_at|date:"d.m.Y H:i" }}</span></div>{% endfor %}</div>{% endif %}
 </div>
