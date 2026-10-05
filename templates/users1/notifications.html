@@ -140,7 +140,7 @@
 <script>
 async function resolveAlert(alertPk, decision) {
     const decisionText = decision === 'came' ? 'keldi (-5 ball)' : 'kelmadi (-10 ball)';
-    if (!confirm(`O'qituvchi darsga ${decisionText} deb belgilansinmi?`)) return;
+    if (!await window.AppConfirm(`O'qituvchi darsga ${decisionText} deb belgilansinmi?`)) return;
     try {
         const resp = await fetch(`{% url 'users1:resolve_missed_alert' 0 %}`.replace('/0/', `/${alertPk}/`), {
             method: 'POST',

@@ -55,12 +55,52 @@
         });
     }
 
+    /* ---- Brauzer confirm oynasi o'rniga markaziy ilova dialogi ---- */
+    var confirmDialog = $('appConfirmDialog');
+    var confirmMessage = $('appConfirmMessage');
+    var confirmPending = null;
+    function finishConfirm(result) {
+        if (!confirmPending) return;
+        var resolve = confirmPending;
+        confirmPending = null;
+        if (confirmDialog && confirmDialog.open) confirmDialog.close();
+        resolve(result);
+    }
+    window.AppConfirm = function (message, opts) {
+        opts = opts || {};
+        if (!confirmDialog || !confirmMessage) return Promise.resolve(false);
+        if (confirmPending) finishConfirm(false);
+        $('appConfirmTitle').textContent = opts.title || 'Tasdiqlash';
+        confirmMessage.textContent = message || '';
+        $('appConfirmAccept').textContent = opts.ok || 'Tasdiqlash';
+        $('appConfirmAccept').className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+        return new Promise(function (resolve) {
+            confirmPending = resolve;
+            confirmDialog.showModal();
+        });
+    };
+    var confirmAccept = $('appConfirmAccept'), confirmCancel = $('appConfirmCancel');
+    if (confirmAccept) confirmAccept.addEventListener('click', function () { finishConfirm(true); });
+    if (confirmCancel) confirmCancel.addEventListener('click', function () { finishConfirm(false); });
+    if (confirmDialog) confirmDialog.addEventListener('cancel', function () { finishConfirm(false); });
+
     /* ---- Tasdiqlash: <form data-confirm="Savol?"> yoki <button data-confirm="..."> ---- */
     document.addEventListener('submit', function (e) {
         var form = e.target;
         var submitter = e.submitter;
         var msg = (submitter && submitter.getAttribute('data-confirm')) || form.getAttribute('data-confirm');
-        if (msg && !window.confirm(msg)) { e.preventDefault(); return; }
+        if (msg && !form.__appConfirmPassed) {
+            e.preventDefault();
+            window.AppConfirm(msg, { title: (submitter && submitter.getAttribute('data-confirm-title')) || form.getAttribute('data-confirm-title') || 'Tasdiqlash',
+                ok: (submitter && submitter.getAttribute('data-confirm-ok')) || form.getAttribute('data-confirm-ok') || 'Tasdiqlash',
+                danger: (submitter && submitter.hasAttribute('data-danger')) || form.hasAttribute('data-danger') }).then(function (accepted) {
+                if (!accepted) return;
+                form.__appConfirmPassed = true;
+                if (form.requestSubmit) form.requestSubmit(submitter || undefined); else form.submit();
+                setTimeout(function () { form.__appConfirmPassed = false; }, 0);
+            });
+            return;
+        }
         /* Qayta yuborishdan himoya + yuklanish holati */
         if (!e.defaultPrevented && !form.hasAttribute('data-no-lock')) {
             if (form.dataset.submitting === '1') { e.preventDefault(); return; }

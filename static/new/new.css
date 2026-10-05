@@ -196,10 +196,18 @@ a.item:hover { border-color: var(--border-strong); }
 .empty p { margin-bottom: 1rem; }
 
 /* ------------------------------------------------ Sheets, dialogs, toasts */
-dialog { margin: auto; border: 1px solid var(--border); border-radius: 16px; padding: 0; background: var(--surface); color: var(--text); width: min(560px, calc(100% - 1.5rem)); max-height: 90vh; }
+dialog {
+    position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
+    margin: 0; border: 1px solid var(--border); border-radius: 16px; padding: 0; background: var(--surface); color: var(--text);
+    width: min(560px, calc(100% - 1.5rem)); max-height: 90vh; max-width: min(560px, calc(100vw - 1.5rem));
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
 dialog::backdrop { background: rgba(0, 0, 0, .55); }
-dialog.sheet { margin: auto auto 0; width: 100%; max-width: 640px; border-radius: 16px 16px 0 0; }
-@media (min-width: 700px) { dialog.sheet { margin: auto; border-radius: 16px; } }
+dialog.sheet {
+    position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
+    width: min(620px, calc(100% - 1.5rem)); max-width: min(620px, calc(100vw - 1.5rem));
+    border-radius: 16px; margin: 0;
+}
 .dlg { padding: 1.1rem; }
 .dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; gap: .5rem; }
 .dlg-actions { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
@@ -235,11 +243,26 @@ dialog.sheet { margin: auto auto 0; width: 100%; max-width: 640px; border-radius
 .kv dt { color: var(--muted); } .kv dd { font-weight: 700; text-align: right; }
 
 /* attendance */
-.att-row { width: 100%; text-align: left; display: flex; align-items: center; gap: .8rem; min-height: 64px; padding: .6rem 1rem; border-radius: var(--radius); border: 2px solid var(--border); background: var(--surface); font: inherit; color: var(--text); cursor: pointer; }
-.att-row .a-state { margin-left: auto; font-weight: 800; display: inline-flex; gap: .4rem; align-items: center; }
-.att-row[data-s=PRESENT] { border-color: var(--success); background: var(--success-soft); } .att-row[data-s=PRESENT] .a-state { color: var(--success); }
-.att-row[data-s=ABSENT] { border-color: var(--danger); background: var(--danger-soft); } .att-row[data-s=ABSENT] .a-state { color: var(--danger); }
-.att-row[data-s=LATE], .att-row[data-s=EXCUSED] { border-color: var(--warning); background: var(--warning-soft); } .att-row[data-s=LATE] .a-state, .att-row[data-s=EXCUSED] .a-state { color: var(--warning); }
+.attendance-student-row { display: flex; align-items: center; gap: .75rem; min-height: 68px; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.attendance-student-row > .a-name { flex: 1; min-width: 0; }
+.attendance-switch { position: relative; display: inline-flex; align-items: center; gap: .65rem; flex: none; cursor: pointer; font-weight: 700; }
+.attendance-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.attendance-slider { position: relative; width: 52px; height: 30px; flex: none; border-radius: 99px; background: var(--border-strong); transition: background .18s ease; }
+.attendance-slider::before { content: ''; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); transition: transform .18s ease; }
+.attendance-switch input:checked + .attendance-slider { background: var(--success); }
+.attendance-switch input:checked + .attendance-slider::before { transform: translateX(22px); }
+.attendance-switch input:not(:checked) + .attendance-slider { background: var(--danger); }
+.attendance-switch input:focus-visible + .attendance-slider { outline: 3px solid var(--focus); outline-offset: 3px; }
+.attendance-switch input:disabled + .attendance-slider { opacity: 1; cursor: wait; }
+.attendance-state { width: 110px; flex: none; white-space: nowrap; color: var(--muted); }
+.attendance-switch input:checked ~ .attendance-state { color: var(--success); }
+.attendance-switch input:not(:checked) ~ .attendance-state { color: var(--danger); }
+.attendance-student-row .btn { white-space: nowrap; }
+@media (max-width: 640px) {
+    .attendance-student-row { flex-wrap: wrap; gap: .65rem; }
+    .attendance-student-row > .a-name { flex-basis: calc(100% - .5rem); }
+    .attendance-student-row .js-attendance-message { flex: 1; }
+}
 
 /* tables (desktop) */
 .tbl { width: 100%; border-collapse: collapse; }

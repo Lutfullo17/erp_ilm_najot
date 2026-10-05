@@ -26,6 +26,8 @@ urlpatterns = [
     path('attendance/', views_att.AttendanceListView.as_view(), name='attendance'),
     path('attendance/<int:gid>/', views_att.AttendanceMarkView.as_view(), name='attendance_mark'),
     path('api/attendance/<int:gid>/', views_att.api_attendance, name='api_attendance'),
+    path('api/attendance/<int:gid>/toggle/', views_att.api_attendance_toggle, name='api_attendance_toggle'),
+    path('api/attendance/<int:gid>/message/', views_att.api_attendance_message, name='api_attendance_message'),
 
     # --- O'quvchilar
     path('students/', views_students.StudentsView.as_view(), name='students'),

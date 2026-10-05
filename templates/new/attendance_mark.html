@@ -7,24 +7,31 @@
 
 {% if reason %}<div class="alert {% if editable %}info{% else %}warn{% endif %}"><i class="fa-solid fa-circle-info"></i><span>{{ reason }}</span></div>{% endif %}
 
-<div id="attApp" data-url="{% url 'new:api_attendance' group.pk %}" data-date="{{ date|date:'Y-m-d' }}" data-editable="{{ editable|yesno:'1,0' }}" data-after="{% url 'new:attendance' %}">
+<div id="attApp" data-url="{% url 'new:api_attendance' group.pk %}" data-toggle-url="{% url 'new:api_attendance_toggle' group.pk %}"
+    data-message-url="{% url 'new:api_attendance_message' group.pk %}" data-date="{{ date|date:'Y-m-d' }}"
+    data-editable="{{ editable|yesno:'1,0' }}" data-after="{% url 'new:attendance' %}">
     {% if students %}
     {% if editable %}
     <div class="row between" style="margin-bottom:.75rem">
-        <div class="muted">Hamma "Keldi" deb belgilangan. <b>Kelmaganlarni bosing.</b></div>
-        <div class="row"><button type="button" class="btn btn-secondary btn-sm" id="allPresent">Hammasi keldi</button></div>
+        <div class="muted">Toggle ON — keldi, OFF — kelmadi. Holat o'zgarishi darhol saqlanadi.</div>
     </div>
     {% endif %}
     <div class="list" id="attList">
         {% for s in students %}
         <div class="stack-sm" data-id="{{ s.id }}">
-            <div class="row" style="flex-wrap:nowrap">
-                <button type="button" class="att-row grow" data-s="{{ s.status }}" {% if not editable %}disabled{% endif %} aria-label="{{ s.name }}">
-                    <span class="avatar" style="width:36px;height:36px;font-size:.9rem" aria-hidden="true">{{ s.name|slice:":1" }}</span>
-                    <span class="a-name" style="font-weight:700">{{ s.name }}</span>
-                    <span class="a-state"><i class="fa-solid" aria-hidden="true"></i><span class="a-text"></span></span>
+            <div class="attendance-student-row">
+                <div class="a-name" style="font-weight:700">{{ s.name }}</div>
+                <label class="attendance-switch" aria-label="{{ s.name }} davomat holati">
+                    <input type="checkbox" class="js-attendance-toggle" data-student-id="{{ s.id }}"
+                           {% if s.status == 'PRESENT' or s.status == 'LATE' %}checked{% endif %}
+                           {% if not editable %}disabled{% endif %} role="switch" aria-checked="{% if s.status == 'PRESENT' or s.status == 'LATE' %}true{% else %}false{% endif %}">
+                    <span class="attendance-slider" aria-hidden="true"></span>
+                    <span class="attendance-state">{% if s.status == 'PRESENT' or s.status == 'LATE' %}Keldi{% else %}Kelmadi{% endif %}</span>
+                </label>
+                <button type="button" class="btn btn-secondary btn-sm js-attendance-message"
+                        data-student-id="{{ s.id }}" data-student-name="{{ s.name }}">
+                    <i class="fa-regular fa-paper-plane" aria-hidden="true"></i> Xabar yuborish
                 </button>
-                {% if editable %}<button type="button" class="btn btn-secondary btn-sm more" aria-label="{{ s.name }}: boshqa holat tanlash" title="Kechikdi yoki sababli"><i class="fa-solid fa-ellipsis"></i></button>{% endif %}
             </div>
         </div>
         {% endfor %}
@@ -43,19 +50,23 @@
     {% endif %}
 </div>
 
-<dialog class="sheet" id="dlg-status"><div class="dlg">
-    <div class="dlg-head"><h2 id="stName">Holatni tanlang</h2><button class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="qa" id="stChoices">
-        <a href="#" data-v="PRESENT"><i class="fa-solid fa-check"></i>Keldi</a>
-        <a href="#" data-v="ABSENT"><i class="fa-solid fa-xmark"></i>Kelmadi</a>
-        <a href="#" data-v="LATE"><i class="fa-solid fa-clock"></i>Kechikdi</a>
-        <a href="#" data-v="EXCUSED"><i class="fa-solid fa-file-medical"></i>Sababli (uzrli)</a>
-    </div>
-</div></dialog>
+<dialog class="sheet" id="dlg-attendance-message" aria-labelledby="attMessageTitle">
+    <form method="dialog" class="dlg" id="attendanceMessageForm">
+        <div class="dlg-head"><h2 id="attMessageTitle"><span id="attMessageStudent"></span> ga xabar yuborish</h2>
+            <button type="button" class="icon-btn" data-close aria-label="Yopish"><i class="fa-solid fa-xmark"></i></button></div>
+        <label for="attMessageText" class="sr-only">Xabar matni</label>
+        <textarea id="attMessageText" maxlength="1000" rows="5" placeholder="Xabar matnini kiriting..."></textarea>
+        <div class="err" id="attMessageError" role="alert"></div>
+        <div class="dlg-actions">
+            <button type="button" class="btn btn-secondary" data-close>Bekor qilish</button>
+            <button type="button" class="btn btn-primary" id="attMessageSend"><i class="fa-regular fa-paper-plane"></i> Yuborish</button>
+        </div>
+    </form>
+</dialog>
 {% endblock %}
-{% block scripts %}<script src="{% static 'new/att.js' %}?v=1" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'new/att.js' %}?v=2" defer></script>{% endblock %}
 {% block help %}
 <p>Bu yerda <b>o'quvchilar davomatini</b> belgilaysiz.</p>
-<ol><li>Hamma avtomatik <b>Keldi</b> (yashil).</li><li>Kelmagan o'quvchini bir marta bosing — <b>Kelmadi</b> (qizil) bo'ladi.</li><li>Kechikkan yoki uzrli bo'lsa, qator yonidagi <b>⋯</b> ni bosing.</li><li>Pastdagi <b>Saqlash</b> ni bosing.</li></ol>
-<p class="muted">Saqlangan davomatni o'qituvchi o'zgartira olmaydi — administratorga yozing.</p>
+<ol><li>Har bir o'quvchining toggle tugmasini yoqing yoki o'chiring — holat darhol saqlanadi.</li><li>Ota-onaga xabar yozish uchun <b>Xabar yuborish</b> tugmasini bosing.</li><li>Dars mavzusi va uyga vazifani pastdagi <b>Saqlash</b> tugmasi bilan saqlang.</li></ol>
+<p class="muted">Davomat holatini dars vaqti tugaguncha o'zgartirishingiz mumkin.</p>
 {% endblock %}

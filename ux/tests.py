@@ -138,19 +138,61 @@ class NewAttendanceTests(NewUiBase):
         body.update(extra)
         return self.jpost(self.login(user), '/new/api/attendance/%d/' % (gid or self.g1.pk), body)
 
+    def _toggle(self, user, student=None, status='ABSENT', gid=None):
+        return self.jpost(self.login(user), '/new/api/attendance/%d/toggle/' % (gid or self.g1.pk),
+                          {'student_id': (student or self.s1).pk, 'status': status})
+
     def test_pages_render(self):
         self.assertContains(self.get(self.t1, '/new/attendance/'), 'Bugungi darslar')
-        self.assertContains(self.get(self.t1, '/new/attendance/%d/' % self.g1.pk), 'Hammasi')
+        response = self.get(self.t1, '/new/attendance/%d/' % self.g1.pk)
+        self.assertContains(response, 'Xabar yuborish')
+        self.assertContains(response, 'role="switch"')
+        self.assertNotContains(response, 'Sababli (uzrli)')
         self.assertContains(self.get(self.admin, '/new/attendance/'), 'Boshqa kun uchun')
 
-    def test_teacher_saves_once_then_locked(self):
+    def test_teacher_can_update_saved_attendance_during_lesson(self):
         from attendance.models import AttendanceRecord
         r = self._save(self.t1)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(AttendanceRecord.objects.get().status, 'ABSENT')
         r2 = self._save(self.t1, records={str(self.s1.pk): 'PRESENT'})
-        self.assertEqual(r2.status_code, 409)
-        self.assertContains(self.get(self.t1, '/new/attendance/%d/' % self.g1.pk), 'administratorga yozing')
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(AttendanceRecord.objects.get().status, 'PRESENT')
+        self.assertContains(self.get(self.t1, '/new/attendance/%d/' % self.g1.pk), 'Keldi')
+
+    def test_per_student_toggle_is_saved_and_teacher_can_only_use_own_group(self):
+        from attendance.models import AttendanceRecord
+        response = self._toggle(self.t1, status='ABSENT')
+        self.assertEqual(response.status_code, 200)
+        record = AttendanceRecord.objects.get(session__group=self.g1, student=self.s1)
+        self.assertEqual(record.status, 'ABSENT')
+        self.assertEqual(self._toggle(self.t1, status='PRESENT').status_code, 200)
+        record.refresh_from_db()
+        self.assertEqual(record.status, 'PRESENT')
+        self.assertEqual(self._toggle(self.t1, student=self.s_other, status='ABSENT', gid=self.g2.pk).status_code, 403)
+
+    def test_teacher_message_uses_verified_student_chat_and_reports_errors(self):
+        from unittest import mock
+        from bot.models import TelegramUser
+        TelegramUser.objects.create(telegram_id=7654321, student=self.s1, is_verified=True)
+        client = self.login(self.t1)
+        payload = {'student_id': self.s1.pk, 'message': '<hello> & welcome'}
+        with mock.patch('bot.services.send_telegram_message', return_value={'ok': True}) as send:
+            response = self.jpost(client, '/new/api/attendance/%d/message/' % self.g1.pk, payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['detail'], 'Xabar yuborildi.')
+        self.assertEqual(send.call_args.args[0], 7654321)
+        self.assertIn('&lt;hello&gt; &amp; welcome', send.call_args.args[1])
+
+        with mock.patch('bot.services.send_telegram_message', return_value=None):
+            failed = self.jpost(client, '/new/api/attendance/%d/message/' % self.g1.pk, payload)
+        self.assertEqual(failed.status_code, 502)
+
+    def test_teacher_message_without_verified_telegram_account_is_clear_error(self):
+        response = self.jpost(self.login(self.t1), '/new/api/attendance/%d/message/' % self.g1.pk,
+                              {'student_id': self.s1.pk, 'message': 'Salom'})
+        self.assertEqual(response.status_code, 404)
+        self.assertIn('Telegram akkaunti', response.json()['detail'])
 
     def test_teacher_cannot_mark_foreign_group(self):
         self.assertEqual(self._save(self.t1, gid=self.g2.pk, records={str(self.s_other.pk): 'PRESENT'}).status_code, 403)
@@ -199,6 +241,26 @@ class NewAttendanceTests(NewUiBase):
         AttendanceSession.objects.all().delete()
         with mock.patch.object(views_att.timezone, 'localtime', return_value=at(14, 0)):
             self.assertEqual(self._save(self.t1).status_code, 403)    # dars tugagan, davomat olinmagan
+
+
+class LegacyAttendanceToggleTests(NewUiBase):
+    def test_legacy_attendance_page_uses_binary_switch_and_message_action(self):
+        response = self.get(self.t1, '/attendance/mark/%d/' % self.g1.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Xabar yuborish')
+        self.assertContains(response, 'role="switch"')
+        self.assertNotContains(response, 'Sababli</span>')
+        self.assertNotContains(response, 'name="status_%d" value="LATE"' % self.s1.pk)
+
+    def test_legacy_toggle_saves_status_and_rejects_other_teacher_group(self):
+        from attendance.models import AttendanceRecord
+        response = self.jpost(self.login(self.t1), '/attendance/api/toggle/%d/' % self.g1.pk,
+                              {'student_id': self.s1.pk, 'status': 'ABSENT'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AttendanceRecord.objects.get(session__group=self.g1).status, 'ABSENT')
+        denied = self.jpost(self.login(self.t1), '/attendance/api/toggle/%d/' % self.g2.pk,
+                            {'student_id': self.s_other.pk, 'status': 'PRESENT'})
+        self.assertEqual(denied.status_code, 403)
 
 
 class NewStudentTests(NewUiBase):

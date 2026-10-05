@@ -356,7 +356,7 @@ async function resolveAlert(alertPk, decision, button) {
         came: 'Keldi — davomat olinmagan (-5 ball)',
         not_came: 'Kelmadi — darsni qo\'ldirdi (-10 ball)'
     };
-    if (!confirm(`Tasdiqlaysizmi?\n${labels[decision]}`)) return;
+    if (!await window.AppConfirm(`Tasdiqlaysizmi?\n${labels[decision]}`)) return;
 
     const btn = button || document.activeElement;
     if (btn) {
@@ -395,7 +395,7 @@ async function submitPenalty() {
     if (!points || parseInt(points) >= 0) return showToast('Manfiy son kiriting (masalan: -5)', true);
     if (!reason) return showToast('Sabab kiriting', true);
 
-    if (!confirm(`Rostdan ham ${points} ball jarima berasizmi?`)) return;
+    if (!await window.AppConfirm(`Rostdan ham ${points} ball jarima berasizmi?`)) return;
 
     const url = `/users/admin/penalties/teacher/${teacherPk}/add/`;
     const res = await fetch(url, {
@@ -445,7 +445,7 @@ async function submitEditPenalty() {
 }
 
 async function deletePenalty(penaltyPk) {
-    if (!confirm('Rostdan ham bu jarimani o\'chirmoqchimisiz?')) return;
+    if (!await window.AppConfirm('Rostdan ham bu jarimani o\'chirmoqchimisiz?', { title: "Jarimani o'chirish", ok: "Ha, o'chirish", danger: true })) return;
 
     const url = `/users/admin/penalties/${penaltyPk}/delete/`;
     const res = await fetch(url, {

@@ -79,10 +79,6 @@ class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
             if group.end_time and now > group.end_time:
                 is_locked = True
 
-            # Davomat allaqachon olingan bo'lsa, faqat ko'rish rejimida
-            if session.records.exists():
-                is_locked = True
-
         return render(request, 'attendance/mark_attendance.html', {
             'group': group,
             'session': session,
@@ -133,12 +129,6 @@ class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
             defaults={'teacher': group.teacher}
         )
 
-        # O'qituvchi faqat birinchi marta davomat olishi mumkin, o'zgartira olmaydi
-        if request.user.is_teacher and not request.user.is_admin_access:
-            if session.records.exists():
-                messages.error(request, "Davomat allaqachon olingan. O'zgartirish uchun Admin bilan bog'laning.")
-                return redirect('users1:teacher_groups')
-
         session.lesson_topic = request.POST.get('lesson_topic', '')
         session.homework = request.POST.get('homework', '')
         session.save()
@@ -170,6 +160,61 @@ class AttendanceMarkView(LoginRequiredMixin, UserPassesTestMixin, View):
         if request.user.is_teacher:
             return redirect('users1:teacher_dashboard')
         return redirect('groups_app:group_detail', pk=group_id)
+
+
+class AttendanceToggleView(LoginRequiredMixin, View):
+    """Bir o'quvchining Keldi/Kelmadi holatini dars vaqtida darhol saqlaydi."""
+
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, pk=group_id, is_active=True)
+        if not request.user.is_admin_access and (not request.user.is_teacher or group.teacher_id != request.user.pk):
+            return JsonResponse({'detail': "Bu guruh uchun davomat belgilash huquqingiz yo'q."}, status=403)
+        try:
+            data = loads_dict(request.body)
+        except Exception:
+            return JsonResponse({'detail': "So'rov noto'g'ri."}, status=400)
+        try:
+            student_id = int(data.get('student_id'))
+        except (TypeError, ValueError):
+            return JsonResponse({'detail': "O'quvchi ma'lumoti noto'g'ri."}, status=400)
+        status = data.get('status')
+        if status not in (AttendanceStatus.PRESENT, AttendanceStatus.ABSENT):
+            return JsonResponse({'detail': "Davomat holati noto'g'ri."}, status=400)
+
+        today = timezone.localdate()
+        now = timezone.localtime().time()
+        if request.user.is_teacher and not request.user.is_admin_access:
+            days_map = {0: 'Dushanba', 1: 'Seshanba', 2: 'Chorshanba', 3: 'Payshanba', 4: 'Juma', 5: 'Shanba', 6: 'Yakshanba'}
+            lesson_days_list = [d.strip() for d in (group.lesson_days or '').split(',') if d.strip()]
+            if days_map[today.weekday()] not in lesson_days_list or not group.lesson_time or not group.end_time:
+                return JsonResponse({'detail': "Bugun bu guruhda davomat olish mumkin emas."}, status=403)
+            if now < group.lesson_time or now > group.end_time:
+                return JsonResponse({'detail': "Davomatni faqat dars vaqtida o'zgartirish mumkin."}, status=403)
+
+        if not group.groupstudent_set.filter(
+            student_id=student_id, is_active=True, student__is_active=True, joined_at__lte=today
+        ).exists():
+            return JsonResponse({'detail': "Bu o'quvchi ushbu guruhda faol emas."}, status=400)
+
+        with transaction.atomic():
+            session, _ = AttendanceSession.objects.select_for_update().get_or_create(
+                group=group, date=today, defaults={'teacher': group.teacher or request.user}
+            )
+            previous = AttendanceRecord.objects.filter(session=session, student_id=student_id).first()
+            AttendanceRecord.objects.update_or_create(
+                session=session, student_id=student_id, defaults={'status': status}
+            )
+            if request.user.is_admin_access:
+                from users1.models import AuditLog
+                AuditLog.objects.create(
+                    user=request.user, role=request.user.role,
+                    action="Davomat tuzatildi" if previous else "Administrator davomat kiritdi",
+                    old_data={'group_id': group.pk, 'date': str(today), 'student_id': student_id,
+                              'status': previous.status} if previous else None,
+                    new_data={'group_id': group.pk, 'date': str(today), 'student_id': student_id,
+                              'status': status},
+                )
+        return JsonResponse({'ok': True, 'status': status})
 
 
 @require_http_methods(['POST'])

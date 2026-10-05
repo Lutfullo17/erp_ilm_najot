@@ -26,8 +26,8 @@
             <i class="fas fa-lock" style="color: var(--danger); font-size: 1.2rem;"></i>
         </div>
         {% if session.records.exists %}
-        <div style="font-weight: 700; font-size: 1.1rem; color: var(--danger); margin-bottom: 0.5rem;">Davomat allaqachon olingan</div>
-        <div style="color: var(--text-muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto;">Davomatni o'zgartirish faqat Admin tomonidan amalga oshirilishi mumkin.</div>
+        <div style="font-weight: 700; font-size: 1.1rem; color: var(--danger); margin-bottom: 0.5rem;">Davomat olish vaqti tugagan</div>
+        <div style="color: var(--text-muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto;">Saqlangan holatni dars vaqtida o'zgartirish mumkin edi. Endi tuzatish uchun administratorga murojaat qiling.</div>
         {% else %}
         <div style="font-weight: 700; font-size: 1.1rem; color: var(--danger); margin-bottom: 0.5rem;">Davomat olish muddati tugadi</div>
         <div style="color: var(--text-muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto;">Siz ushbu dars uchun davomatni vaqtida olmadingiz. Davomatni tiklash uchun Administrator bilan bog'laning.</div>
@@ -57,7 +57,8 @@
         </div>
     </div>
 
-    <form method="post" {% if is_locked %}style="pointer-events: none; opacity: 0.7;"{% endif %}>
+        <form method="post" id="attendanceForm" data-toggle-url="{% url 'attendance:attendance_toggle' group.id %}"
+            data-message-url="{% url 'new:api_attendance_message' group.id %}" {% if is_locked %}style="pointer-events: none; opacity: 0.7;"{% endif %}>
         {% if not is_locked %}{% csrf_token %}{% endif %}
 
         <!-- Dars mavzusi va uyga vazifa -->
@@ -97,15 +98,21 @@
                     {% endif %}
                 </div>
 
-                <div class="attendance-options" style="display: flex; gap: 0.5rem; background: var(--surface-2); padding: 0.4rem; border-radius: 12px;">
-                    {% for status_val, status_label in status_choices %}
-                    <label class="status-btn" style="cursor: {% if is_locked %}not-allowed{% else %}pointer{% endif %}; margin-bottom: 0;">
-                        <input type="radio" name="status_{{ student.id }}" value="{{ status_val }}"
-                               {% if records|get_item:student.id == status_val %}checked{% endif %}
-                               {% if is_locked %}disabled{% endif %} required style="display: none;">
-                        <span class="status-label" style="{% if is_locked and records|get_item:student.id != status_val %}opacity: 0.3;{% endif %}">{{ status_label }}</span>
+                <input type="hidden" name="status_{{ student.id }}" class="attendance-status-value"
+                       value="{% if records|get_item:student.id == 'ABSENT' or records|get_item:student.id == 'EXCUSED' %}ABSENT{% else %}PRESENT{% endif %}">
+                <div class="attendance-options">
+                    <label class="attendance-toggle" aria-label="{{ student.last_name }} {{ student.first_name }} davomat holati">
+                        <input type="checkbox" class="js-attendance-toggle" data-student-id="{{ student.id }}"
+                               {% if records|get_item:student.id != 'ABSENT' and records|get_item:student.id != 'EXCUSED' %}checked{% endif %}
+                               {% if is_locked %}disabled{% endif %} role="switch"
+                               aria-checked="{% if records|get_item:student.id != 'ABSENT' and records|get_item:student.id != 'EXCUSED' %}true{% else %}false{% endif %}">
+                        <span class="attendance-slider" aria-hidden="true"></span>
+                        <span class="attendance-state">{% if records|get_item:student.id == 'ABSENT' or records|get_item:student.id == 'EXCUSED' %}Kelmadi{% else %}Keldi{% endif %}</span>
                     </label>
-                    {% endfor %}
+                    <button type="button" class="btn btn-outline js-attendance-message" data-student-id="{{ student.id }}"
+                            data-student-name="{{ student.last_name }} {{ student.first_name }}" {% if is_locked %}disabled{% endif %}>
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i> Xabar yuborish
+                    </button>
                 </div>
             </div>
             {% endfor %}
@@ -131,60 +138,127 @@
     {% endif %}
 </div>
 
-<style>
-    .status-btn input:checked + .status-label {
-        background: var(--primary-fill);
-        color: white;
-        }
-    
-    .status-label {
-        padding: 0.5rem 1rem;
-        border-radius: 10px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        transition: all 0.2s;
-        display: block;
-    }
-    
-    .status-btn input[value="ABSENT"]:checked + .status-label {
-        background: var(--danger);
-    }
-    .status-btn input[value="EXCUSED"]:checked + .status-label {
-        background: var(--warning);
-    }
-    .status-btn input[value="LATE"]:checked + .status-label {
-        background: #8b5cf6;
-    }
+<dialog id="attendanceMessageModal" aria-labelledby="attendanceMessageTitle">
+    <div class="attendance-message-content">
+        <h2 id="attendanceMessageTitle"></h2>
+        <label for="attendanceMessageText" class="sr-only">Xabar matni</label>
+        <textarea id="attendanceMessageText" maxlength="1000" rows="5" placeholder="Xabar matnini kiriting..."></textarea>
+        <div id="attendanceMessageError" role="alert" style="color:var(--danger);margin-top:.4rem"></div>
+        <div class="attendance-message-actions">
+            <button type="button" class="btn btn-outline" id="attendanceMessageCancel">Bekor qilish</button>
+            <button type="button" class="btn btn-primary" id="attendanceMessageSend">Yuborish</button>
+        </div>
+    </div>
+</dialog>
+<div id="attendanceNotice" role="status" aria-live="polite" hidden></div>
 
-    @media (max-width: 600px) {
-        .attendance-options {
-            width: 100%;
-            justify-content: space-between;
-        }
-        .status-label {
-            padding: 0.4rem 0.6rem;
-            font-size: 0.75rem;
-        }
-    }
+<style>
+    .attendance-options { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+    .attendance-toggle { display:inline-flex; align-items:center; gap:.55rem; cursor:pointer; font-weight:700; }
+    .attendance-toggle input { position:absolute; width:1px; height:1px; opacity:0; }
+    .attendance-slider { position:relative; width:52px; height:30px; border-radius:99px; background:var(--danger); transition:background .18s ease; }
+    .attendance-slider::before { content:''; position:absolute; left:3px; top:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.25); transition:transform .18s ease; }
+    .attendance-toggle input:checked + .attendance-slider { background:var(--success); }
+    .attendance-toggle input:checked + .attendance-slider::before { transform:translateX(22px); }
+    .attendance-toggle input:focus-visible + .attendance-slider { outline:3px solid var(--focus); outline-offset:3px; }
+    .attendance-toggle input:disabled + .attendance-slider { opacity:1; cursor:wait; }
+    .attendance-state { display:inline-block; width:110px; flex:none; white-space:nowrap; }
+    .attendance-message-content { padding:1.25rem; width:min(460px, calc(100vw - 2rem)); }
+    #attendanceMessageModal .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    #attendanceMessageModal { position:fixed; inset:50% auto auto 50%; transform:translate(-50%,-50%); margin:0; padding:0; border:1px solid var(--border); border-radius:16px; background:var(--surface); color:var(--text); box-shadow:0 24px 64px rgba(0,0,0,.28); }
+    #attendanceMessageModal::backdrop { background:rgba(0,0,0,.58); }
+    #attendanceNotice { position:fixed; right:1rem; bottom:1rem; z-index:2000; max-width:min(440px,calc(100vw - 2rem)); padding:.8rem 1rem; border-radius:10px; background:var(--surface); border:1px solid var(--border); box-shadow:0 8px 28px rgba(0,0,0,.2); }
+    #attendanceNotice.error { color:var(--danger); border-color:var(--danger); }
+    #attendanceNotice.success { color:var(--success); border-color:var(--success); }
+    #attendanceMessageText { width:100%; min-height:110px; margin-top:1rem; padding:.75rem; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); color:var(--text); font:inherit; resize:vertical; }
+    .attendance-message-actions { display:flex; justify-content:flex-end; gap:.6rem; margin-top:1rem; }
+    @media (max-width:600px) { .attendance-options { width:100%; justify-content:space-between; } }
 </style>
 
 <script>
     function updateCounters() {
-        const present = document.querySelectorAll('input:checked[value="PRESENT"]').length;
-        const absent = document.querySelectorAll('input:checked[value="ABSENT"]').length;
+        const switches = Array.from(document.querySelectorAll('.js-attendance-toggle'));
+        const present = switches.filter(input => input.checked).length;
+        const absent = switches.length - present;
         document.getElementById('count-present').innerText = present;
         document.getElementById('count-absent').innerText = absent;
     }
+
+    function notifyAttendance(text, kind) {
+        const notice = document.getElementById('attendanceNotice');
+        notice.textContent = text;
+        notice.className = kind || '';
+        notice.hidden = false;
+        window.clearTimeout(notice.hideTimer);
+        notice.hideTimer = window.setTimeout(() => { notice.hidden = true; }, 5000);
+    }
     
-    document.querySelectorAll('input[type="radio"]').forEach(radio => {
-        radio.addEventListener('change', updateCounters);
+    document.querySelectorAll('.js-attendance-toggle').forEach(toggle => {
+        toggle.addEventListener('change', async function() {
+            const wasChecked = !toggle.checked;
+            const row = toggle.closest('.glass-panel');
+            const state = row.querySelector('.attendance-state');
+            const hidden = row.querySelector('.attendance-status-value');
+            const status = toggle.checked ? 'PRESENT' : 'ABSENT';
+            toggle.disabled = true;
+            state.textContent = 'Saqlanmoqda…';
+            try {
+                const response = await fetch(document.getElementById('attendanceForm').dataset.toggleUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                    body: JSON.stringify({student_id: toggle.dataset.studentId, status})
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Davomatni saqlab bo\'lmadi.');
+                hidden.value = status;
+                toggle.setAttribute('aria-checked', toggle.checked ? 'true' : 'false');
+                state.textContent = toggle.checked ? 'Keldi' : 'Kelmadi';
+                updateCounters();
+            } catch (error) {
+                toggle.checked = wasChecked;
+                toggle.setAttribute('aria-checked', wasChecked ? 'true' : 'false');
+                state.textContent = wasChecked ? 'Keldi' : 'Kelmadi';
+                notifyAttendance(error.message, 'error');
+            } finally { toggle.disabled = false; }
+        });
     });
     
     updateCounters();
 
-    function openAdminOverride() {
-        if (!confirm("Ushbu dars uchun davomatni ochmoqchimisiz?")) return;
+    const messageDialog = document.getElementById('attendanceMessageModal');
+    let selectedStudentId = null;
+    document.querySelectorAll('.js-attendance-message').forEach(button => button.addEventListener('click', () => {
+        selectedStudentId = button.dataset.studentId;
+        document.getElementById('attendanceMessageTitle').textContent = button.dataset.studentName + 'ga xabar yuborish';
+        document.getElementById('attendanceMessageText').value = '';
+        document.getElementById('attendanceMessageError').textContent = '';
+        messageDialog.showModal();
+        document.getElementById('attendanceMessageText').focus();
+    }));
+    document.getElementById('attendanceMessageCancel').addEventListener('click', () => messageDialog.close());
+    document.getElementById('attendanceMessageSend').addEventListener('click', async function() {
+        const text = document.getElementById('attendanceMessageText').value.trim();
+        const errorBox = document.getElementById('attendanceMessageError');
+        const button = this;
+        if (!text) { errorBox.textContent = 'Xabar matnini kiriting.'; return; }
+        button.disabled = true;
+        errorBox.textContent = '';
+        try {
+            const response = await fetch(document.getElementById('attendanceForm').dataset.messageUrl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({student_id: selectedStudentId, message: text})
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Xabar yuborilmadi.');
+            messageDialog.close();
+            notifyAttendance('Xabar yuborildi.', 'success');
+        } catch (error) { errorBox.textContent = error.message; }
+        finally { button.disabled = false; }
+    });
+
+    async function openAdminOverride() {
+        if (!await window.AppConfirm("Ushbu dars uchun davomatni ochmoqchimisiz?", { title: "Davomatni qayta ochish", ok: "Ha, ochish" })) return;
 
         fetch('{% url "attendance:admin_override_attendance" group.id %}', {
             method: 'POST',

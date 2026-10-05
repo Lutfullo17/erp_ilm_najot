@@ -243,14 +243,14 @@ function resolveAppeal(appealId) {
     .catch(() => alert('Xatolik'));
 }
 
-function sendBroadcast() {
+async function sendBroadcast() {
     const groupId = document.getElementById('groupSelect').value;
     const message = document.getElementById('broadcastMessage').value.trim();
 
     if (!groupId) { alert('Guruhni tanlang!'); return; }
     if (!message) { alert('Xabar matnini kiriting!'); return; }
 
-    if (!confirm('Xabar tanlangan guruh a\'zolariga yuborilsinmi?')) return;
+    if (!await window.AppConfirm('Xabar tanlangan guruh a\'zolariga yuborilsinmi?')) return;
 
     const btn = event.target;
     btn.disabled = true;
@@ -286,12 +286,12 @@ function sendBroadcast() {
     });
 }
 
-function sendBroadcastAll() {
+async function sendBroadcastAll() {
     const message = document.getElementById('broadcastAllMessage').value.trim();
 
     if (!message) { alert('Xabar matnini kiriting!'); return; }
 
-    if (!confirm('Xabar BARCHA foydalanuvchilarga yuborilsinmi?')) return;
+    if (!await window.AppConfirm('Xabar BARCHA foydalanuvchilarga yuborilsinmi?')) return;
 
     const btn = event.target;
     btn.disabled = true;

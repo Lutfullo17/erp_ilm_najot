@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bot_tags %}
+{% load bot_tags l10n %}
 
 {% block title %}{% if object %}Tahrirlash{% else %}Yangi Guruh{% endif %} | Ilm Najot ERP{% endblock %}
 {% block header_title %}{% if object %}Guruhni Tahrirlash{% else %}Yangi Guruh Qo'shish{% endif %}{% endblock %}
@@ -34,10 +34,10 @@
                     <label for="id_monthly_fee_display"><i class="fas fa-money-bill-wave"></i> Oylik to'lov (so'm)</label>
                     <div class="input-with-icon">
                         <input type="text" id="id_monthly_fee_display" required
-                               value="{{ form.monthly_fee.value|default:'' }}"
+                               value="{{ form.monthly_fee.value|default:''|unlocalize }}"
                                placeholder="Masalan: 500 000" inputmode="numeric">
                         <input type="hidden" id="id_monthly_fee" name="monthly_fee"
-                               value="{{ form.monthly_fee.value|default:'' }}">
+                               value="{{ form.monthly_fee.value|default:''|unlocalize }}">
                     </div>
                     {% if form.monthly_fee.errors %}
                         <div class="error-msg">{{ form.monthly_fee.errors.0 }}</div>
@@ -269,9 +269,10 @@
 
 function formatMoney(value) {
     if (!value) return '';
-    let str = value.toString();
-    // Django DecimalField "500000.00" formatida keladi — nuqta va undan keyingini tashlab yuboramiz
-    if (str.includes('.')) str = str.split('.')[0];
+    let str = value.toString().trim();
+    // Django localized Decimal qiymati vergul bilan ham kelishi mumkin: "500000,00".
+    // So'm butun son bo'lgani uchun nuqta/verguldan keyingi tiyinlarni tashlaymiz.
+    str = str.replace(/[.,]\d{1,2}$/, '');
     let num = str.replace(/\D/g, '');
     if (!num) return '';
     return num.replace(/\B(?=(\d{3})+(?!\d))/g, " ");

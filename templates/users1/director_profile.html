@@ -571,7 +571,7 @@ async function resetAdminPassword() {
 }
 async function toggleAdminBlock(pk, username, isBlocked) {
     const action = isBlocked ? 'faollashtirish' : 'bloklash';
-    if (!confirm(`${username} ni ${action}?`)) return;
+    if (!await window.AppConfirm(`${username} ni ${action}?`, { title: "Administrator holatini o'zgartirish" })) return;
     const url = `/users/administrators/${pk}/toggle-block/`;
     const res = await fetch(url, {
         method:'POST',

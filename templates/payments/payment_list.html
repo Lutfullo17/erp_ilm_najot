@@ -54,7 +54,7 @@
                     <td data-label="Admin" style="font-size: 0.85rem; color: var(--text-muted);">{{ payment.created_by.username|default:"-" }}</td>
                     {% if user.is_director %}
                     <td data-label="Amallar">
-                        <form action="{% url 'payments:delete_payment' payment.id %}" method="post" style="display:inline;" onsubmit="return confirm('Haqiqatdan ham ushbu to\'lovni o\'chirmoqchimisiz? Shu bilan birga o\'quvchi balansi ham qayta tiklanadi.');">
+                        <form action="{% url 'payments:delete_payment' payment.id %}" method="post" style="display:inline;" data-confirm="Haqiqatdan ham ushbu to'lovni o'chirmoqchimisiz? Shu bilan birga o'quvchi balansi ham qayta tiklanadi." data-confirm-title="To'lovni o'chirish" data-confirm-ok="Ha, o'chirish" data-danger>
                             {% csrf_token %}
                             <button type="submit" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 5px;" title="O'chirish">
                                 <i class="fas fa-trash-alt"></i>

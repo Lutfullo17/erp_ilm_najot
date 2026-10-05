@@ -77,7 +77,7 @@
     /* ---- Sessiya tugaganda: aniq xabar va kirish havolasi ---- */
     function sessionExpired() {
         var url = '/users/login/?next=' + encodeURIComponent(location.pathname + location.search);
-        UX.toast('Sessiya tugadi. Qayta kiring (sahifadagi ma'lumot o'zgarishsiz qoladi).', { kind: 'bad', ms: 20000, action: 'Kirish', onAction: function () { window.open(url, '_blank', 'noopener'); } });
+        UX.toast("Sessiya tugadi. Qayta kiring (sahifadagi ma'lumot o'zgarishsiz qoladi).", { kind: 'bad', ms: 20000, action: 'Kirish', onAction: function () { window.open(url, '_blank', 'noopener'); } });
         var e = new Error('Sessiya tugadi. Qayta kiring.'); e.status = 401; e.handled = true; throw e;
     }
 
@@ -135,6 +135,38 @@
     if (dcNo) dcNo.addEventListener('click', function () { $('#dlg-confirm').close(); pendingConfirm = null; });
 
     /* ---- Formalar: tasdiqlash, qayta yuborishdan himoya, yuklanish ---- */
+    function normalizeMoneyText(raw) {
+        var text = String(raw || '').trim();
+        if (!text) return '';
+        var negative = text.charAt(0) === '-';
+        text = text.replace(/-/g, '');
+        text = text.replace(/\s+/g, '');
+        if (text.indexOf(',') !== -1 && text.indexOf('.') !== -1) {
+            var lastDot = text.lastIndexOf('.');
+            var lastComma = text.lastIndexOf(',');
+            text = (lastDot > lastComma) ? text.replace(/,/g, '') : text.replace(/\./g, '').replace(',', '.');
+        } else if (text.indexOf(',') !== -1) {
+            var parts = text.split(',');
+            if (parts.length > 2 || parts[parts.length - 1].length <= 2) {
+                text = parts.join('.');
+            } else {
+                text = parts.join('');
+            }
+        }
+        text = text.replace(/[^\d.]/g, '');
+        if (text.indexOf('.') !== -1) {
+            var parts = text.split('.');
+            if (parts.length > 2) {
+                text = parts.shift() + '.' + parts.join('');
+            }
+            parts = text.split('.');
+            if (parts.length > 1) {
+                text = parts[0] + '.' + parts[1].slice(0, 2);
+            }
+        }
+        return (negative ? '-' : '') + text;
+    }
+
     document.addEventListener('submit', function (e) {
         var form = e.target;
         if (form.hasAttribute('data-ajax')) return;
@@ -149,7 +181,7 @@
             });
             return;
         }
-        $$('input[data-money]', form).forEach(function (i) { i.value = i.value.replace(/\D/g, ''); });
+        $$('input[data-money]', form).forEach(function (i) { i.value = normalizeMoneyText(i.value); });
         if (form.dataset.busy === '1') { e.preventDefault(); return; }
         form.dataset.busy = '1';
         var btn = sub || $('button[type=submit]', form);
@@ -158,7 +190,16 @@
     });
 
     /* ---- Pul va telefon maydonlari ---- */
-    function fmtMoney(s) { return s.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+    function fmtMoney(s) {
+        var normalized = normalizeMoneyText(s);
+        if (!normalized) return '';
+        var negative = normalized.charAt(0) === '-';
+        var num = normalized.replace(/-/g, '');
+        var p = num.split('.');
+        var whole = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        var frac = p.length > 1 ? '.' + p[1] : '';
+        return (negative ? '-' : '') + whole + frac;
+    }
     function fmtPhone(s) {
         var d = s.replace(/\D/g, '');
         if (d.indexOf('998') === 0 && d.length > 9) d = d.slice(3);

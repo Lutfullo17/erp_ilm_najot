@@ -1,64 +1,79 @@
-/* Davomat: bir bosish = Keldi/Kelmadi; ⋯ = Kechikdi/Sababli. Hamma boshida "Keldi". */
+/* Davomat: har bir Keldi/Kelmadi toggle darhol saqlanadi; xabar Telegram orqali yuboriladi. */
 (function () {
     'use strict';
     var app = document.getElementById('attApp');
     if (!app) return;
     var UX = window.UX;
     var editable = app.dataset.editable === '1';
-    var LABEL = { PRESENT: ['Keldi', 'fa-check'], ABSENT: ['Kelmadi', 'fa-xmark'], LATE: ['Kechikdi', 'fa-clock'], EXCUSED: ['Sababli', 'fa-file-medical'] };
     var rows = Array.prototype.slice.call(app.querySelectorAll('[data-id]'));
-    var current = null;
-
-    function paint(row) {
-        var b = row.querySelector('.att-row'), s = b.getAttribute('data-s');
-        b.querySelector('.a-text').textContent = LABEL[s][0];
-        b.querySelector('i').className = 'fa-solid ' + LABEL[s][1];
-        b.setAttribute('aria-label', row.querySelector('.a-name').textContent + ': ' + LABEL[s][0]);
-    }
     function counts() {
-        var c = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };
-        rows.forEach(function (r) { c[r.querySelector('.att-row').getAttribute('data-s')]++; });
+        var c = { PRESENT: 0, ABSENT: 0 };
+        rows.forEach(function (r) { c[r.querySelector('.js-attendance-toggle').checked ? 'PRESENT' : 'ABSENT']++; });
         return c;
     }
     function updateBtn() {
         var btn = document.getElementById('aSave'); if (!btn) return;
         var c = counts();
-        var parts = [(c.PRESENT + c.LATE) + ' keldi', c.ABSENT + ' kelmadi'];
-        if (c.EXCUSED) parts.push(c.EXCUSED + ' sababli');
-        btn.textContent = 'Saqlash: ' + parts.join(', ');
+        btn.textContent = 'Dars ma’lumotlarini saqlash (' + c.PRESENT + ' keldi, ' + c.ABSENT + ' kelmadi)';
     }
     rows.forEach(function (r) {
-        paint(r);
-        if (!editable) return;
-        var b = r.querySelector('.att-row');
-        b.addEventListener('click', function () {
-            b.setAttribute('data-s', b.getAttribute('data-s') === 'PRESENT' ? 'ABSENT' : 'PRESENT');
-            paint(r); updateBtn();
+        var toggle = r.querySelector('.js-attendance-toggle');
+        if (toggle && editable) toggle.addEventListener('change', function () {
+            var wasChecked = !toggle.checked;
+            var state = r.querySelector('.attendance-state');
+            toggle.disabled = true;
+            state.textContent = toggle.checked ? 'Saqlanmoqda…' : 'Saqlanmoqda…';
+            UX.api(app.dataset.toggleUrl, { body: {
+                student_id: toggle.dataset.studentId,
+                status: toggle.checked ? 'PRESENT' : 'ABSENT',
+                date: app.dataset.date,
+                topic: document.getElementById('aTopic').value,
+                homework: document.getElementById('aHw').value
+            } }).then(function () {
+                toggle.setAttribute('aria-checked', toggle.checked ? 'true' : 'false');
+                state.textContent = toggle.checked ? 'Keldi' : 'Kelmadi';
+                updateBtn();
+            }).catch(function (error) {
+                toggle.checked = wasChecked;
+                toggle.setAttribute('aria-checked', wasChecked ? 'true' : 'false');
+                state.textContent = wasChecked ? 'Keldi' : 'Kelmadi';
+                document.getElementById('aErr').textContent = error.message;
+            }).finally(function () { toggle.disabled = false; });
         });
-        var more = r.querySelector('.more');
-        if (more) more.addEventListener('click', function () {
-            current = r;
-            document.getElementById('stName').textContent = r.querySelector('.a-name').textContent;
-            UX.openDlg('dlg-status');
+
+        var messageBtn = r.querySelector('.js-attendance-message');
+        if (messageBtn) messageBtn.addEventListener('click', function () {
+            var dialog = document.getElementById('dlg-attendance-message');
+            dialog.dataset.studentId = messageBtn.dataset.studentId;
+            document.getElementById('attMessageTitle').textContent = messageBtn.dataset.studentName + 'ga xabar yuborish';
+            document.getElementById('attMessageText').value = '';
+            document.getElementById('attMessageError').textContent = '';
+            UX.openDlg('dlg-attendance-message');
+            document.getElementById('attMessageText').focus();
         });
-    });
-    var choices = document.getElementById('stChoices');
-    if (choices) choices.addEventListener('click', function (e) {
-        var a = e.target.closest('a[data-v]'); if (!a) return;
-        e.preventDefault();
-        if (current) { current.querySelector('.att-row').setAttribute('data-s', a.getAttribute('data-v')); paint(current); updateBtn(); }
-        document.getElementById('dlg-status').close();
-    });
-    var all = document.getElementById('allPresent');
-    if (all) all.addEventListener('click', function () {
-        rows.forEach(function (r) { r.querySelector('.att-row').setAttribute('data-s', 'PRESENT'); paint(r); }); updateBtn();
     });
     updateBtn();
+
+    var messageSend = document.getElementById('attMessageSend');
+    messageSend.addEventListener('click', function () {
+        var dialog = document.getElementById('dlg-attendance-message');
+        var text = document.getElementById('attMessageText').value.trim();
+        var error = document.getElementById('attMessageError');
+        if (!text) { error.textContent = 'Xabar matnini kiriting.'; return; }
+        messageSend.disabled = true;
+        error.textContent = '';
+        UX.api(app.dataset.messageUrl, { body: { student_id: dialog.dataset.studentId, message: text } })
+            .then(function (result) {
+                dialog.close();
+                UX.toast(result.detail || 'Xabar yuborildi.', { kind: 'ok' });
+            }).catch(function (e) { error.textContent = e.message; })
+            .finally(function () { messageSend.disabled = false; });
+    });
 
     var save = document.getElementById('aSave');
     if (save) save.addEventListener('click', function () {
         var records = {};
-        rows.forEach(function (r) { records[r.getAttribute('data-id')] = r.querySelector('.att-row').getAttribute('data-s'); });
+        rows.forEach(function (r) { records[r.getAttribute('data-id')] = r.querySelector('.js-attendance-toggle').checked ? 'PRESENT' : 'ABSENT'; });
         var c = counts();
         function send() {
             var err = document.getElementById('aErr'); err.textContent = '';

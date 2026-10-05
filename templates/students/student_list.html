@@ -132,14 +132,14 @@ function confirmDelete(event, studentId, studentName) {
                 msg += '\nQarzi bo\'lsa ham o\'chirasizmi?';
             }
 
-            if (confirm(msg)) {
-                form.submit();
-            }
+            window.AppConfirm(msg, { title: "O'quvchini o'chirish", ok: "Ha, o'chirish", danger: true }).then(function (accepted) {
+                if (accepted) form.submit();
+            });
         })
         .catch(function() {
-            if (confirm(studentName + ' o\'quvchisini o\'chirmoqchimisiz?')) {
-                form.submit();
-            }
+            window.AppConfirm(studentName + ' o\'quvchisini o\'chirmoqchimisiz?', { title: "O'quvchini o'chirish", ok: "Ha, o'chirish", danger: true }).then(function (accepted) {
+                if (accepted) form.submit();
+            });
         });
 
     return false;

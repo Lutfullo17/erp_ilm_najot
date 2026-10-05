@@ -59,7 +59,7 @@
                             <a href="{% url 'users1:teacher_edit' teacher.id %}" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem;" title="Tahrirlash">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{% url 'users1:teacher_delete' teacher.id %}" method="post" style="display: inline;" onsubmit="return confirm('Haqiqatan ham {{ teacher.last_name }} {{ teacher.first_name }} o\'qituvchisini o\'chirmoqchimisiz?');">
+                            <form action="{% url 'users1:teacher_delete' teacher.id %}" method="post" style="display: inline;" data-confirm="Haqiqatan ham {{ teacher.last_name|escape }} {{ teacher.first_name|escape }} o'qituvchisini o'chirmoqchimisiz?" data-confirm-title="O'qituvchini o'chirish" data-confirm-ok="Ha, o'chirish" data-danger>
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-outline" style="padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.8rem; color: var(--danger);" title="O'chirish">
                                     <i class="fas fa-trash"></i>

@@ -1,4 +1,5 @@
 import datetime
+from html import escape
 
 from django.db import transaction
 from django.http import JsonResponse
@@ -8,6 +9,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from attendance.models import AttendanceRecord, AttendanceSession, AttendanceStatus, LessonPlan
+from bot.models import TelegramUser
 from groups_app.models import Group
 from users1.models import AuditLog
 
@@ -44,7 +46,7 @@ def check_window(user, group, date, now):
     now_naive = now.replace(tzinfo=None)
     if now_naive < start_dt:
         return False, 'early', f"Dars hali boshlanmagan. Davomatni {group.lesson_time.strftime('%H:%M')} dan {EARLY_MINUTES} daqiqa oldin boshlash mumkin."
-    if now.time() > end and not AttendanceSession.objects.filter(group=group, date=today).exists():
+    if now.time() > end:
         return False, 'late', "Davomat vaqtida olinmadi. Tiklash uchun administratorga murojaat qiling."
     return True, '', ''
 
@@ -70,6 +72,7 @@ class AttendanceListView(UxView):
 
 
 class AttendanceMarkView(UxView):
+    roles = {'teacher', 'administrator', 'director'}
     template_name = 'new/attendance_mark.html'
 
     def get(self, request, gid):
@@ -83,11 +86,11 @@ class AttendanceMarkView(UxView):
         saved = bool(records)
         ok, code, msg = check_window(request.user, group, date, now)
         is_admin = role_of(request.user) != 'teacher'
-        editable = ok and (is_admin or not saved)
+        editable = ok
         if not ok:
             reason = msg
         elif saved and not is_admin:
-            reason = "Davomat saqlangan. O'zgartirish kerak bo'lsa administratorga yozing."
+            reason = "Davomat holati har bir o'zgartirishda saqlanadi. Dars tugaguncha tuzatishingiz mumkin."
         else:
             reason = ''
         members = list(group.groupstudent_set.filter(is_active=True, student__is_active=True, joined_at__lte=date)
@@ -104,9 +107,9 @@ class AttendanceMarkView(UxView):
 
 
 @require_POST
-@ux_login(json_mode=True)
+@ux_login(roles={'teacher', 'administrator', 'director'}, json_mode=True)
 def api_attendance(request, gid):
-    """B6: davomatni saqlash. Mavjud qoidalar: o'qituvchi faqat o'z guruhi, dars vaqtida va bir marta."""
+    """Davomatni saqlash; o'qituvchi faqat o'z guruhi va dars oynasida ishlaydi."""
     group = group_for(request.user, gid)
     if group is None:
         return JsonResponse({'detail': "Bu guruh sizga biriktirilmagan."}, status=403)
@@ -140,8 +143,6 @@ def api_attendance(request, gid):
         session, _ = AttendanceSession.objects.select_for_update().get_or_create(
             group=group, date=date, defaults={'teacher': group.teacher or request.user})
         existing = {r.student_id: r.status for r in session.records.all()}
-        if existing and not is_admin:
-            return JsonResponse({'detail': "Davomat allaqachon saqlangan. O'zgartirish uchun administratorga yozing."}, status=409)
         session.lesson_topic = str(data.get('topic', ''))[:255]
         session.homework = str(data.get('homework', ''))[:2000]
         session.save()
@@ -156,3 +157,99 @@ def api_attendance(request, gid):
     absent = sum(1 for s in updates.values() if s == 'ABSENT')
     return JsonResponse({'ok': True, 'present': sum(1 for s in updates.values() if s in ('PRESENT', 'LATE')), 'absent': absent,
                          'next': reverse('new:attendance')})
+
+
+@require_POST
+@ux_login(roles={'teacher', 'administrator', 'director'}, json_mode=True)
+def api_attendance_toggle(request, gid):
+    """Bitta o'quvchining Keldi/Kelmadi holatini darhol saqlaydi."""
+    group = group_for(request.user, gid)
+    if group is None:
+        return JsonResponse({'detail': "Bu guruh sizga biriktirilmagan."}, status=403)
+    data = json_body(request)
+    if data is None:
+        return JsonResponse({'detail': "So'rov noto'g'ri."}, status=400)
+    try:
+        student_id = int(data.get('student_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'detail': "O'quvchi ma'lumoti noto'g'ri."}, status=400)
+    status = data.get('status')
+    if status not in (AttendanceStatus.PRESENT, AttendanceStatus.ABSENT):
+        return JsonResponse({'detail': "Davomat holati noto'g'ri."}, status=400)
+
+    now = timezone.localtime()
+    is_admin = role_of(request.user) != 'teacher'
+    date = parse_date(data.get('date'), now.date()) if is_admin else now.date()
+    ok, code, msg = check_window(request.user, group, date, now)
+    if not ok:
+        return JsonResponse({'detail': msg, 'code': code}, status=403)
+    is_member = group.groupstudent_set.filter(
+        student_id=student_id, is_active=True, student__is_active=True, joined_at__lte=date
+    ).exists()
+    if not is_member:
+        return JsonResponse({'detail': "Bu o'quvchi ushbu guruhda faol emas."}, status=400)
+
+    with transaction.atomic():
+        session, _ = AttendanceSession.objects.select_for_update().get_or_create(
+            group=group, date=date, defaults={'teacher': group.teacher or request.user}
+        )
+        previous = AttendanceRecord.objects.filter(session=session, student_id=student_id).first()
+        record, created = AttendanceRecord.objects.update_or_create(
+            session=session, student_id=student_id, defaults={'status': status}
+        )
+        if is_admin:
+            AuditLog.objects.create(
+                user=request.user, role=request.user.role,
+                action="Davomat tuzatildi" if not created else "Administrator davomat kiritdi",
+                old_data={'date': str(date), 'group': group.name,
+                          'student_id': student_id, 'status': previous.status} if previous else None,
+                new_data={'date': str(date), 'group': group.name,
+                          'student_id': student_id, 'status': status},
+            )
+        if 'topic' in data or 'homework' in data:
+            session.lesson_topic = str(data.get('topic', session.lesson_topic))[:255]
+            session.homework = str(data.get('homework', session.homework))[:2000]
+            session.save(update_fields=['lesson_topic', 'homework', 'updated_at'])
+    return JsonResponse({'ok': True, 'status': status})
+
+
+@require_POST
+@ux_login(roles={'teacher', 'administrator', 'director'}, json_mode=True)
+def api_attendance_message(request, gid):
+    """O'quvchining tasdiqlangan Telegram bot chatiga o'qituvchi xabarini yuboradi."""
+    group = group_for(request.user, gid)
+    if group is None:
+        return JsonResponse({'detail': "Bu guruh sizga biriktirilmagan."}, status=403)
+    data = json_body(request)
+    if data is None:
+        return JsonResponse({'detail': "So'rov noto'g'ri."}, status=400)
+    try:
+        student_id = int(data.get('student_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'detail': "O'quvchi ma'lumoti noto'g'ri."}, status=400)
+    text = str(data.get('message') or '').strip()
+    if not text:
+        return JsonResponse({'detail': "Xabar matnini kiriting."}, status=400)
+    if len(text) > 1000:
+        return JsonResponse({'detail': "Xabar 1000 belgidan oshmasligi kerak."}, status=400)
+    student = group.students.filter(
+        pk=student_id, groupstudent__is_active=True, is_active=True
+    ).first()
+    if student is None:
+        return JsonResponse({'detail': "Bu o'quvchi ushbu guruhda faol emas."}, status=400)
+
+    telegram_users = list(TelegramUser.objects.filter(student=student, is_verified=True, is_blocked=False))
+    if not telegram_users:
+        if TelegramUser.objects.filter(student=student, is_verified=True).exists():
+            return JsonResponse({'detail': "O'quvchining Telegram boti bloklangan. Ota-onadan botni qayta ochishni so'rang."}, status=400)
+        return JsonResponse({'detail': "O'quvchi uchun tasdiqlangan Telegram akkaunti topilmadi."}, status=404)
+
+    from bot.services import send_telegram_message
+
+    safe_text = escape(text)
+    message = f"<b>O'qituvchidan xabar</b>\n📚 {escape(group.name)}\n\n{safe_text}"
+    sent = sum(1 for telegram_user in telegram_users
+               if send_telegram_message(telegram_user.telegram_id, message))
+    if not sent:
+        return JsonResponse({'detail': "Telegramga xabar yuborilmadi. Bot sozlamasi yoki tarmoqni tekshiring."}, status=502)
+    return JsonResponse({'ok': True, 'detail': "Xabar yuborildi."})
