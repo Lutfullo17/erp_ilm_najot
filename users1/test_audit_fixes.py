@@ -125,13 +125,33 @@ class BotSecurityTests(AuditBase):
         self.assertEqual(self._update(Client(), '/start', secret='bad').status_code, 403)
 
     @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
-    def test_typed_phone_does_not_verify(self):  # K-2
+    def test_typed_phone_formats_are_accepted_but_do_not_verify_until_own_contact(self):  # K-2
+        from bot.models import TelegramUser
+        with mock.patch('bot.services.send_telegram_message'):
+            for uid, typed in ((777, '901112233'), (778, '998901112233'), (779, '+998 90 111 22 33')):
+                c = Client()
+                self._update(c, '/start', uid=uid)
+                self._update(c, typed, uid=uid)
+                tg_user = TelegramUser.objects.get(telegram_id=uid)
+                self.assertEqual(tg_user.phone, '998901112233')
+                self.assertFalse(tg_user.is_verified)
+                self.assertEqual(tg_user.state, 'WAITING_PHONE')
+                self._update(c, contact={'phone_number': '+998901112233', 'user_id': uid}, uid=uid)
+                tg_user.refresh_from_db()
+                self.assertTrue(tg_user.is_verified)
+                self.assertEqual(tg_user.student, self.s1)
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_typed_phone_requires_matching_telegram_contact(self):
         from bot.models import TelegramUser
         with mock.patch('bot.services.send_telegram_message'):
             c = Client()
             self._update(c, '/start')
             self._update(c, '901112233')
-        self.assertFalse(TelegramUser.objects.get(telegram_id=777).is_verified)
+            self._update(c, contact={'phone_number': '+998901234567', 'user_id': 777})
+        tg_user = TelegramUser.objects.get(telegram_id=777)
+        self.assertFalse(tg_user.is_verified)
+        self.assertIsNone(tg_user.student)
 
     @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
     def test_foreign_contact_without_user_id_rejected(self):  # K-2

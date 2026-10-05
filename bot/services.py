@@ -36,10 +36,15 @@ MENU_CONTACT = '📞 Aloqa'
 
 
 def normalize_phone(value):
-    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    raw = str(value or '').strip()
+    if not raw or not all(ch.isdigit() or ch in '+ ()-.' for ch in raw):
+        return ''
+    digits = ''.join(ch for ch in raw if ch.isdigit())
     if len(digits) == 9:
-        digits = '998' + digits
-    return digits
+        return '998' + digits
+    if len(digits) == 12 and digits.startswith('998'):
+        return digits
+    return ''
 
 
 def money(value):
@@ -316,6 +321,15 @@ def handle_contact(chat_id, message, telegram_user):
         return
 
     phone = normalize_phone(contact.get('phone_number'))
+    pending_phone = normalize_phone(telegram_user.phone) if telegram_user.state == STATE_WAITING_PHONE else ''
+    if pending_phone and pending_phone != phone:
+        send_telegram_message(
+            chat_id,
+            "Yozgan raqamingiz Telegram kontaktingiz bilan mos kelmadi. Ro'yxatdan o'tgan raqamingizni yozing yoki to'g'ri kontaktni yuboring.",
+            contact_keyboard(),
+        )
+        return
+
     students = find_students_by_phone(phone)
 
     telegram_user.phone = phone
@@ -355,43 +369,27 @@ def handle_contact(chat_id, message, telegram_user):
 
 def handle_phone_text(chat_id, text, telegram_user):
     phone = normalize_phone(text)
-    if len(phone) != 12 or not phone.startswith('998'):
-        send_telegram_message(chat_id, "Noto'g'ri telefon raqam. Namuna: 901234567 yoki +998901234567", contact_keyboard())
+    if not phone:
+        send_telegram_message(chat_id, "Noto'g'ri telefon raqam. Namuna: 901234567, 998901234567 yoki +998901234567", contact_keyboard())
         return
 
     students = find_students_by_phone(phone)
-
-    telegram_user.phone = phone
-    link_user_by_phone(telegram_user, phone)
-
     if not students.exists():
-        telegram_user.is_verified = False
-        telegram_user.student = None
-        telegram_user.state = ''
-        telegram_user.save(update_fields=['phone', 'is_verified', 'student', 'state', 'updated_at'])
-        send_telegram_message(chat_id, "Bu telefon raqam bilan o'quvchi topilmadi. Admin bilan bog'laning.", contact_keyboard())
+        send_telegram_message(chat_id, "Bu raqam topilmadi. Raqamni tekshirib qayta yuboring yoki administratorga murojaat qiling.", contact_keyboard())
         return
 
-    if students.count() == 1:
-        student = students.first()
-        telegram_user.student = student
-        telegram_user.is_verified = True
-        telegram_user.state = ''
-        telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
-        send_telegram_message(chat_id, f'Xush kelibsiz, {student}!', main_menu_keyboard(telegram_user))
-    else:
-        telegram_user.student = None
-        telegram_user.is_verified = True
-        telegram_user.state = STATE_CHOOSING_CHILD
-        telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
-        child_list = '\n'.join([f"{i}. {s}" for i, s in enumerate(students, 1)])
-        text_msg = (
-            f"<b>👤 Sizning farzandlaringiz:</b>\n"
-            f"──────────────────\n"
-            f"{child_list}\n\n"
-            f"Farzandni tanlang — raqamini kiriting yoki quyidagi tugmalardan birini bosing:"
-        )
-        send_telegram_message(chat_id, text_msg, _child_selection_keyboard(students))
+    # Raqam matn orqali topildi, ammo bu uning egasi ekanini isbotlamaydi.
+    # Raqamni vaqtincha kutish holatida saqlab, Telegramning o'z kontakt tugmasi bilan tasdiqlatamiz.
+    telegram_user.phone = phone
+    telegram_user.student = None
+    telegram_user.is_verified = False
+    telegram_user.state = STATE_WAITING_PHONE
+    telegram_user.save(update_fields=['phone', 'student', 'is_verified', 'state', 'updated_at'])
+    send_telegram_message(
+        chat_id,
+        "Raqam topildi. Hisobni xavfsiz ulash uchun quyidagi tugmani bosib, aynan shu raqamni Telegram kontakti sifatida yuboring.",
+        contact_keyboard(),
+    )
 
 
 def require_verified(chat_id, telegram_user):
@@ -752,12 +750,7 @@ def handle_update(update):
         return
 
     if telegram_user.state == STATE_WAITING_PHONE and text and any(c.isdigit() for c in text):
-        # Matn orqali kiritilgan raqamning egaligi isbotlanmaydi — faqat tugma orqali.
-        send_telegram_message(
-            chat_id,
-            "Xavfsizlik uchun raqamni yozib yuborish mumkin emas. Quyidagi tugma orqali yuboring.",
-            contact_keyboard(),
-        )
+        handle_phone_text(chat_id, text, telegram_user)
         return
 
     if not require_verified(chat_id, telegram_user):
